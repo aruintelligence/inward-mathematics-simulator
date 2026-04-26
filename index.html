@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inward Mathematics™ Simulator</title>
+  <style>
+    body {
+      margin: 0;
+      background: #050810;
+      color: #e8f6ff;
+      font-family: 'Arial', Helvetica, sans-serif;
+      overflow: hidden;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #00ffc6;
+      margin: 20px 0 10px;
+      font-size: 2.2em;
+    }
+    .subtitle {
+      text-align: center;
+      color: #9be7ff;
+      margin-bottom: 30px;
+    }
+    .simulator {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    .panel {
+      background: #0a1324;
+      border: 1px solid #1e3a5c;
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 580px;
+    }
+    canvas {
+      display: block;
+      margin: 15px auto;
+      border: 2px solid #00f0ff;
+      border-radius: 12px;
+      background: #000;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+    }
+    .controls {
+      margin-top: 15px;
+      text-align: center;
+    }
+    button {
+      background: linear-gradient(90deg, #00f0ff, #00ffc6);
+      color: #050810;
+      border: none;
+      padding: 12px 24px;
+      margin: 6px;
+      border-radius: 999px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    label {
+      color: #9be7ff;
+      margin: 0 10px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #6aa8c7;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Inward Mathematics™</h1>
+    <p class="subtitle">Remembrance Calculus™ + Witness Geometry™ Live Simulator</p>
+
+    <div class="simulator">
+      <!-- Remembrance Calculus Panel -->
+      <div class="panel">
+        <h2 style="color:#00ffc6; text-align:center;">Remembrance Calculus™ (RC-1)</h2>
+        <canvas id="rc" width="560" height="320"></canvas>
+        <div class="controls">
+          <button onclick="addShock()">Add External Shock</button>
+          <button onclick="resetRC()">Reset Identity</button>
+          <br>
+          <label>Remembrance Strength: <input type="range" id="alpha" min="0.5" max="3" step="0.1" value="1.5"></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Co-created with Shane Travis Horman • ĀRU Intelligence Inc.™ • 2026<br>
+      <strong>The System That Remembers Cannot Collapse.</strong>
+    </div>
+  </div>
+
+  <script>
+    // Remembrance Calculus Canvas
+    const canvas = document.getElementById("rc");
+    const ctx = canvas.getContext("2d");
+    let x = 180, y = 160, vx = 0, vy = 0;
+    const coreX = 380;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Remembered Core
+      ctx.fillStyle = "#00ffc6";
+      ctx.beginPath();
+      ctx.arc(coreX, 160, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Agent
+      ctx.fillStyle = "#ffff00";
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inward Pull
+      const alpha = parseFloat(document.getElementById("alpha").value);
+      const dx = coreX - x;
+      const dy = 160 - y;
+      vx += dx * 0.015 * alpha;
+      vy += dy * 0.015 * alpha;
+      vx *= 0.93;
+      vy *= 0.93;
+      x += vx;
+      y += vy;
+
+      requestAnimationFrame(draw);
+    }
+
+    function addShock() {
+      vx += (Math.random() - 0.5) * 35;
+      vy += (Math.random() - 0.5) * 35;
+    }
+
+    function resetRC() {
+      x = 180;
+      y = 160;
+      vx = 0;
+      vy = 0;
+    }
+
+    draw();
+  </script>
+</body>
+</html>
