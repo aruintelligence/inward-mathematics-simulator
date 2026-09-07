@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software in research, please cite it using the metadata below."
+title: "Inward Mathematics Simulator"
+type: software
+authors:
+  - family-names: "Read"
+    given-names: "Daniel Jacob"
+    name-suffix: "IV"
+    orcid: "https://orcid.org/0009-0000-6133-1872"
+  - family-names: "Horman"
+    given-names: "Shane Travis"
+abstract: >-
+  An interactive simulation of Remembrance Calculus and Witness Geometry concepts.
+repository-code: "https://github.com/aruintelligence/inward-mathematics-simulator"
+url: "https://aruintelligence.com/"
+license: MIT
