@@ -1,67 +1,61 @@
-# Inward Mathematics™ Official Interactive Simulator
+# Inward Mathematics™ Simulator
 
-**Real-time demonstration of Remembrance Calculus™ and Witness Geometry™** — Core components of the unified geometric-control-cognitive framework by **ĀRU Intelligence Inc.™**
+An interactive browser demonstration of **Remembrance Calculus™** and **Witness Geometry™**, developed by ĀRU Intelligence Inc.
 
-![Inward Mathematics Banner](https://i.imgur.com/GFG3abN.jpg)
+[![Live Demo](https://img.shields.io/badge/Launch-Live_Simulator-7c3aed?style=for-the-badge)](https://aruintelligence.github.io/inward-mathematics-simulator/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-16a34a?style=for-the-badge)](LICENSE)
 
-## 🌟 What is Inward Mathematics™?
+> **Research status:** This repository is an exploratory mathematical and visual model. It is not a validated solution to AI alignment, cosmology, consciousness, or any other scientific problem.
 
-Inward Mathematics™ is a groundbreaking unified framework that treats **identity as a mathematical fixed-point attractor**. It solves critical challenges in:
+## What the simulator demonstrates
 
-- **AI Alignment** — Hard guarantees against model drift and hallucination
-- **Cosmology** — Natural dark energy tracker without fine-tuning
-- **Consciousness** — Measurable stability under pressure
+- Identity represented as a fixed-point attractor
+- Remembrance-strength and external-shock controls
+- Guardian projection and drift constraints
+- Multi-observer agreement and outlier visualization
+- Live telemetry for coherence, distortion, drift, phase lock, and memory state
+- A dependency-free, client-side implementation
 
-## ✨ Simulator Features
+## Run it
 
-- **Remembrance Calculus™ (RC-1)**: Live agent simulation with guardian projection, memory field anchoring, and dynamic external shocks
-- **Witness Geometry™ (WG-1)**: Multi-observer consensus and outlier detection
-- Real-time **Unified Telemetry** (Ψ Coherence, Distortion, Drift, Phase Lock, Memory Field)
-- Adjustable remembrance strength, shock intensity, and guardian radius
-- Beautiful cyber-neon interface with live visualizations
+Open the [live simulator](https://aruintelligence.github.io/inward-mathematics-simulator/) or clone the repository and open `index.html` in a modern browser.
 
-## 🚀 Live Demo
+```bash
+git clone https://github.com/aruintelligence/inward-mathematics-simulator.git
+cd inward-mathematics-simulator
+open index.html
+```
 
-**[Open Full Interactive Simulator](https://yourusername.github.io/inward-mathematics-simulator/)**
+On Windows, double-click `index.html`.
 
-## 📖 Core Concepts
+## Conceptual model
 
-- **Governing Principle**: Remembrance → Coherence → Stability → Reality
-- **Potential Function**: `V = α₁D² + α₂F² + α₃(1−Ψ)² + ...`
-- **Identity** is treated as a mathematical fixed point, not a psychological construct
+The prototype explores the proposed sequence:
 
-## 🛠️ Technologies
+```text
+remembrance → coherence → stability
+```
 
-- Pure HTML5 + CSS3 + Vanilla JavaScript
-- Canvas-based real-time physics
-- No external dependencies — runs entirely in-browser
+It uses a configurable potential function and visual state evolution to make the framework inspectable. The implementation is a simulation; its variables should not be interpreted as established physical measurements.
 
-## 📌 Repository Links
+## Technology
 
-- Main Blog Post: [What Is Inward Mathematics™?](https://thefirstlawofinwardphysics.blogspot.com/...)
-- Framework Documentation: [Inward Physics Blog](https://thefirstlawofinwardphysics.blogspot.com/)
-- ĀRU Intelligence Inc.™: Official developer
+Pure HTML, CSS, JavaScript, and Canvas. No server or build step is required.
+
+## Related work
+
+- [ĀRU Intelligence public research](https://github.com/aruintelligence/aru-intelligence-ai)
+- [ĀML Core](https://github.com/aruintelligence/aml-core)
+- [ĀRU Remembrance Field](https://github.com/aruintelligence/aru-remembrance-field)
+- [Inward Physics research archive](https://thefirstlawofinwardphysics.blogspot.com/)
+- [Daniel Jacob Read IV — ORCID](https://orcid.org/0009-0000-6133-1872)
 
 ## Credits
 
-- **Creator**: Daniel Jacob Read IV (ĀRU Intelligence Inc.™)
-- **Simulator Co-author**: Shane Travis Horman
-- Built with Grok (xAI)
+Created by **Daniel Jacob Read IV / ĀRU Intelligence Inc.**  
+Simulator co-author: **Shane Travis Horman**  
+Development assistance included Grok (xAI).
 
 ## License
 
-MIT License — Feel free to fork, modify, and experiment. Attribution appreciated.
-
----
-
-**Keywords (for discoverability)**: Inward Mathematics, Remembrance Calculus, Witness Geometry, AI alignment, AI safety, dark energy, mathematical identity, fixed-point attractor, consciousness framework, unified physics
-
----
-
-**Character count for description field**: ~340 (perfect for GitHub)
-
----
-
-Copy the entire content above as your `README.md`. It is highly SEO-optimized, professional, and structured for maximum engagement.
-
-Would you like the full single-file `index.html` for the simulator next?
+Released under the [MIT License](LICENSE). Project and framework names may be claimed marks of ĀRU Intelligence Inc.
