@@ -2,6 +2,7 @@
 
 An interactive browser demonstration of **Remembrance Calculus™** and **Witness Geometry™**, developed by ĀRU Intelligence Inc.
 
+[![Release](https://img.shields.io/github/v/release/aruintelligence/inward-mathematics-simulator?style=for-the-badge)](https://github.com/aruintelligence/inward-mathematics-simulator/releases/latest)
 [![Source](https://img.shields.io/badge/Explore-Source_Code-7c3aed?style=for-the-badge)](https://github.com/aruintelligence/inward-mathematics-simulator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a?style=for-the-badge)](LICENSE)
 
