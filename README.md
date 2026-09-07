@@ -2,7 +2,7 @@
 
 An interactive browser demonstration of **Remembrance Calculus™** and **Witness Geometry™**, developed by ĀRU Intelligence Inc.
 
-[![Live Demo](https://img.shields.io/badge/Launch-Live_Simulator-7c3aed?style=for-the-badge)](https://aruintelligence.github.io/inward-mathematics-simulator/)
+[![Source](https://img.shields.io/badge/Explore-Source_Code-7c3aed?style=for-the-badge)](https://github.com/aruintelligence/inward-mathematics-simulator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a?style=for-the-badge)](LICENSE)
 
 > **Research status:** This repository is an exploratory mathematical and visual model. It is not a validated solution to AI alignment, cosmology, consciousness, or any other scientific problem.
@@ -18,7 +18,7 @@ An interactive browser demonstration of **Remembrance Calculus™** and **Witnes
 
 ## Run it
 
-Open the [live simulator](https://aruintelligence.github.io/inward-mathematics-simulator/) or clone the repository and open `index.html` in a modern browser.
+Clone the repository and open `index.html` in a modern browser.
 
 ```bash
 git clone https://github.com/aruintelligence/inward-mathematics-simulator.git
