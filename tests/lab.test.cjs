@@ -59,18 +59,24 @@ function loadChallenge(search="") {
   const script=html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script,"the challenge must contain its model script");
   const elements=new Map(),share={copied:null},classes=new Set();
+  const download={clicked:false,blob:null,filename:null,type:null,revoked:null,labels:[]};
+  const context=new Proxy({}, {get:(_target,key)=>key==="fillText"?(label)=>download.labels.push(label):()=>{}});
   function element(id) {
     if(!elements.has(id)) elements.set(id,{
-      textContent:"",value:"",href:"",hidden:id==="result"||id==="counterfactual",disabled:false,style:{},attributes:{},handlers:{},
+      textContent:"",value:"",href:"",hidden:id==="result"||id==="counterfactual"||id==="result-card-kit",disabled:false,style:{},attributes:{},handlers:{},
       addEventListener(name,handler){this.handlers[name]=handler;},
       setAttribute(name,value){this.attributes[name]=value;},
+      getContext(){return context;},
+      toBlob(callback,type){download.type=type;callback(new Blob(["PNG"],{type}));},
     });
     return elements.get(id);
   }
   const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+search}};
   const navigator={clipboard:{async writeText(value){share.copied=value;}}};
-  vm.runInNewContext(script[1],{window,document:{getElementById:element,body:{classList:{add(name){classes.add(name);}}}},navigator,URLSearchParams},{timeout:1000});
-  return {window,element,share,classes,html};
+  const document={getElementById:element,body:{classList:{add(name){classes.add(name);}},append(){}},createElement(){return {set download(value){download.filename=value;},click(){download.clicked=true;},remove(){}};}};
+  const URL={createObjectURL(blob){download.blob=blob;return "blob:mock";},revokeObjectURL(url){download.revoked=url;}};
+  vm.runInNewContext(script[1],{window,document,navigator,URLSearchParams,URL,Blob,setTimeout:callback=>callback()},{timeout:1000});
+  return {window,element,share,classes,html,download};
 }
 
 function loadAtlas(search="") {
@@ -289,6 +295,41 @@ test("challenge reveals the first prediction and keeps a reproducible share link
   assert.equal(correct.element("verdict").textContent,"You called it.");
 });
 
+test("result PNG stays behind the reveal and reflects the original generated answer", () => {
+  const challenge=loadChallenge("?seed=42&fifth=40");
+  assert.equal(challenge.element("result-card-kit").hidden,true);
+  click(challenge.element("download-card"));
+  assert.equal(challenge.download.clicked,false);
+  click(challenge.element("guess-median"));
+  assert.equal(challenge.element("result-card-kit").hidden,false);
+  assert.ok(challenge.download.labels.includes("I picked Median."));
+  assert.ok(challenge.download.labels.includes("Closer: Mean"));
+  assert.ok(challenge.download.labels.includes("DETERMINISTIC TOY READINGS · SEED 42 · FIFTH 40"));
+  assert.match(challenge.element("result-card").attributes["aria-label"],/mean 46\.38 with error 3\.62/);
+  input(challenge.element("fifth-sweep"),85);
+  click(challenge.element("download-card"));
+  assert.equal(challenge.download.type,"image/png");
+  assert.equal(challenge.download.filename,"inward-math-result-seed-42-fifth-40.png");
+  assert.equal(challenge.download.clicked,true);
+  assert.equal(challenge.download.blob.type,"image/png");
+  assert.equal(challenge.download.revoked,"blob:mock");
+});
+
+test("reader-supplied PNG labels the unverified target and ties honestly", () => {
+  const supplied=loadChallenge("?values=40%2C42%2C50%2C60%2C68&target=52");
+  click(supplied.element("guess-mean"));
+  assert.ok(supplied.download.labels.includes("READER-SUPPLIED VALUES + TARGET · NOT INDEPENDENTLY VERIFIED"));
+  assert.ok(supplied.download.labels.includes("STATED TARGET  52"));
+  click(supplied.element("download-card"));
+  assert.equal(supplied.download.filename,"inward-math-result-custom.png");
+  const tie=loadChallenge("?values=0%2C0%2C50%2C100%2C100&target=50");
+  click(tie.element("guess-equal"));
+  assert.ok(tie.download.labels.includes("I picked Equal error."));
+  assert.ok(tie.download.labels.includes("MEAN  ·  TIED"));
+  assert.ok(tie.download.labels.includes("MEDIAN  ·  TIED"));
+  assert.match(tie.element("result-card").attributes["aria-label"],/the errors tie/);
+});
+
 test("challenge rejects malformed link settings and does not leak a selected answer in the URL", () => {
   const challenge=loadChallenge("?seed=4294967296&fifth=101&guess=median");
   assert.equal(challenge.element("value-5").textContent,"40");
@@ -378,7 +419,7 @@ test("post-answer sweep agrees with the lab while preserving the original seeded
   const next=loadChallenge("?seed=42&fifth=85");
   assert.equal(next.element("result").hidden,true);
   assert.equal(next.element("counterfactual").hidden,true);
-  assert.match(challenge.html,/\.embedded header,[^}]*\.embedded \.counterfactual[^}]*\{ display:none; \}/);
+  assert.match(challenge.html,/\.embedded header,[^}]*\.embedded \.counterfactual,\.embedded \.result-card-kit[^}]*\{ display:none; \}/);
 });
 
 test("reader-supplied sweep keeps four values and target in its exact new challenge", () => {

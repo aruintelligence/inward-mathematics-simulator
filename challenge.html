@@ -82,6 +82,13 @@
     .sweep-legend span::before { content:""; display:inline-block; width:12px; height:12px; margin-right:6px; border-radius:3px; vertical-align:-1px; background:var(--swatch); }
     #sweep-reading { font-weight:750; }
     .counterfactual .button { display:inline-flex; align-items:center; margin:4px 0 6px; }
+    .result-card-kit { margin:25px 0; padding:16px 20px; border:1px solid #4b857b; border-radius:13px; background:#0d2434; }
+    .result-card-kit[hidden] { display:none; }
+    .result-card-kit summary { cursor:pointer; color:var(--mint); font-weight:800; }
+    .result-card-kit summary:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .result-card-kit p { color:var(--muted); margin:9px 0; }
+    .result-card-kit canvas { display:block; width:100%; max-width:800px; height:auto; margin:16px 0; border:1px solid var(--line); border-radius:12px; background:var(--bg); }
+    .result-card-kit button { margin:0 8px 0 0; }
     .embed-kit { margin:25px 0; padding:16px 20px; border:1px solid var(--line); border-radius:13px; background:#0d2434; }
     .embed-kit summary { cursor:pointer; color:var(--mint); font-weight:800; }
     .embed-kit p { color:var(--muted); margin:9px 0; }
@@ -103,7 +110,7 @@
     @media(max-width:640px) { .values { grid-template-columns:repeat(2,minmax(0,1fr)); } .values li:last-child { grid-column:1/-1; } .numbers { grid-template-columns:1fr; } .choices button { flex:1; min-width:95px; } }
     body.embedded { background:#07121d; font-size:15px; }
     .embedded .wrap { width:100%; padding:0 10px; }
-    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .counterfactual,.embedded .eyebrow.intro-label { display:none; }
+    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .counterfactual,.embedded .result-card-kit,.embedded .eyebrow.intro-label { display:none; }
     .embedded h1 { font-size:clamp(1.45rem,5vw,2rem); margin:12px 0 3px; }
     .embedded .challenge { margin:10px 0; padding:13px; border-radius:15px; box-shadow:none; }
     .embedded .case-head .eyebrow { margin:3px 0; }
@@ -187,6 +194,7 @@
         <a class="button" id="sweep-link" href="challenge.html">Open this selection as a new blind challenge ↗</a>
         <p class="sweep-scope">These are 101 evenly spaced whole-number positions, not probabilities. This comparison uses the same generated toy readings or reader-supplied values and target as the original case.</p>
       </section>
+      <details class="result-card-kit" id="result-card-kit" hidden><summary>Keep a picture of your result</summary><p>This 1200 × 630 PNG shows your prediction, the five readings, stated target, and both errors. It is created in your browser. If you share it, everyone can see the numbers and answer; use only invented or public data.</p><canvas id="result-card" width="1200" height="630" role="img" aria-label="Result card preview appears after a prediction">Your prediction and result are described above.</canvas><button id="download-card" type="button">Download result PNG</button><span id="card-status" class="status" role="status"></span></details>
       <details class="builder" id="builder"><summary>Create a challenge with your own numbers</summary><p>Enter exactly five readings and a known target, all from 0 to 100 with at most four decimal places. Previewing opens a new challenge with the answer hidden. These numbers become part of its URL and may appear in browser history, hosting logs, and links you share. Use invented or public data, never private information.</p><label for="builder-values">Five readings, separated by commas<input id="builder-values" type="text" value="48, 49, 50, 51, 85" spellcheck="false"></label><label for="builder-target">Known target<input id="builder-target" type="text" value="50" inputmode="decimal"></label><button id="build" type="button">Preview my challenge ↗</button><p id="builder-error" role="alert"></p></details>
       <details class="embed-kit"><summary>Put this challenge on your own page</summary><p id="embed-description">Copy this iframe into a webpage or course page that accepts HTML. It embeds this exact case, asks for a prediction before revealing the answer, and links back to the full lab. The widget has no account, tracking, or backend. Test the display in your publishing platform before sharing it.</p><label for="embed-code">Embed code</label><textarea id="embed-code" readonly rows="3"></textarea><button id="copy-embed" type="button">Copy embed code</button><span id="embed-status" class="status" role="status"></span></details>
       <p class="embed-note"><span id="embed-note-lead">Generated toy readings; target 50. One case does not establish a universal rule. </span><a href="index.html">Inspect the method in the lab.</a></p>
@@ -291,6 +299,44 @@
     $("fifth-sweep").value=String(initialFifth);
     updateSweep(initialFifth);
     $("fifth-sweep").addEventListener("input",()=>updateSweep(Number($("fifth-sweep").value)));
+    let cardReady=false;
+    function drawResultCard(pick) {
+      const canvas=$("result-card"),ctx=canvas.getContext("2d");
+      if(!ctx) { $("card-status").textContent="PNG preview is unavailable in this browser.";return; }
+      const color={Mean:"#ffcb78",Median:"#5af0c6",Equal:"#73cde8"}[stats.winner];
+      const label=pick==="equal"?"Equal error":pick[0].toUpperCase()+pick.slice(1);
+      const correct=label.toLowerCase()===stats.winner.toLowerCase() || pick==="equal"&&stats.winner==="Equal";
+      ctx.fillStyle="#07121d";ctx.fillRect(0,0,1200,630);
+      ctx.fillStyle="#102b3b";ctx.fillRect(18,18,1164,594);
+      ctx.fillStyle=color;ctx.fillRect(18,18,1164,9);
+      ctx.textAlign="left";
+      ctx.fillStyle="#5af0c6";ctx.font="800 22px system-ui, sans-serif";ctx.fillText("INWARD MATHEMATICS  /  PREDICTION CHALLENGE",64,80);
+      ctx.fillStyle="#eaf6f6";ctx.font="800 52px system-ui, sans-serif";ctx.fillText("I picked "+label+".",64,153);
+      ctx.fillStyle=color;ctx.font="800 27px system-ui, sans-serif";ctx.fillText(correct?"I called it.":"Closer: "+(stats.winner==="Equal"?"equal error":stats.winner),66,195);
+      ctx.textAlign="right";ctx.fillStyle="#ffcb78";ctx.font="800 27px system-ui, sans-serif";ctx.fillText("STATED TARGET  "+stats.target,1136,149);
+      ctx.textAlign="left";ctx.fillStyle="#b2cad0";ctx.font="700 19px system-ui, sans-serif";ctx.fillText("FIVE READINGS",64,246);
+      for(let i=0;i<5;i++) {
+        const x=64+i*224;
+        ctx.fillStyle="#0b1c2c";ctx.fillRect(x,265,208,94);
+        ctx.fillStyle=i===4?"#ff8f9d":"#b2cad0";ctx.font="700 17px system-ui, sans-serif";ctx.fillText("READING "+(i+1),x+16,293);
+        ctx.fillStyle=i===4?"#ff8f9d":"#eaf6f6";ctx.font="750 29px ui-monospace, monospace";
+        ctx.fillText(selected.mode==="custom"?String(stats.values[i]):i===4?String(stats.values[i]):stats.values[i].toFixed(4),x+16,337);
+      }
+      for(const [i,kind,value,error] of [[0,"Mean",stats.mean,stats.meanError],[1,"Median",stats.median,stats.medianError]]) {
+        const x=64+i*560,winning=stats.winner===kind||stats.winner==="Equal";
+        ctx.fillStyle="#0b1c2c";ctx.fillRect(x,386,544,130);
+        ctx.strokeStyle=winning?color:"#31596a";ctx.lineWidth=winning?3:1;ctx.strokeRect(x+1.5,387.5,541,127);
+        ctx.fillStyle=winning?color:"#b2cad0";ctx.font="800 23px system-ui, sans-serif";ctx.fillText(kind.toUpperCase()+(winning?(stats.winner==="Equal"?"  ·  TIED":"  ·  CLOSER"):""),x+22,425);
+        ctx.fillStyle="#eaf6f6";ctx.font="800 39px ui-monospace, monospace";ctx.fillText(value.toFixed(2),x+22,483);
+        ctx.fillStyle="#b2cad0";ctx.font="700 22px system-ui, sans-serif";ctx.fillText("ABS. ERROR  "+error.toFixed(2),x+264,482);
+      }
+      ctx.fillStyle="#b2cad0";ctx.font="650 19px system-ui, sans-serif";
+      ctx.fillText(selected.mode==="custom"?"READER-SUPPLIED VALUES + TARGET · NOT INDEPENDENTLY VERIFIED":"DETERMINISTIC TOY READINGS · SEED "+selected.seed+" · FIFTH "+selected.fifth,64,555);
+      ctx.font="500 17px system-ui, sans-serif";ctx.fillText("One case is not a rule. Errors use full precision; labels are rounded.",64,584);
+      ctx.textAlign="right";ctx.fillStyle="#5af0c6";ctx.font="700 17px system-ui, sans-serif";ctx.fillText("aruintelligence.github.io/inward-mathematics-simulator",1136,583);
+      canvas.setAttribute("aria-label","Result card: you picked "+label+"; "+(stats.winner==="Equal"?"the errors tie":stats.winner+" has the smaller absolute error")+". Five readings "+stats.values.join(", ")+"; stated target "+stats.target+"; mean "+stats.mean.toFixed(2)+" with error "+stats.meanError.toFixed(2)+"; median "+stats.median.toFixed(2)+" with error "+stats.medianError.toFixed(2)+". "+(selected.mode==="custom"?"Reader-supplied values and target, not independently verified.":"Deterministic toy readings."));
+      cardReady=true;
+    }
     function reveal(pick) {
       for(const answer of ["mean","median","equal"]) {
         const button=$("guess-"+answer);
@@ -299,14 +345,27 @@
       }
       $("result").hidden=false;
       $("counterfactual").hidden=false;
+      $("result-card-kit").hidden=false;
       const correct=pick.toLowerCase()===stats.winner.toLowerCase();
       $("verdict").textContent=correct?"You called it.":"Surprise: "+(stats.winner==="Equal"?"the errors tie.":"the "+stats.winner.toLowerCase()+" gets closer.");
       $("answer").textContent=(selected.mode==="custom"?"For the five supplied values":"For seed "+selected.seed+" and fifth reading "+selected.fifth)+", "+(stats.winner==="Equal"?"the two errors are equal.":"the "+stats.winner.toLowerCase()+" has the smaller error against "+stats.target+".");
       $("mean-result").textContent=stats.mean.toFixed(2)+" / "+stats.meanError.toFixed(2);
       $("median-result").textContent=stats.median.toFixed(2)+" / "+stats.medianError.toFixed(2);
       $("explanation").textContent="Mean = sum of all five ÷ 5. Median = the middle sorted reading. Absolute error = distance from the stated target "+stats.target+"."+(selected.mode==="custom"?" The target was supplied by the author of this link.":" The fifth reading changes both estimates by different amounts.");
+      drawResultCard(pick);
     }
     for(const answer of ["mean","median","equal"]) $("guess-"+answer).addEventListener("click",()=>reveal(answer));
+    $("download-card").addEventListener("click",()=>{
+      if(!cardReady) return;
+      $("result-card").toBlob(blob=>{
+        if(!blob) { $("card-status").textContent="Could not create a PNG. Try again in another browser.";return; }
+        const url=URL.createObjectURL(blob),link=document.createElement("a");
+        link.href=url;link.download=selected.mode==="custom"?"inward-math-result-custom.png":"inward-math-result-seed-"+selected.seed+"-fifth-"+selected.fifth+".png";
+        document.body.append(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        $("card-status").textContent="Result PNG downloaded.";
+      },"image/png");
+    });
     $("build").addEventListener("click",()=>{
       const custom=parseCustom($("builder-values").value,$("builder-target").value);
       if(!custom) {$("builder-error").textContent="Enter exactly five comma-separated numbers and one target, each from 0 to 100 with up to four decimal places.";return;}
