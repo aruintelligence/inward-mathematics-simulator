@@ -58,7 +58,7 @@ function loadChallenge(search="") {
   const html=fs.readFileSync(path.join(__dirname,"..","challenge.html"),"utf8");
   const script=html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script,"the challenge must contain its model script");
-  const elements=new Map(),share={copied:null};
+  const elements=new Map(),share={copied:null},classes=new Set();
   function element(id) {
     if(!elements.has(id)) elements.set(id,{
       textContent:"",value:"",href:"",hidden:id==="result",disabled:false,style:{},attributes:{},handlers:{},
@@ -69,8 +69,8 @@ function loadChallenge(search="") {
   }
   const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+search}};
   const navigator={clipboard:{async writeText(value){share.copied=value;}}};
-  vm.runInNewContext(script[1],{window,document:{getElementById:element},navigator,URLSearchParams},{timeout:1000});
-  return {window,element,share};
+  vm.runInNewContext(script[1],{window,document:{getElementById:element,body:{classList:{add(name){classes.add(name);}}}},navigator,URLSearchParams},{timeout:1000});
+  return {window,element,share,classes};
 }
 
 function loadAtlas(search="") {
@@ -270,6 +270,24 @@ test("challenge rejects malformed link settings and does not leak a selected ans
   assert.equal(challenge.element("value-5").textContent,"40");
   assert.equal(challenge.window.InwardMathChallenge.challengeUrl(),"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=42&fifth=40");
   assert.equal(challenge.element("result").hidden,true);
+});
+
+test("embeddable challenge preserves the exact case and leaves answer collection local", async () => {
+  const challenge=loadChallenge("?seed=43&fifth=85&embed=1&guess=mean");
+  assert.equal(challenge.classes.has("embedded"),true);
+  assert.equal(challenge.element("result").hidden,true);
+  const link="https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=43&fifth=85";
+  assert.equal(challenge.window.InwardMathChallenge.challengeUrl(),link);
+  assert.equal(challenge.element("full-challenge").href,link);
+  const code=challenge.element("embed-code").value;
+  assert.match(code,/^<iframe title="Mean or median prediction challenge"/);
+  assert.ok(code.includes('src="'+link+'&embed=1"'));
+  assert.ok(!code.includes("guess="));
+  await click(challenge.element("copy-embed"));
+  assert.equal(challenge.share.copied,code);
+  click(challenge.element("guess-median"));
+  assert.equal(challenge.element("result").hidden,false);
+  assert.equal(challenge.element("lab-link").href,"index.html?seed=43&fifth=85#start");
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
