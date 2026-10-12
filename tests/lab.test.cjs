@@ -516,19 +516,50 @@ test("workbench offers a challenge only for shareable data and clears it on inva
   assert.equal(lab.element("workbench-challenge").href,"challenge.html?values=48%2C49%2C50%2C51%2C85&target=50");
   assert.equal(lab.element("workbench-target-lens").hidden,false);
   assert.equal(lab.element("workbench-target-lens").href,"target-lens.html?values=48%2C49%2C50%2C51%2C85&target=50");
+  assert.equal(lab.element("workbench-flip-point").hidden,false);
+  assert.equal(lab.element("workbench-flip-point").href,"flip-point.html?fixed=48%2C49%2C50%2C51&fifth=85&target=50");
   lab.element("known-target").value="";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
+  assert.equal(lab.element("workbench-flip-point").hidden,true);
   lab.element("known-target").value="50";
   lab.element("dataset").value="48,49,50,51,100.12345";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
+  assert.equal(lab.element("workbench-flip-point").hidden,true);
   lab.element("dataset").value="bad input";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
+  assert.equal(lab.element("workbench-flip-point").hidden,true);
+});
+
+test("flip point finds true reversals, touching ties, and a nearest movement", () => {
+  const {PRESETS,parseView,evaluate,solve,nearestReversal}=require("../flip-point.js");
+  const a=solve(PRESETS.a.fixed,PRESETS.a.target);
+  assert.deepEqual(a.boundaries.map(item=>[Math.round(item.value*10)/10,item.reversal]),[[47,true],[49.5,true],[52,false]]);
+  assert.equal(evaluate(PRESETS.a.fixed,50,51).winner,"Median");
+  assert.equal(evaluate(PRESETS.a.fixed,50,52).winner,"Equal");
+  assert.equal(evaluate(PRESETS.a.fixed,50,53).winner,"Median");
+  assert.equal(nearestReversal(a,85).value,49.5);
+  const b=solve(PRESETS.b.fixed,PRESETS.b.target);
+  assert.deepEqual(b.boundaries.map(item=>Math.round(item.value)),[18,48,58,78]);
+  assert.equal(Math.round(nearestReversal(b,68).value),58);
+  assert.equal(evaluate(PRESETS.b.fixed,52,58).winner,"Equal");
+  assert.equal(evaluate(PRESETS.b.fixed,52,58.1).winner,"Mean");
+  const c=solve(PRESETS.c.fixed,PRESETS.c.target);
+  assert.equal(c.boundaries.at(-1).value,100);
+  assert.equal(c.boundaries.at(-1).reversal,false);
+  const shared=parseView("?fixed=48%2C49%2C50%2C51&fifth=49.5&target=50");
+  assert.equal(evaluate(shared.fixed,shared.target,shared.fifth).winner,"Equal");
+  assert.equal(parseView("?fixed=48%2C49%2C50%2C51&fifth=101&target=50"),false);
+  assert.equal(parseView("?fixed=48%2C49%2C50%2C51&fifth=85&target=50&target=51"),false);
+  const page=fs.readFileSync(path.join(__dirname,"..","flip-point.html"),"utf8");
+  assert.match(page,/src="flip-point\.js\?v=/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="flip-point\.html"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","guide.html"),"utf8"),/href="flip-point\.html\?fixed=/);
 });
 
 test("target lens finds the exact crossover and handles a permanent tie", () => {
