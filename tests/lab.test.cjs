@@ -615,6 +615,40 @@ test("flip levers ranks actual strict reversals for every movable reading", () =
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/src="flip-levers\.js\?v=/);
 });
 
+test("One Move scores strict reversals against the exact four-decimal minimum", () => {
+  const {ROUNDS,parsePuzzle,scoreAttempt}=require("../one-move.js");
+  const first=ROUNDS[0];
+  assert.equal(scoreAttempt(first,2,"51.6666").flipped,false);
+  const shortest=scoreAttempt(first,2,"51.6667");
+  assert.equal(shortest.flipped,true);
+  assert.equal(shortest.optimal,true);
+  assert.equal(shortest.moveUnits,16667);
+  assert.equal(shortest.minimumUnits,16667);
+  assert.equal(shortest.result.winner,"Median");
+  const longer=scoreAttempt(first,2,"52");
+  assert.equal(longer.flipped,true);
+  assert.equal(longer.excessUnits,3333);
+  assert.equal(scoreAttempt(first,4,"58").result.winner,"Equal");
+  assert.equal(scoreAttempt(first,4,"58").flipped,false);
+  assert.match(scoreAttempt(first,2,"51.66666").error,/four decimal/);
+  assert.match(scoreAttempt(first,5,"52").error,/Choose a reading/);
+  for(const [round,index,value,winner] of [[ROUNDS[1],1,"52.4999","Mean"],[ROUNDS[2],3,"62.2499","Median"]]) {
+    const result=scoreAttempt(round,index,value);
+    assert.equal(result.optimal,true);
+    assert.equal(result.result.winner,winner);
+  }
+  assert.equal(parsePuzzle("?round=2").round,1);
+  assert.equal(parsePuzzle("?values=40%2C42%2C50%2C60%2C68&target=52").round,null);
+  assert.equal(parsePuzzle("?values=0%2C0%2C50%2C100%2C100&target=50").round,0);
+  assert.match(parsePuzzle("?values=0%2C0%2C50%2C100%2C100&target=50").error,/no strict/);
+  assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
+  const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(page,/src="flip-levers\.js\?v=3" defer/);
+  assert.match(page,/src="one-move\.js\?v=1" defer/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round puzzle/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
+});
+
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
   const {PRESETS,parseView,evaluate,solve,nearestReversal}=require("../flip-point.js");
   const a=solve(PRESETS.a.fixed,PRESETS.a.target);
