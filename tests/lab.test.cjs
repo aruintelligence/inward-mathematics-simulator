@@ -9,7 +9,7 @@ function loadLab(search="") {
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
 
-  const initial = {"alpha":"1.5","shock-strength":"60","seed":"42","outlier":"85"};
+  const initial = {"alpha":"1.5","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
   const elements = new Map();
   const download = {clicked:false,blob:null,filename:null};
   const share = {copied:null,scrolled:null};
@@ -189,6 +189,60 @@ test("shared case links restore validated inputs and can be copied", async () =>
   const invalid=loadLab("?seed=4294967296&fifth=101");
   assert.equal(snapshot(invalid).seed,42);
   assert.equal(snapshot(invalid).witnesses.adjustable,85);
+});
+
+test("own-data workbench computes the mean, median, and an explicit leave-one-out counterfactual", () => {
+  const lab=loadLab();
+  const analysis=lab.window.InwardMathLab.analyzeDataset("48, 49, 50, 51, 85","50");
+  assert.equal(analysis.schema,"inward-math-dataset-v1");
+  assert.equal(analysis.mean,56.6);
+  assert.equal(analysis.median,50);
+  assert.equal(analysis.errors.meanAbsoluteError,6.600000000000001);
+  assert.equal(analysis.errors.medianAbsoluteError,0);
+  assert.equal(analysis.leaveOneOut.removedIndex,4);
+  assert.equal(analysis.leaveOneOut.mean,49.5);
+  assert.equal(analysis.leaveOneOut.median,49.5);
+  assert.match(lab.element("workbench-summary").textContent,/median is closer/);
+  assert.match(lab.element("workbench-leaveout").textContent,/observation 5 \(85\)/);
+  assert.equal(lab.element("workbench-result").hidden,false);
+  assert.equal(lab.element("workbench-error").textContent,"");
+});
+
+test("workbench supports a mean-wins case, even-size medians, and no target", () => {
+  const lab=loadLab();
+  click(lab.element("example-mean"));
+  assert.equal(lab.element("known-target").value,"52");
+  assert.match(lab.element("workbench-summary").textContent,/mean is closer/);
+  assert.equal(lab.element("workbench-mean").textContent,"52");
+  const analysis=lab.window.InwardMathLab.analyzeDataset("-4, -2, 2, 10","");
+  assert.equal(analysis.median,0);
+  assert.equal(analysis.errors,null);
+  lab.element("dataset").value="-4, -2, 2, 10";
+  lab.element("known-target").value="";
+  click(lab.element("analyze"));
+  assert.match(lab.element("workbench-summary").textContent,/neither estimator is declared more accurate/);
+  assert.match(lab.element("workbench-target-note").textContent,/No target supplied/);
+});
+
+test("workbench rejects invalid inputs instead of displaying stale results, and exports local analysis", async () => {
+  const lab=loadLab();
+  lab.element("dataset").value="2, 3, not-a-number";
+  click(lab.element("analyze"));
+  assert.equal(lab.element("workbench-result").hidden,true);
+  assert.match(lab.element("workbench-error").textContent,/Observation 3/);
+  assert.throws(()=>lab.window.InwardMathLab.analyzeDataset("1, 2, 3","Infinity"),/known target/);
+  assert.throws(()=>lab.window.InwardMathLab.analyzeDataset("1, 2, 1000001",""),/Observation 3/);
+  lab.element("dataset").value="1, 2, 3";
+  lab.element("known-target").value="";
+  click(lab.element("analyze"));
+  click(lab.element("workbench-export"));
+  assert.equal(lab.download.clicked,true);
+  assert.equal(lab.download.filename,"inward-math-dataset-analysis.json");
+  const saved=JSON.parse(await lab.download.blob.text());
+  assert.deepEqual(saved.values,[1,2,3]);
+  assert.equal(saved.target,null);
+  assert.equal(saved.schema,"inward-math-dataset-v1");
+  assert.match(lab.element("workbench-save-status").textContent,/saved on this device/);
 });
 
 test("export button downloads seed, parameter changes, and exact shock impulse", async () => {
