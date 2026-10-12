@@ -206,7 +206,7 @@
         <a class="path-card" href="decision-field.html"><span class="path-kicker">02 / explore</span><span class="path-art" aria-hidden="true"><span class="field-art"></span></span><strong>See the whole decision.</strong><span class="path-desc">Drag across the exact map. Find where one target ties and where every target ties.</span><em>Open the Decision Field ↗</em></a>
         <a class="path-card analyze" href="#workbench-title"><span class="path-kicker">03 / analyze</span><span class="path-art" aria-hidden="true"><span class="data-art"><i></i><i></i><i></i><i></i><i></i></span></span><strong>Bring your own numbers.</strong><span class="path-desc">Paste readings, compare both estimates, and see what changes when one reading is removed.</span><em>Open the workbench ↓</em></a>
       </div>
-      <p class="path-after">Want a lesson? <a href="guide.html">Read the five-minute guide</a> or <a href="worksheet.html">print the worksheet</a>. Try <a href="shape-the-data.html">Shape the Data</a>, <a href="flip-point.html">Flip Point</a>, <a href="target-lens.html">Target Lens</a>, and the <a href="atlas.html">Outcome Atlas</a>.</p>
+      <p class="path-after">Want a lesson? <a href="guide.html">Read the five-minute guide</a> or <a href="worksheet.html">print the worksheet</a>. Try <a href="shape-the-data.html">Shape the Data</a>, <a href="flip-levers.html">Flip Levers</a>, <a href="flip-point.html">Flip Point</a>, <a href="target-lens.html">Target Lens</a>, and the <a href="atlas.html">Outcome Atlas</a>.</p>
     </section>
     <section id="start" class="journey" aria-labelledby="start-title">
       <p class="eyebrow">Start here / three revealing cases</p>
@@ -247,7 +247,7 @@
         <p id="workbench-target-note"></p>
         <p id="workbench-leaveout"></p>
         <p id="workbench-values" class="data-note"></p>
-        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><a id="workbench-challenge" href="challenge.html" hidden>Turn these values into a prediction challenge ↗</a><a id="workbench-shape" href="shape-the-data.html" hidden>Move these five readings by hand ↗</a><a id="workbench-target-lens" href="target-lens.html" hidden>Move the target with these values ↗</a><a id="workbench-flip-point" href="flip-point.html" hidden>Find a flip point with these values ↗</a><a id="workbench-decision-field" href="decision-field.html" hidden>Map the full decision field ↗</a><span id="workbench-save-status" role="status"></span></div>
+        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><a id="workbench-challenge" href="challenge.html" hidden>Turn these values into a prediction challenge ↗</a><a id="workbench-shape" href="shape-the-data.html" hidden>Move these five readings by hand ↗</a><a id="workbench-levers" href="flip-levers.html" hidden>Find the lightest flip ↗</a><a id="workbench-target-lens" href="target-lens.html" hidden>Move the target with these values ↗</a><a id="workbench-flip-point" href="flip-point.html" hidden>Find a flip point with these values ↗</a><a id="workbench-decision-field" href="decision-field.html" hidden>Map the full decision field ↗</a><span id="workbench-save-status" role="status"></span></div>
         <p class="data-note">A link to another experiment needs exactly five readings and a supplied target, each from 0 to 100 with at most four decimal places. Its URL contains those values and may appear in browser history or hosting logs. Use invented or public data only.</p>
         <p class="formula">The mean is the sum divided by the number of observations. The median is the middle sorted value, or the average of the two middle values. “Farthest” means greatest absolute distance from the original median; ties use the first entered value. Removing a point is a counterfactual, not a recommendation to discard data. A target you enter is a reference you supplied, not one verified by this page.</p>
       </div>
@@ -355,7 +355,7 @@
       <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
     </section>
     </main>
-    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="challenge.html">Prediction challenge</a> · <a href="shape-the-data.html">Shape the Data</a> · <a href="target-lens.html">Target Lens</a> · <a href="flip-point.html">Flip Point</a> · <a href="decision-field.html">Decision Field</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="challenge.html">Prediction challenge</a> · <a href="shape-the-data.html">Shape the Data</a> · <a href="flip-levers.html">Flip Levers</a> · <a href="target-lens.html">Target Lens</a> · <a href="flip-point.html">Flip Point</a> · <a href="decision-field.html">Decision Field</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
   <script>
     "use strict";
@@ -470,6 +470,7 @@
         const shareable=analysis.count===5&&analysis.target!==null&&[...analysis.values,analysis.target].every(value=>/^(?:\d{1,3})(?:\.\d{1,4})?$/.test(String(value))&&value<=100);
         $("workbench-challenge").hidden=!shareable;
         $("workbench-shape").hidden=!shareable;
+        $("workbench-levers").hidden=!shareable;
         $("workbench-target-lens").hidden=!shareable;
         $("workbench-flip-point").hidden=!shareable;
         $("workbench-decision-field").hidden=!shareable;
@@ -477,6 +478,7 @@
           const query="?values="+encodeURIComponent(analysis.values.join(","))+"&target="+analysis.target;
           $("workbench-challenge").href="challenge.html"+query;
           $("workbench-shape").href="shape-the-data.html"+query;
+          $("workbench-levers").href="flip-levers.html"+query;
           $("workbench-target-lens").href="target-lens.html"+query;
           $("workbench-flip-point").href="flip-point.html?fixed="+encodeURIComponent(analysis.values.slice(0,4).join(","))+"&fifth="+analysis.values[4]+"&target="+analysis.target;
           $("workbench-decision-field").href="decision-field.html?fixed="+encodeURIComponent(analysis.values.slice(0,4).join(","))+"&fifth="+analysis.values[4]+"&target="+analysis.target;
@@ -488,6 +490,7 @@
         $("workbench-result").hidden=true;
         $("workbench-challenge").hidden=true;
         $("workbench-shape").hidden=true;
+        $("workbench-levers").hidden=true;
         $("workbench-target-lens").hidden=true;
         $("workbench-flip-point").hidden=true;
         $("workbench-decision-field").hidden=true;

@@ -586,6 +586,35 @@ test("shape the data keeps mean movement exact and distinguishes target-only cha
   assert.match(fs.readFileSync(path.join(__dirname,"..","shape-the-data.html"),"utf8"),/src="shape-the-data\.js\?v=/);
 });
 
+test("flip levers ranks actual strict reversals for every movable reading", () => {
+  const {PRESETS,parseView,evaluate,solveOne,rankLevers}=require("../flip-levers.js");
+  const b=PRESETS.b,result=rankLevers(b.values,b.target);
+  assert.equal(result.current.winner,"Mean");
+  assert.equal(result.ranked.length,5);
+  assert.equal(result.ranked[0].index,2);
+  assert.equal(result.ranked[0].flip.value,51.6667);
+  assert.equal(result.ranked[0].flip.winner,"Median");
+  assert.deepEqual(solveOne(b.values,b.target,4).boundaries.filter(item=>item.reversal).map(item=>Math.round(item.value)),[18,48,58,78]);
+  for(const lever of result.ranked) {
+    const changed=[...b.values];changed[lever.index]=lever.flip.value;
+    assert.equal(evaluate(changed,b.target).winner,"Median");
+    assert.ok(lever.flip.distance>0);
+    const nearer=[...changed];nearer[lever.index]=lever.flip.value+(lever.value>lever.flip.value?0.0001:-0.0001);
+    if(nearer[lever.index]>=0&&nearer[lever.index]<=100) assert.notEqual(evaluate(nearer,b.target).winner,"Median");
+  }
+  const a=rankLevers(PRESETS.a.values,PRESETS.a.target);
+  assert.equal(a.current.winner,"Median");
+  assert.equal(a.ranked.length,3);
+  assert.equal(a.levers[0].flip,null);
+  assert.equal(rankLevers(PRESETS.c.values,PRESETS.c.target).ranked.length,0);
+  assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5&target=50&target=51"),false);
+  assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5.12345&target=50"),false);
+  const lab=loadLab();
+  assert.equal(lab.element("workbench-levers").hidden,false);
+  assert.match(lab.element("workbench-levers").href,/flip-levers\.html\?values=48%2C49%2C50%2C51%2C85&target=50/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/src="flip-levers\.js\?v=/);
+});
+
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
   const {PRESETS,parseView,evaluate,solve,nearestReversal}=require("../flip-point.js");
   const a=solve(PRESETS.a.fixed,PRESETS.a.target);

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081923">
+  <title>Flip Levers | Which Reading Changes the Verdict Fastest?</title>
+  <meta name="description" content="Rank five readings by the smallest exact single-reading change that reverses a mean-versus-median outcome against a chosen target.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/flip-levers.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Five levers. One verdict. | Inward Mathematics™">
+  <meta property="og:description" content="Which reading can flip the result fastest? See exact winner regions, rank each change, and try it.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/flip-levers.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#081923; --ink:#f3f6f2; --muted:#bbced1; --line:#527680; --mint:#6ceac2; --gold:#ffcf88; --rose:#ff9fac; --cyan:#a7e2ff; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; min-width:320px; color:var(--ink); background:radial-gradient(circle at 82% 0,#205d5c 0,transparent 29%),radial-gradient(circle at 8% 34%,#3f304a 0,transparent 34%),var(--bg); font:17px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--mint); } button,input { font:inherit; } button { cursor:pointer; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1160px,calc(100% - 32px)); margin:auto; }
+    .skip { position:absolute; top:-70px; left:16px; z-index:5; padding:9px 14px; border-radius:8px; background:var(--gold); color:#0e2730; }
+    .skip:focus { top:10px; }
+    header { padding:23px 0; }
+    nav { display:flex; flex-wrap:wrap; gap:9px 19px; align-items:center; }
+    nav strong { margin-right:auto; font-size:.83rem; letter-spacing:.06em; }
+    nav a { color:var(--ink); font-size:.9rem; text-decoration:none; }
+    nav a:hover { color:var(--mint); }
+    .eyebrow { margin:0 0 10px; color:var(--mint); font-size:.74rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(270px,.88fr); gap:37px; align-items:center; padding:48px 0 37px; }
+    h1 { margin:0; font-size:clamp(2.85rem,6.3vw,5.5rem); letter-spacing:-.065em; line-height:1.02; }
+    h1 em { color:var(--rose); font-style:normal; }
+    .lead { max-width:650px; color:#d2e3e2; font-size:1.13rem; }
+    .button,button.action { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:10px 16px; border:1px solid var(--mint); border-radius:10px; background:var(--mint); color:#092a2b; font-weight:800; text-decoration:none; }
+    .button.secondary,button.action.secondary { border-color:#6c8e95; background:#1a3b47; color:var(--ink); }
+    .button:hover,button.action:hover { filter:brightness(1.12); }
+    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:19px; }
+    .winner-card { position:relative; overflow:hidden; padding:28px; border:1px solid #80a6a4; border-radius:24px; background:radial-gradient(circle at 78% 12%,#276d69,#18464d 48%,#1d2b3e); box-shadow:0 26px 68px #0006; }
+    .winner-card::after { content:""; position:absolute; width:360px; height:360px; border:1px solid #d9ffe650; border-radius:50%; right:-100px; top:-190px; box-shadow:0 0 0 55px #d9ffe612,0 0 0 108px #d9ffe609; pointer-events:none; }
+    .winner-card>* { position:relative; z-index:1; }
+    .winner-card strong { display:block; margin:9px 0; font-size:clamp(2.5rem,5vw,4.25rem); letter-spacing:-.055em; line-height:1.05; }
+    .winner-card[data-winner="Mean"] strong { color:var(--gold); }
+    .winner-card[data-winner="Median"] strong { color:var(--mint); }
+    .winner-card[data-winner="Equal"] strong { color:var(--cyan); }
+    .winner-card p:last-child { margin:0; color:#dcebe8; font-size:.91rem; }
+    .studio { padding:clamp(18px,3vw,30px); border:1px solid #638c8f; border-radius:24px; background:linear-gradient(150deg,#143e47,#102e3e 56%,#242e40); box-shadow:0 25px 70px #0005; }
+    .studio-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:start; gap:11px 23px; }
+    h2 { margin:0; font-size:clamp(1.7rem,3.35vw,2.6rem); line-height:1.12; letter-spacing:-.04em; }
+    .intro { max-width:740px; margin:9px 0 0; color:var(--muted); }
+    .case-pill { padding:5px 11px; border:1px solid #71989c; border-radius:99px; font-size:.8rem; white-space:nowrap; }
+    .input-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:9px; margin:24px 0 7px; }
+    .input-cell { min-width:0; padding:10px; border:1px solid #527786; border-radius:12px; background:#092635; }
+    .input-cell.target { border-color:#bd8493; background:#362d40; }
+    .input-cell label { display:block; margin-bottom:5px; color:#d5e7e6; font-size:.76rem; font-weight:750; white-space:nowrap; }
+    .input-cell input { width:100%; min-height:42px; padding:7px 9px; border:1px solid #84a6ad; border-radius:8px; background:#061d2a; color:var(--ink); font-variant-numeric:tabular-nums; }
+    #input-error { min-height:1.45em; margin:7px 0; color:var(--rose); font-size:.89rem; font-weight:700; }
+    .spotlight { display:grid; grid-template-columns:minmax(170px,.43fr) 1fr; gap:17px; align-items:center; padding:22px; margin:17px 0 23px; border:1px solid #8bbbaa; border-radius:18px; background:radial-gradient(circle at 7% 50%,#255d58,#183b46 50%,#153140); }
+    .spotlight .eyebrow { margin-bottom:5px; }
+    .spotlight strong { display:block; font-size:clamp(1.75rem,3.3vw,2.7rem); line-height:1.1; letter-spacing:-.045em; color:var(--mint); }
+    .spotlight p { margin:0; color:#e1efec; }
+    .rack-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 22px; align-items:end; }
+    .rack-head p { margin:5px 0 0; color:var(--muted); }
+    .legend { display:flex; flex-wrap:wrap; gap:7px 16px; margin:12px 0 17px; color:#d6e5e3; font-size:.8rem; }
+    .legend b { display:inline-block; width:15px; height:9px; border-radius:2px; margin-right:5px; background:#9a6439; }
+    .legend .mint { background:#196f5f; } .legend .tick { height:14px; width:3px; background:#f7f3e7; vertical-align:middle; } .legend .touch { background:var(--cyan); }
+    .rack { display:grid; gap:11px; }
+    .lever { padding:17px 19px; border:1px solid #4d7780; border-radius:15px; background:#0a2533; }
+    .lever.best { border-color:var(--rose); background:linear-gradient(110deg,#343440,#102f3d 55%); box-shadow:inset 4px 0 var(--rose); }
+    .lever-head,.lever-bottom { display:flex; justify-content:space-between; gap:8px 17px; align-items:center; }
+    .lever h3 { margin:0; font-size:1.17rem; }
+    .distance { color:var(--rose); font:800 1rem ui-monospace,SFMono-Regular,monospace; white-space:nowrap; }
+    .track { position:relative; height:33px; margin:18px 10px 13px; border:1px solid #7ca1a2; border-radius:6px; background:#143b44; }
+    .region { position:absolute; top:0; bottom:0; }
+    .region.mean { background:#9a6439; } .region.median { background:#196f5f; } .region.equal { background:#40697b; }
+    .boundary { position:absolute; top:-4px; bottom:-4px; width:2px; background:#f7f3e7; transform:translateX(-1px); }
+    .boundary.touch { background:var(--cyan); }
+    .marker,.goal { position:absolute; z-index:2; width:19px; height:19px; border-radius:50%; transform:translate(-50%,-50%); }
+    .marker { top:73%; background:var(--rose); border:3px solid #132937; box-shadow:0 0 0 2px #ffd4d8; }
+    .goal { top:6%; background:#162b36; border:3px solid #f7f3e7; box-shadow:0 0 11px #fff7; }
+    .lever-bottom span { color:var(--muted); font-size:.86rem; }
+    .try { min-height:44px; padding:8px 12px; border:1px solid var(--rose); border-radius:9px; background:#503944; color:#ffe2df; font-weight:750; white-space:nowrap; }
+    .try:hover { background:#704654; }
+    .under { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:23px 0 42px; }
+    .panel { padding:24px; border:1px solid var(--line); border-radius:19px; background:#122d3b; }
+    .panel p { color:var(--muted); }
+    .presets { display:grid; gap:9px; margin-top:14px; }
+    .preset { padding:11px 13px; border:1px solid #567b85; border-radius:10px; background:#0a2632; color:var(--ink); text-align:left; }
+    .preset:hover,.preset[aria-pressed="true"] { border-color:var(--mint); background:#18453f; }
+    .preset strong,.preset span { display:block; }
+    .preset span { color:var(--muted); font-size:.82rem; }
+    #share-status { min-height:1.45em; color:var(--mint); font-size:.9rem; }
+    .note { font-size:.84rem; }
+    footer { padding:23px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; }
+    @media(max-width:850px) { .hero,.under { grid-template-columns:1fr; } .winner-card { max-width:660px; } .input-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media(max-width:600px) { .spotlight { grid-template-columns:1fr; } .lever-head,.lever-bottom { align-items:start; flex-direction:column; } .try { width:100%; } }
+    @media(max-width:480px) { .hero { padding:25px 0 31px; } .input-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .studio,.panel { padding:16px; } .lever { padding:15px; } .track { margin-left:9px; margin-right:9px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#studio">Skip to flip levers</a>
+  <div class="wrap">
+    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">The lab</a><a href="shape-the-data.html">Shape the Data</a><a href="flip-point.html">Flip Point</a><a href="guide.html">Lesson</a></nav></header>
+    <main>
+      <div class="hero"><div><p class="eyebrow">Experiment 07 / Flip Levers</p><h1>Five levers.<br><em>One verdict.</em></h1><p class="lead">If just one of your five readings could change, which one could flip the result with the smallest move? This rack solves all five counterfactuals and ranks the first four-decimal value across a true winner reversal.</p><div class="actions"><a class="button" href="#studio">Find the lightest lever ↓</a><a class="button secondary" href="shape-the-data.html">Move the data by hand ↗</a></div></div><aside class="winner-card" id="winner-card" data-winner="Mean" aria-label="Current result"><p class="eyebrow">Your current arrangement</p><strong id="winner">Mean is closer.</strong><p id="current-detail">The estimates and errors appear here.</p></aside></div>
+      <section class="studio" id="studio" aria-labelledby="studio-title"><div class="studio-head"><div><p class="eyebrow">One moving reading at a time</p><h2 id="studio-title">Find the smallest strict flip.</h2><p class="intro">Each row holds the other four readings and target fixed while its own reading moves across 0–100. The bands show the closer estimate. White ticks mark true winner reversals; blue ticks mark ties that only touch. Rose is your current value; a white ring is the nearest four-decimal value that changes the winner.</p></div><span class="case-pill" id="case-label">B / mean wins</span></div>
+        <div class="input-grid"><div class="input-cell"><label for="reading-1">Reading 1</label><input id="reading-1" type="number" min="0" max="100" step="any" inputmode="decimal" value="40"></div><div class="input-cell"><label for="reading-2">Reading 2</label><input id="reading-2" type="number" min="0" max="100" step="any" inputmode="decimal" value="42"></div><div class="input-cell"><label for="reading-3">Reading 3</label><input id="reading-3" type="number" min="0" max="100" step="any" inputmode="decimal" value="50"></div><div class="input-cell"><label for="reading-4">Reading 4</label><input id="reading-4" type="number" min="0" max="100" step="any" inputmode="decimal" value="60"></div><div class="input-cell"><label for="reading-5">Reading 5</label><input id="reading-5" type="number" min="0" max="100" step="any" inputmode="decimal" value="68"></div><div class="input-cell target"><label for="target-input">Chosen target</label><input id="target-input" type="number" min="0" max="100" step="any" inputmode="decimal" value="52"></div></div><p id="input-error" role="alert"></p>
+        <div class="spotlight"><div><p class="eyebrow">Lightest lever</p><strong id="best-reading">Reading 5</strong></div><p id="best-distance">The nearest exact move appears here.</p></div>
+        <div class="rack-head"><div><p class="eyebrow">Ranked from the smallest available move</p><h2 id="rack-title">The reversal rack</h2></div><p id="rack-summary" role="status"></p></div><div class="legend"><span><b></b>Mean closer</span><span><b class="mint"></b>Median closer</span><span><b class="tick"></b>Reversal tie</span><span><b class="tick touch"></b>Touching tie</span></div><div id="rack" class="rack"></div>
+        <div class="actions"><button class="action secondary" id="reset" type="button">Reset starting case</button></div>
+      </section>
+      <div class="under"><section class="panel" aria-labelledby="presets-title"><p class="eyebrow">Three different arrangements</p><h2 id="presets-title">Change the leverage.</h2><div class="presets"><button class="preset" type="button" data-case="a" aria-pressed="false"><strong>A / High reading</strong><span>48, 49, 50, 51, 85 · target 50</span></button><button class="preset" type="button" data-case="b" aria-pressed="true"><strong>B / Mean wins</strong><span>40, 42, 50, 60, 68 · target 52</span></button><button class="preset" type="button" data-case="c" aria-pressed="false"><strong>C / Every-target tie</strong><span>0, 0, 50, 100, 100 · target 50</span></button></div><p>Want to drag all five independently? Open <a href="shape-the-data.html">Shape the Data</a>. For one chosen reading's full error curves, use <a href="flip-point.html">Flip Point</a>.</p></section>
+        <section class="panel" aria-labelledby="carry-title"><p class="eyebrow">Continue the investigation</p><h2 id="carry-title">Test the change yourself.</h2><p>Try a ranked flip, then move that arrangement by hand or inspect its complete target and fifth-reading field.</p><div class="actions"><a class="button" id="shape-link" href="shape-the-data.html">Open in Shape the Data ↗</a><a class="button secondary" id="field-link" href="decision-field.html">Open the Decision Field ↗</a><button class="action secondary" id="copy-view" type="button">Copy exact rack</button><a class="button secondary" id="open-view" href="flip-levers.html">Open exact rack ↗</a></div><p id="share-status" role="status"></p><p class="note">“Smallest” means the nearest four-decimal input within 0–100 that produces the opposing strict winner when exactly one reading moves. Reaching the tie alone does not reverse the winner. Some readings have no such move. The target is chosen, not independently verified; numeric leverage here is not a claim about people or real-world reliability. Shared URLs include all six numbers; use invented or public values. Computation stays in the browser.</p></section></div>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+  <script src="flip-levers.js?v=1" defer></script>
+</body>
+</html>
