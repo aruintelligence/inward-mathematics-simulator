@@ -475,6 +475,37 @@ test("reader-supplied sweep keeps four values and target in its exact new challe
   assert.equal(decimal.element("sweep-link").href,"challenge.html?values=10.5%2C20.25%2C50%2C60.75%2C69&target=52.5");
 });
 
+test("printable worksheet links three blind cases to the correct mean, median, and tie results", () => {
+  const html=fs.readFileSync(path.join(__dirname,"..","worksheet.html"),"utf8");
+  const examples=[
+    {id:"a",values:[48,49,50,51,85],target:50,winner:"Median",mean:"56.60 / 6.60",median:"50.00 / 0.00"},
+    {id:"b",values:[40,42,50,60,68],target:52,winner:"Mean",mean:"52.00 / 0.00",median:"50.00 / 2.00"},
+    {id:"c",values:[0,0,50,100,100],target:50,winner:"Equal",mean:"50.00 / 0.00",median:"50.00 / 0.00"},
+  ];
+  for(const example of examples) {
+    const card=html.match(new RegExp('<article class="case" aria-labelledby="case-'+example.id+'">([\\s\\S]*?)<\\/article>'));
+    assert.ok(card,"case "+example.id+" exists");
+    assert.deepEqual([...card[1].matchAll(/<li>(\d+)<\/li>/g)].map(match=>Number(match[1])),example.values);
+    assert.match(card[1],new RegExp("Stated target: "+example.target));
+    const link=card[1].match(/href="(challenge\.html\?[^"]+)"/);
+    assert.ok(link,"case "+example.id+" has a check link");
+    const query=link[1].replaceAll("&amp;","&").split("?")[1];
+    const challenge=loadChallenge("?"+query);
+    assert.equal(challenge.element("result").hidden,true);
+    assert.equal(challenge.element("target-badge").textContent,"Target "+example.target);
+    const guess=example.winner.toLowerCase()==="equal"?"equal":example.winner.toLowerCase();
+    click(challenge.element("guess-"+guess));
+    assert.equal(challenge.element("verdict").textContent,"You called it.");
+    assert.equal(challenge.element("mean-result").textContent,example.mean);
+    assert.equal(challenge.element("median-result").textContent,example.median);
+  }
+  assert.match(html,/@media print\s*\{/);
+  assert.match(html,/\.teacher-key\s*\{ break-before:page;/);
+  assert.match(html,/addEventListener\("beforeprint"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","guide.html"),"utf8"),/href="worksheet\.html"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="worksheet\.html"/);
+});
+
 test("workbench offers a challenge only for shareable data and clears it on invalid input", () => {
   const lab=loadLab();
   assert.equal(lab.element("workbench-challenge").hidden,false);
