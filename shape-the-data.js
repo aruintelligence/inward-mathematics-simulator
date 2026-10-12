@@ -161,6 +161,7 @@
     for(const button of document.querySelectorAll(".preset")) button.setAttribute("aria-pressed",String(button.dataset.case===current.key));
     const values=current.values.map(fmt).join(","),target=fmt(current.target);
     $("challenge-link").href="challenge.html?values="+encodeURIComponent(values)+"&target="+target;
+    $("levers-link").href="flip-levers.html?values="+encodeURIComponent(values)+"&target="+target;
     $("field-link").href="decision-field.html?fixed="+encodeURIComponent(current.values.slice(0,4).map(fmt).join(","))+"&fifth="+fmt(current.values[4])+"&target="+target;
     $("workbench-link").href="index.html?dataset="+encodeURIComponent(values)+"&target="+target+"#workbench-title";
     $("open-view").href=viewUrl();
