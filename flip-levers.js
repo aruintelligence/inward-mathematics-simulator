@@ -9,6 +9,7 @@
   const pattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/;
   const number=raw=>pattern.test(raw)&&Number(raw)<=100?Number(raw):null;
   const fmt=value=>String(Number(value.toFixed(4)));
+  const boundaryLabel=value=>Math.abs(value-Number(value.toFixed(8)))>1e-10?"≈"+String(Number(value.toFixed(8))):fmt(value);
   function parseView(search) {
     const query=new URLSearchParams(search);
     if(!query.has("values")&&!query.has("target")) return null;
@@ -127,22 +128,22 @@
       top.append(title,amount);
       const track=document.createElement("div");track.className="track";
       track.setAttribute("role","img");
-      track.setAttribute("aria-label","Reading "+(lever.index+1)+" from 0 to 100. Current "+fmt(lever.value)+". "+lever.solution.regions.map(region=>region.winner+" closer from "+fmt(region.from)+" to "+fmt(region.to)).join("; ")+". "+(lever.flip?"First opposing winner at "+fmt(lever.flip.value)+".":"No ranked flip."));
+      track.setAttribute("aria-label","Reading "+(lever.index+1)+" from 0 to 100. Current "+fmt(lever.value)+". "+lever.solution.regions.map(region=>region.winner+" closer from "+boundaryLabel(region.from)+" to "+boundaryLabel(region.to)).join("; ")+". "+(lever.flip?"First opposing winner at "+fmt(lever.flip.value)+".":"No ranked flip."));
       for(const region of lever.solution.regions) {
         const band=document.createElement("span");band.className="region "+region.winner.toLowerCase();
         band.style.left=region.from+"%";band.style.width=(region.to-region.from)+"%";
-        band.title=region.winner+" closer from "+fmt(region.from)+" to "+fmt(region.to);
+        band.title=region.winner+" closer from "+boundaryLabel(region.from)+" to "+boundaryLabel(region.to);
         track.append(band);
       }
       for(const boundary of lever.solution.boundaries) {
         const tick=document.createElement("span");tick.className="boundary"+(boundary.reversal?" reversal":" touch");tick.style.left=boundary.value+"%";
-        tick.title=(boundary.reversal?"Winner reversal":"Tie without reversal")+" at "+fmt(boundary.value);track.append(tick);
+        tick.title=(boundary.reversal?"Winner reversal":"Tie without reversal")+" at "+boundaryLabel(boundary.value);track.append(tick);
       }
       const marker=document.createElement("span");marker.className="marker";marker.style.left=lever.value+"%";track.append(marker);
       if(lever.flip) {const goal=document.createElement("span");goal.className="goal";goal.style.left=lever.flip.value+"%";track.append(goal);}
       const bottom=document.createElement("div");bottom.className="lever-bottom";
       const description=document.createElement("span");description.textContent=lever.flip
-        ?"Cross the tie at "+fmt(lever.flip.boundary)+"; first four-decimal value with "+lever.flip.winner.toLowerCase()+" closer is "+fmt(lever.flip.value)+"."
+        ?"Cross the tie at "+boundaryLabel(lever.flip.boundary)+"; first four-decimal value with "+lever.flip.winner.toLowerCase()+" closer is "+fmt(lever.flip.value)+"."
         :stats.winner==="Equal"?"The current result ties. Change a reading to create a winner, then rank flips.":"No true reversal in this reading's 0–100 range.";
       bottom.append(description);
       if(lever.flip) {
