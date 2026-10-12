@@ -140,7 +140,7 @@
           <h1>Inward Mathematics<span style="color:var(--mint)">™</span></h1>
           <p class="hero-hook">One number can change the answer.</p>
           <p class="intro">Move one of five generated estimates. Watch the mean and median diverge, then see what happens when the same test runs across 128 seeds. Every input and equation is open to inspect.</p>
-          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
+          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="atlas.html">Explore 12,928 outcomes ↗</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
         </div>
         <aside class="hero-instrument" aria-label="Live fifth-observer reading and estimator errors">
           <p class="eyebrow">Live witness reading</p>
@@ -162,7 +162,7 @@
         <button id="scene-reversal" class="scene-card" type="button" aria-pressed="false"><small>03 / cohort reversal</small><strong>Average and majority disagree</strong><span>At 50, lower average error and more individual wins point to different estimators.</span><em>Load the cohort case ↗</em></button>
       </div>
       <p id="journey-outcome" class="journey-outcome" role="status"></p>
-      <div class="share-row"><button id="copy-link" class="share-action" type="button">Copy this exact case</button><a id="share-link" href="#start">Open the case link</a><a id="challenge-link" href="challenge.html">Challenge someone with this case ↗</a><a href="guide.html">Teach with the five-minute lesson ↗</a><span id="share-status" role="status"></span></div>
+      <div class="share-row"><button id="copy-link" class="share-action" type="button">Copy this exact case</button><a id="share-link" href="#start">Open the case link</a><a id="challenge-link" href="challenge.html">Challenge someone with this case ↗</a><a id="atlas-link" href="atlas.html">Find this case in the atlas ↗</a><a href="guide.html">Teach with the five-minute lesson ↗</a><span id="share-status" role="status"></span></div>
     </section>
 
     <section id="workbench" class="sensitivity workbench" aria-labelledby="workbench-title">
@@ -431,6 +431,7 @@
       $("journey-outcome").textContent="Seed "+simulation.seed+", fifth estimate "+fifth+": "+oneText+" in this single case (mean "+stats.meanError.toFixed(2)+", median "+stats.medianError.toFixed(2)+"). Across 128 generated seeds, "+averageText+"; the median wins in "+point.medianLowerErrorCount+" individual cases. Follow the charts below to inspect why.";
       $("share-link").href=caseUrl();
       $("challenge-link").href="challenge.html?seed="+simulation.seed+"&fifth="+fifth;
+      $("atlas-link").href="atlas.html?start="+simulation.seed+"&offset=0&fifth="+fifth;
     }
     function loadScene(key) {
       activeScene=key;

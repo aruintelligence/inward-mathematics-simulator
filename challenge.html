@@ -107,7 +107,7 @@
           <p id="answer"></p>
           <div class="numbers"><div><span>Mean / absolute error</span><strong id="mean-result">—</strong></div><div><span>Median / absolute error</span><strong id="median-result">—</strong></div></div>
           <p id="explanation"></p>
-          <a class="button" id="lab-link" href="index.html#start">Inspect this exact case in the lab ↗</a>
+          <a class="button" id="lab-link" href="index.html#start">Inspect this exact case in the lab ↗</a> <a id="atlas-link" href="atlas.html">Find it in the 12,928-case atlas ↗</a>
         </div>
       </section>
       <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><span id="share-status" class="status" role="status"></span></div>
@@ -147,6 +147,7 @@
     }
     $("share-link").href=challengeUrl();
     $("lab-link").href=labUrl();
+    $("atlas-link").href="atlas.html?start="+selected.seed+"&offset=0&fifth="+selected.fifth;
     function reveal(pick) {
       for(const answer of ["mean","median","equal"]) {
         const button=$("guess-"+answer);
