@@ -30,6 +30,8 @@ The first screen offers three guided cases: an extreme fifth estimate at 85, a c
 
 The first-screen instrument now has its own fifth-reading slider. Moving it updates the error numbers, the closer estimate, the charts, and the lower lab slider together. **See a mean/median win** jumps to an opposing result for the current seed when one exists; the link beside it opens the selected case as a blind challenge. Guided cases, reset, and shared URLs also update this control. The result is for these five generated values against the stated target of 50, not a general claim about the estimators.
 
+On narrow layouts, the instrument follows the headline before the longer introduction and route links, so the first interaction appears sooner in reading and keyboard order. Its range control has a taller touch area, and its flip and challenge actions have at least 44-pixel-high targets; at phone widths those actions stack across the card. The desktop and mobile layouts use the same calculations and controls.
+
 The checked-in [social preview](social-card.png) is generated from the same seed-42 cohort equations with `python tools/render_social_card.py` (Pillow required only to regenerate the image). Its chart is illustrative of this specific toy cohort; it does not report a population result.
 
 ## Bring your own numbers
