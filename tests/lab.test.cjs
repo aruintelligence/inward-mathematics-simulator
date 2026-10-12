@@ -625,6 +625,8 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.equal(shortest.moveUnits,16667);
   assert.equal(shortest.minimumUnits,16667);
   assert.equal(shortest.result.winner,"Median");
+  assert.equal(shortest.result.meanError,0.33334);
+  assert.equal(shortest.result.medianError,0.3333);
   const longer=scoreAttempt(first,2,"52");
   assert.equal(longer.flipped,true);
   assert.equal(longer.excessUnits,3333);
@@ -644,7 +646,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=1" defer/);
+  assert.match(page,/src="one-move\.js\?v=2" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round puzzle/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });

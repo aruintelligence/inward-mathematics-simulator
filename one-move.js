@@ -8,6 +8,7 @@
     {values:[77,40,58,67,74],target:48,title:"The long reach",cue:"The mean leads again. How little can you move to reverse it?"}
   ];
   const fmt=value=>String(Number(value.toFixed(4)));
+  const errorFmt=value=>String(Number(value.toFixed(5)));
   const valid=raw=>/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/.test(String(raw))&&Number(raw)<=100?Number(raw):null;
   const units=value=>Math.round(value*10000);
   function parsePuzzle(search) {
@@ -69,7 +70,7 @@
     $("current-winner").textContent=stats.winner+" closer";
     $("current-winner").dataset.winner=stats.winner;
     $("mission").textContent="Make the "+opposite+" strictly closer to the chosen target by moving only one reading.";
-    $("current-stats").textContent="Mean "+fmt(stats.mean)+" (error "+fmt(stats.meanError)+") · median "+fmt(stats.median)+" (error "+fmt(stats.medianError)+").";
+    $("current-stats").textContent="Mean "+errorFmt(stats.mean)+" (error "+errorFmt(stats.meanError)+") · median "+fmt(stats.median)+" (error "+errorFmt(stats.medianError)+").";
     $("target").textContent=fmt(puzzle.target);
     $("target-marker").style.left=puzzle.target+"%";
     choiceButtons.forEach((button,index)=>{
@@ -106,7 +107,7 @@
     $("result").hidden=false;$("result").dataset.outcome=flipped?"success":"retry";
     $("result-title").textContent=outcome;
     $("result-detail").textContent=flipped
-      ?"Reading "+(selected+1)+" moved from "+fmt(puzzle.values[selected])+" to "+fmt(proposed)+". "+result.winner+" is now closer: mean error "+fmt(result.meanError)+", median error "+fmt(result.medianError)+"."
+      ?"Reading "+(selected+1)+" moved from "+fmt(puzzle.values[selected])+" to "+fmt(proposed)+". "+result.winner+" is now closer: mean error "+errorFmt(result.meanError)+", median error "+errorFmt(result.medianError)+"."
       :result.winner==="Equal"?"Both estimates have equal error here. Cross the tie to give the opposing estimate a strict lead."
       :"The "+result.winner.toLowerCase()+" is still closer. Try a different value or reading.";
     $("benchmark").hidden=!flipped;
