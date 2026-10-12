@@ -4,7 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const {test} = require("node:test");
 
-function loadLab() {
+function loadLab(search="") {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
@@ -12,6 +12,7 @@ function loadLab() {
   const initial = {"alpha":"1.5","shock-strength":"60","seed":"42","outlier":"85"};
   const elements = new Map();
   const download = {clicked:false,blob:null,filename:null};
+  const share = {copied:null,scrolled:null};
   const context = new Proxy({}, {get: (_target, key) => {
     if (key === "canvas") return undefined;
     return () => {};
@@ -19,14 +20,17 @@ function loadLab() {
   function element(id) {
     if (!elements.has(id)) {
       elements.set(id, {
-        value: initial[id] ?? "", textContent: "", handlers: {},
+        value: initial[id] ?? "", textContent: "", handlers: {}, attributes:{},
         addEventListener(name, handler) {this.handlers[name] = handler;},
+        setAttribute(name,value) {this.attributes[name]=value;},
+        scrollIntoView() {share.scrolled=id;},
         getContext() {return context;},
       });
     }
     return elements.get(id);
   }
-  const window = {matchMedia: () => ({matches:false})};
+  const window = {matchMedia: () => ({matches:false}),location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/"+search}};
+  const navigator = {clipboard:{async writeText(value) {share.copied=value;}}};
   const document = {
     getElementById:element,
     body:{append(){}},
@@ -39,14 +43,14 @@ function loadLab() {
     },
   };
   vm.runInNewContext(script[1], {
-    document,window,requestAnimationFrame:()=>{},
+    document,window,navigator,URLSearchParams,requestAnimationFrame:()=>{},
     URL:{createObjectURL(blob) {download.blob=blob;return "blob:mock";},revokeObjectURL(){}},
     Blob,setTimeout:()=>{},
   }, {timeout:1000});
-  return {window,element,html,download};
+  return {window,element,html,download,share};
 }
 
-function click(element) {element.handlers.click();}
+function click(element) {return element.handlers.click();}
 function input(element, value) {element.value=String(value);element.handlers.input();}
 function snapshot(lab) {return JSON.parse(JSON.stringify(lab.window.InwardMathLab.snapshot()));}
 
@@ -149,6 +153,42 @@ test("seed cohort wraps at the unsigned 32-bit boundary", () => {
   click(lab.element("reset"));
   assert.deepEqual(cohort.members[1].observers,snapshot(lab).witnesses.seeded);
   for(const point of cohort.points) assert.equal(point.meanLowerErrorCount+point.medianLowerErrorCount+point.equalErrorCount,128);
+});
+
+test("guided cases load reproducible settings and reveal the intended chart", () => {
+  const lab=loadLab();
+  lab.element("seed").value="99";
+  click(lab.element("reset"));
+  click(lab.element("scene-mean"));
+  assert.equal(snapshot(lab).seed,42);
+  assert.equal(snapshot(lab).witnesses.adjustable,40);
+  assert.equal(lab.element("scene-mean").attributes["aria-pressed"],"true");
+  assert.equal(lab.share.scrolled,"sensitivity-title");
+  assert.ok(snapshot(lab).witnesses.meanAbsoluteError<snapshot(lab).witnesses.medianAbsoluteError);
+  click(lab.element("step"));
+  click(lab.element("scene-reversal"));
+  assert.equal(snapshot(lab).witnesses.adjustable,50);
+  assert.equal(snapshot(lab).step,1);
+  assert.equal(lab.share.scrolled,"cohort-title");
+  assert.equal(lab.element("scene-mean").attributes["aria-pressed"],"false");
+  assert.match(lab.element("journey-outcome").textContent,/median wins in 75 individual cases/);
+  input(lab.element("outlier"),85);
+  assert.equal(lab.element("scene-reversal").attributes["aria-pressed"],"false");
+  assert.equal(lab.element("hero-fifth").textContent,"85");
+});
+
+test("shared case links restore validated inputs and can be copied", async () => {
+  const lab=loadLab("?seed=43&fifth=40");
+  assert.equal(snapshot(lab).seed,43);
+  assert.equal(snapshot(lab).witnesses.adjustable,40);
+  const expected="https://aruintelligence.github.io/inward-mathematics-simulator/?seed=43&fifth=40#start";
+  assert.equal(lab.element("share-link").href,expected);
+  await click(lab.element("copy-link"));
+  assert.equal(lab.share.copied,expected);
+  assert.equal(lab.element("share-status").textContent,"Exact case link copied.");
+  const invalid=loadLab("?seed=4294967296&fifth=101");
+  assert.equal(snapshot(invalid).seed,42);
+  assert.equal(snapshot(invalid).witnesses.adjustable,85);
 });
 
 test("export button downloads seed, parameter changes, and exact shock impulse", async () => {

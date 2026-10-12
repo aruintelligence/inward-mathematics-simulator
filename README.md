@@ -4,6 +4,8 @@ A dependency-free browser demonstration of two **toy models**: a damped attracto
 
 **[Open the live interactive lab](https://aruintelligence.github.io/inward-mathematics-simulator/)** · [Read the source](index.html)
 
+![One number changes the answer: mean and median error curves across 128 generated seeds, with the seed-42 cohort result at fifth estimate 50.](social-card.png)
+
 ## Open it
 
 Open the live lab above, or download the repository and open `index.html` in a modern browser. No build, network connection, or server is required for the downloaded version. For a quick comparison, leave seed at 42 and move the fifth observer to 50; the single-seed and 128-seed results differ in useful ways. To run the model tests, use Node.js 22 or later:
@@ -11,6 +13,10 @@ Open the live lab above, or download the repository and open `index.html` in a m
 ```bash
 node tests/lab.test.cjs
 ```
+
+The first screen offers three guided cases: an extreme fifth estimate at 85, a counterexample where the mean has lower error at 40, and a cohort reversal at 50. Choosing one sets seed 42 and moves to the relevant chart. **Copy this exact case** creates a link with validated `seed` and `fifth` parameters; opening that link restores the same witness setup. The link does not encode the spring's step history or shocks. The live reading and guided outcome update as you change the slider. The page contains a descriptive title, summary, and canonical URL for the published lab; the local file works without a network connection.
+
+The checked-in [social preview](social-card.png) is generated from the same seed-42 cohort equations with `python tools/render_social_card.py` (Pillow required only to regenerate the image). Its chart is illustrative of this specific toy cohort; it does not report a population result.
 
 ## Experiment 1: Remembrance Calculus™
 
