@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07121d">
   <title>Mean or Median? Take the Inward Mathematics Challenge</title>
-  <meta name="description" content="Five generated readings, one known target. Predict whether the mean or median gets closer before the answer is revealed, then inspect the exact reproducible case.">
+  <meta name="description" content="Five readings, one known target. Predict whether the mean or median gets closer, or create and embed a challenge with your own numbers.">
   <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Mean or Median? Make Your Prediction">
@@ -41,7 +41,7 @@
     .values strong { display:block; overflow-wrap:anywhere; font:750 clamp(1.1rem,2.4vw,1.65rem) ui-monospace,SFMono-Regular,monospace; }
     .values li:last-child { border-color:var(--rose); }
     .values li:last-child strong { color:var(--rose); }
-    .plot { position:relative; height:105px; margin:22px 16px 14px; border-bottom:2px solid #7593a0; background:linear-gradient(to right,transparent 49.9%,#ffffff4d 50%,transparent 50.1%); }
+    .plot { position:relative; height:105px; margin:22px 16px 14px; border-bottom:2px solid #7593a0; }
     .plot .point { position:absolute; width:13px; height:13px; border-radius:50%; bottom:22px; transform:translateX(-50%); background:#73cde8; box-shadow:0 0 0 3px #0c2632; }
     .plot .point:nth-child(even) { bottom:47px; }
     .plot .point.fifth { background:var(--rose); width:17px; height:17px; bottom:34px; }
@@ -74,13 +74,22 @@
     .embed-kit textarea { display:block; width:100%; min-height:92px; resize:vertical; padding:10px; border:1px solid #648a93; border-radius:9px; background:#071522; color:var(--text); font:13px/1.5 ui-monospace,SFMono-Regular,monospace; }
     .embed-kit textarea:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
     .embed-kit button { margin-top:10px; }
+    .builder { margin:25px 0; padding:16px 20px; border:1px solid var(--line); border-radius:13px; background:#0d2434; }
+    .builder summary { cursor:pointer; color:var(--gold); font-weight:800; }
+    .builder p { color:var(--muted); }
+    .builder label { display:block; margin:10px 0; font-weight:700; }
+    .builder input { display:block; width:100%; max-width:560px; min-height:44px; margin-top:5px; padding:8px 12px; border:1px solid #648a93; border-radius:9px; background:#071522; color:var(--text); font:inherit; }
+    .builder input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    #builder-error { color:var(--rose); font-weight:750; }
+    #link-warning { color:var(--rose); font-weight:750; }
+    #atlas-link[hidden] { display:none; }
     .embed-note,#full-challenge { display:none; }
     .scope { border-left:3px solid var(--gold); background:#122938; padding:10px 16px; border-radius:0 9px 9px 0; color:#d7e8e7; }
     footer { border-top:1px solid var(--line); color:var(--muted); padding:20px 0 35px; font-size:.84rem; }
     @media(max-width:640px) { .values { grid-template-columns:repeat(2,minmax(0,1fr)); } .values li:last-child { grid-column:1/-1; } .numbers { grid-template-columns:1fr; } .choices button { flex:1; min-width:95px; } }
     body.embedded { background:#07121d; font-size:15px; }
     .embedded .wrap { width:100%; padding:0 10px; }
-    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .eyebrow.intro-label { display:none; }
+    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .eyebrow.intro-label { display:none; }
     .embedded h1 { font-size:clamp(1.45rem,5vw,2rem); margin:12px 0 3px; }
     .embedded .challenge { margin:10px 0; padding:13px; border-radius:15px; box-shadow:none; }
     .embedded .case-head .eyebrow { margin:3px 0; }
@@ -118,21 +127,22 @@
     <main id="challenge">
       <p class="eyebrow intro-label">One-minute prediction challenge</p>
       <h1>Which estimate gets closer?</h1>
-      <p class="intro">Five generated readings aim at a known target of 50. Choose the mean, median, or a tie before the calculation appears. Then inspect the same inputs in the full lab.</p>
+      <p class="intro" id="intro">Five generated readings aim at a known target of 50. Choose the mean, median, or a tie before the calculation appears. Then inspect the same inputs in the full lab.</p>
+      <p id="link-warning" role="alert"></p>
       <section class="challenge" aria-labelledby="case-title">
-        <div class="case-head"><p class="eyebrow">The five readings</p><span class="target">Target 50</span></div>
+        <div class="case-head"><p class="eyebrow">The five readings</p><span class="target" id="target-badge">Target 50</span></div>
         <h2 id="case-title">Make your call before you reveal.</h2>
-        <ol class="values" aria-label="Five generated observations">
-          <li><span>Observer 1</span><strong id="value-1">—</strong></li>
-          <li><span>Observer 2</span><strong id="value-2">—</strong></li>
-          <li><span>Observer 3</span><strong id="value-3">—</strong></li>
-          <li><span>Observer 4</span><strong id="value-4">—</strong></li>
-          <li><span>Observer 5</span><strong id="value-5">—</strong></li>
+        <ol class="values" id="values-list" aria-label="Five generated observations">
+          <li><span>Reading 1</span><strong id="value-1">—</strong></li>
+          <li><span>Reading 2</span><strong id="value-2">—</strong></li>
+          <li><span>Reading 3</span><strong id="value-3">—</strong></li>
+          <li><span>Reading 4</span><strong id="value-4">—</strong></li>
+          <li><span>Reading 5</span><strong id="value-5">—</strong></li>
         </ol>
-        <div class="plot" role="img" aria-label="The five readings on a scale from zero to one hundred, with the target at fifty">
+        <div class="plot" id="plot" role="img" aria-label="The five readings on a scale from zero to one hundred, with the target at fifty">
           <span class="point" id="dot-1"></span><span class="point" id="dot-2"></span><span class="point" id="dot-3"></span><span class="point" id="dot-4"></span><span class="point fifth" id="dot-5"></span>
         </div>
-        <div class="axis" aria-hidden="true"><span>0</span><span>Target 50</span><span>100</span></div>
+        <div class="axis" aria-hidden="true"><span>0</span><span>100</span></div>
         <p class="question">Which has the smaller absolute error?</p>
         <div class="choices" role="group" aria-label="Choose the closer estimate">
           <button id="guess-mean" type="button" aria-pressed="false">Mean</button>
@@ -148,9 +158,10 @@
         </div>
       </section>
       <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><a id="full-challenge" href="challenge.html">Explore the full challenge ↗</a><span id="share-status" class="status" role="status"></span></div>
-      <details class="embed-kit"><summary>Put this challenge on your own page</summary><p>Copy this iframe into a webpage or course page that accepts HTML. It embeds this exact generated case, asks for a prediction before revealing the answer, and links back to the full lab. The widget has no account, tracking, or backend. Test the display in your publishing platform before sharing it.</p><label for="embed-code">Embed code</label><textarea id="embed-code" readonly rows="3"></textarea><button id="copy-embed" type="button">Copy embed code</button><span id="embed-status" class="status" role="status"></span></details>
-      <p class="embed-note">Generated toy readings; target 50. One case does not establish a universal rule. <a href="index.html">Inspect the method in the lab.</a></p>
-      <p class="scope">This is a deterministic toy example. The four generated values use the lab's seed rule; the fifth value is a chosen input. A closer estimate here is not a generally superior estimator, and the numbers do not measure memory, consciousness, safety, or a physical law. Displayed observations are rounded to four decimal places; calculations use their full generated precision.</p>
+      <details class="builder" id="builder"><summary>Create a challenge with your own numbers</summary><p>Enter exactly five readings and a known target, all from 0 to 100 with at most four decimal places. Previewing opens a new challenge with the answer hidden. These numbers become part of its URL and may appear in browser history, hosting logs, and links you share. Use invented or public data, never private information.</p><label for="builder-values">Five readings, separated by commas<input id="builder-values" type="text" value="48, 49, 50, 51, 85" spellcheck="false"></label><label for="builder-target">Known target<input id="builder-target" type="text" value="50" inputmode="decimal"></label><button id="build" type="button">Preview my challenge ↗</button><p id="builder-error" role="alert"></p></details>
+      <details class="embed-kit"><summary>Put this challenge on your own page</summary><p id="embed-description">Copy this iframe into a webpage or course page that accepts HTML. It embeds this exact case, asks for a prediction before revealing the answer, and links back to the full lab. The widget has no account, tracking, or backend. Test the display in your publishing platform before sharing it.</p><label for="embed-code">Embed code</label><textarea id="embed-code" readonly rows="3"></textarea><button id="copy-embed" type="button">Copy embed code</button><span id="embed-status" class="status" role="status"></span></details>
+      <p class="embed-note"><span id="embed-note-lead">Generated toy readings; target 50. One case does not establish a universal rule. </span><a href="index.html">Inspect the method in the lab.</a></p>
+      <p class="scope" id="scope">This is a deterministic toy example. The four generated values use the lab's seed rule; the fifth value is a chosen input. A closer estimate here is not a generally superior estimator, and the numbers do not measure memory, consciousness, safety, or a physical law. Displayed observations are rounded to four decimal places; calculations use their full generated precision.</p>
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
@@ -158,11 +169,32 @@
     "use strict";
     const $=id=>document.getElementById(id);
     const bank=[[42,40],[42,85],[58,35],[23,80],[2026,40],[7,30],[17,55],[91,70],[1,45],[123,25],[512,55],[42,75]];
+    function parseCustom(rawValues,rawTarget) {
+      if(String(rawValues??"").length>80 || String(rawTarget??"").length>16) return null;
+      const number=raw=>{
+        const text=String(raw??"").trim();
+        return /^\d{1,3}(?:\.\d{1,4})?$/.test(text)&&Number(text)<=100?Number(text):null;
+      };
+      const parts=String(rawValues??"").split(",");
+      if(parts.length!==5) return null;
+      const values=parts.map(number),target=number(rawTarget);
+      return values.every(value=>value!==null)&&target!==null?{values,target}:null;
+    }
     function params() {
       const query=new URLSearchParams(window.location.search);
       const seedText=query.get("seed"),fifthText=query.get("fifth");
       const valid=(raw,max)=>raw!==null && /^\d+$/.test(raw) && Number.isInteger(Number(raw)) && Number(raw)<=max;
-      return {seed:valid(seedText,4294967295)?Number(seedText):42,fifth:valid(fifthText,100)?Number(fifthText):40};
+      const generated={mode:"generated",seed:valid(seedText,4294967295)?Number(seedText):42,fifth:valid(fifthText,100)?Number(fifthText):40};
+      if(!query.has("values")) return generated;
+      const custom=parseCustom(query.get("values"),query.get("target"));
+      return custom?{mode:"custom",...custom}:{...generated,invalidCustom:true};
+    }
+    function statsFor(values,target) {
+      const mean=values.reduce((sum,value)=>sum+value,0)/5;
+      const median=[...values].sort((a,b)=>a-b)[2];
+      const meanError=Math.abs(mean-target),medianError=Math.abs(median-target);
+      const winner=Math.abs(meanError-medianError)<1e-9?"Equal":meanError<medianError?"Mean":"Median";
+      return {values,target,mean,median,meanError,medianError,winner};
     }
     function statsAt(seed,fifth) {
       let state=(seed^0x85ebca6b)>>>0;
@@ -171,19 +203,31 @@
         return 42+16*state/4294967296;
       });
       values.push(fifth);
-      const mean=values.reduce((sum,value)=>sum+value,0)/5;
-      const median=[...values].sort((a,b)=>a-b)[2];
-      const meanError=Math.abs(mean-50),medianError=Math.abs(median-50);
-      const winner=Math.abs(meanError-medianError)<1e-9?"Equal":meanError<medianError?"Mean":"Median";
-      return {seed,fifth,values,mean,median,meanError,medianError,winner};
+      return {seed,fifth,...statsFor(values,50)};
     }
-    const selected=params(),stats=statsAt(selected.seed,selected.fifth);
+    const selected=params(),stats=selected.mode==="custom"?statsFor(selected.values,selected.target):statsAt(selected.seed,selected.fifth);
     if(new URLSearchParams(window.location.search).get("embed")==="1") document.body.classList.add("embedded");
-    const challengeUrl=()=>window.location.href.split(/[?#]/)[0]+"?seed="+selected.seed+"&fifth="+selected.fifth;
-    const labUrl=()=>"index.html?seed="+selected.seed+"&fifth="+selected.fifth+"#start";
-    const embedCode=()=>'<iframe title="Mean or median prediction challenge" src="https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed='+selected.seed+'&fifth='+selected.fifth+'&embed=1" loading="lazy" width="100%" height="800" style="max-width:680px;border:0;border-radius:16px"></iframe>';
+    const caseQuery=()=>selected.mode==="custom"?"values="+encodeURIComponent(stats.values.join(","))+"&target="+stats.target:"seed="+selected.seed+"&fifth="+selected.fifth;
+    const challengeUrl=()=>window.location.href.split(/[?#]/)[0]+"?"+caseQuery();
+    const labUrl=()=>selected.mode==="custom"?"index.html?dataset="+encodeURIComponent(stats.values.join(","))+"&target="+stats.target+"#workbench-title":"index.html?seed="+selected.seed+"&fifth="+selected.fifth+"#start";
+    const embedCode=()=>'<iframe title="Mean or median prediction challenge" src="'+challengeUrl()+'&embed=1" loading="lazy" width="100%" height="800" style="max-width:680px;border:0;border-radius:16px"></iframe>';
+    if(selected.invalidCustom) $("link-warning").textContent="That custom link has invalid readings or target. Showing a generated example instead.";
+    if(selected.mode==="custom") {
+      $("intro").textContent="Five reader-supplied values and a reader-supplied target. Choose the mean, median, or a tie before the calculation appears. The target is supplied, not independently verified.";
+      $("values-list").setAttribute("aria-label","Five reader-supplied values");
+      $("lab-link").textContent="Inspect these values in the workbench ↗";
+      $("atlas-link").hidden=true;
+      $("scope").textContent="This challenge uses values supplied through a share link. The target is a reference supplied by its author, not verified by this page. A closer estimate in one case does not prove a universal rule. Values in the URL may appear in history, hosting logs, and shared links; do not use private data.";
+      $("embed-note-lead").textContent="Reader-supplied values and target "+stats.target+". One case does not establish a universal rule. ";
+      $("embed-description").textContent+=" Reader-supplied values are in the embed URL; use invented or public data only.";
+      $("builder-values").value=stats.values.join(", ");
+      $("builder-target").value=String(stats.target);
+    }
+    $("target-badge").textContent="Target "+stats.target;
+    $("plot").setAttribute("aria-label","Five readings on a scale from zero to one hundred, with the stated target at "+stats.target);
+    $("plot").style.background="linear-gradient(to right,transparent calc("+stats.target+"% - 1px),#ffffff80 "+stats.target+"%,transparent calc("+stats.target+"% + 1px))";
     for(let i=0;i<5;i++) {
-      $("value-"+(i+1)).textContent=i===4?String(stats.values[i]):stats.values[i].toFixed(4);
+      $("value-"+(i+1)).textContent=selected.mode==="custom"?String(stats.values[i]):i===4?String(stats.values[i]):stats.values[i].toFixed(4);
       $("dot-"+(i+1)).style.left=stats.values[i]+"%";
     }
     $("share-link").href=challengeUrl();
@@ -200,12 +244,17 @@
       $("result").hidden=false;
       const correct=pick.toLowerCase()===stats.winner.toLowerCase();
       $("verdict").textContent=correct?"You called it.":"Surprise: "+(stats.winner==="Equal"?"the errors tie.":"the "+stats.winner.toLowerCase()+" gets closer.");
-      $("answer").textContent="For seed "+selected.seed+" and fifth reading "+selected.fifth+", "+(stats.winner==="Equal"?"the two errors are equal.":"the "+stats.winner.toLowerCase()+" has the smaller error against 50.");
+      $("answer").textContent=(selected.mode==="custom"?"For the five supplied values":"For seed "+selected.seed+" and fifth reading "+selected.fifth)+", "+(stats.winner==="Equal"?"the two errors are equal.":"the "+stats.winner.toLowerCase()+" has the smaller error against "+stats.target+".");
       $("mean-result").textContent=stats.mean.toFixed(2)+" / "+stats.meanError.toFixed(2);
       $("median-result").textContent=stats.median.toFixed(2)+" / "+stats.medianError.toFixed(2);
-      $("explanation").textContent="Mean = sum of all five ÷ 5. Median = the middle sorted reading. Absolute error = distance from the stated target 50. The fifth reading changes both estimates by different amounts.";
+      $("explanation").textContent="Mean = sum of all five ÷ 5. Median = the middle sorted reading. Absolute error = distance from the stated target "+stats.target+"."+(selected.mode==="custom"?" The target was supplied by the author of this link.":" The fifth reading changes both estimates by different amounts.");
     }
     for(const answer of ["mean","median","equal"]) $("guess-"+answer).addEventListener("click",()=>reveal(answer));
+    $("build").addEventListener("click",()=>{
+      const custom=parseCustom($("builder-values").value,$("builder-target").value);
+      if(!custom) {$("builder-error").textContent="Enter exactly five comma-separated numbers and one target, each from 0 to 100 with up to four decimal places.";return;}
+      window.location.href=window.location.href.split(/[?#]/)[0]+"?values="+encodeURIComponent(custom.values.join(","))+"&target="+custom.target;
+    });
     $("next").addEventListener("click",()=>{
       const other=bank.filter(([seed,fifth])=>seed!==selected.seed||fifth!==selected.fifth);
       const [seed,fifth]=other[Math.floor(Math.random()*other.length)];
@@ -219,7 +268,7 @@
       try { await navigator.clipboard.writeText(embedCode());$("embed-status").textContent="Embed code copied."; }
       catch { $("embed-status").textContent="Select the visible embed code to copy it."; }
     });
-    window.InwardMathChallenge=Object.freeze({statsAt,challengeUrl,embedCode});
+    window.InwardMathChallenge=Object.freeze({statsAt,statsFor,parseCustom,challengeUrl,embedCode});
   </script>
 </body>
 </html>
