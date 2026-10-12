@@ -2,9 +2,11 @@
 
 A dependency-free browser demonstration of two **toy models**: a damped attractor and a five-observer comparison. The equations, target values, controls, and export are visible in `index.html`. This is exploratory visualization, not a validated theory of memory, identity, consciousness, safety, or physical dynamics.
 
+**[Open the live interactive lab](https://aruintelligence.github.io/inward-mathematics-simulator/)** · [Read the source](index.html)
+
 ## Open it
 
-Download the repository and open `index.html` in a modern browser. No build, network connection, or server is required. To run the model tests, use Node.js 22 or later:
+Open the live lab above, or download the repository and open `index.html` in a modern browser. No build, network connection, or server is required for the downloaded version. For a quick comparison, leave seed at 42 and move the fifth observer to 50; the single-seed and 128-seed results differ in useful ways. To run the model tests, use Node.js 22 or later:
 
 ```bash
 node tests/lab.test.cjs
