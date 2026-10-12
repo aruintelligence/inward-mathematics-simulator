@@ -95,8 +95,10 @@
     const ranked=levers.filter(item=>item.flip).sort((a,b)=>a.flip.distance-b.flip.distance||a.index-b.index);
     return {current,levers,ranked};
   }
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,solveOne,rankLevers};
-  if(typeof document==="undefined") return;
+  const api={PRESETS,parseView,evaluate,solveOne,rankLevers};
+  if(typeof module==="object"&&module.exports) module.exports=api;
+  if(typeof window!=="undefined") window.InwardMathLevers=api;
+  if(typeof document==="undefined"||!document.getElementById("rack")) return;
 
   const $=id=>document.getElementById(id);
   const shared=parseView(window.location.search);
@@ -162,6 +164,8 @@
     const values=current.values.map(fmt).join(","),target=fmt(current.target);
     $("shape-link").href="shape-the-data.html?values="+encodeURIComponent(values)+"&target="+target;
     $("field-link").href="decision-field.html?fixed="+encodeURIComponent(current.values.slice(0,4).map(fmt).join(","))+"&fifth="+fmt(current.values[4])+"&target="+target;
+    $("puzzle-link").hidden=ranked.length===0;
+    $("puzzle-link").href="one-move.html?values="+encodeURIComponent(values)+"&target="+target;
     $("open-view").href=viewUrl();updateAddress();
   }
   function setValue(index,raw) {

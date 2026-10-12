@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1d2b">
+  <title>One Move | Flip the Mean vs Median Verdict</title>
+  <meta name="description" content="A three-round math puzzle: move one of five readings to reverse the closer estimate. See how your move compares with the exact minimum.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/one-move.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="One Move. Flip the Verdict. | Inward Mathematics™">
+  <meta property="og:description" content="Choose one reading. Move it just enough to reverse the mean-versus-median verdict. Can you find the shortest strict flip?">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/one-move.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#091c2b; --text:#f3f7f4; --muted:#c2d3d7; --mint:#70f0c9; --gold:#ffd08b; --rose:#ff9ba8; --line:#547982; --cyan:#a6dffc; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { min-width:320px; margin:0; color:var(--text); background:radial-gradient(circle at 83% -5%,#246259 0,transparent 30%),radial-gradient(circle at 5% 43%,#35304a 0,transparent 30%),var(--bg); font:17px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--mint); } button,input { font:inherit; } button { cursor:pointer; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1120px,calc(100% - 32px)); margin:auto; }
+    .skip { position:absolute; top:-80px; left:16px; z-index:5; padding:9px 14px; border-radius:8px; background:var(--gold); color:#102b32; }
+    .skip:focus { top:10px; }
+    header { display:flex; justify-content:space-between; gap:10px 20px; flex-wrap:wrap; padding:23px 0; font-size:.89rem; }
+    header strong { letter-spacing:.05em; }
+    nav { display:flex; gap:9px 18px; flex-wrap:wrap; }
+    nav a { text-decoration:none; color:var(--text); }
+    nav a:hover { color:var(--mint); }
+    .eyebrow { margin:0 0 10px; color:var(--mint); font-size:.74rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr); gap:34px; align-items:center; padding:43px 0 45px; }
+    h1 { margin:0; max-width:770px; font-size:clamp(3.2rem,7.4vw,6.8rem); letter-spacing:-.07em; line-height:.99; }
+    h1 em { color:var(--rose); font-style:normal; }
+    .lead { max-width:660px; font-size:1.15rem; color:#d6e7e3; }
+    .button,button.action { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:10px 17px; border:1px solid var(--mint); border-radius:11px; background:var(--mint); color:#0b292a; text-decoration:none; font-weight:800; }
+    .button.secondary,button.action.secondary { border-color:#7f9fa2; background:#1b3c48; color:var(--text); }
+    .button:hover,button.action:hover { filter:brightness(1.12); }
+    .hero-art { position:relative; display:grid; place-items:center; min-height:286px; border:1px solid #669d99; border-radius:25px; overflow:hidden; background:radial-gradient(circle at center,#256d66 0,#164449 45%,#172d40 100%); box-shadow:0 23px 65px #0006; }
+    .hero-art::before { content:""; position:absolute; width:220px; height:220px; border:1px solid #ddfff377; border-radius:50%; box-shadow:0 0 0 47px #ddfff316,0 0 0 95px #ddfff30c; }
+    .hero-art .glyph { position:relative; display:flex; gap:8px; transform:rotate(-10deg); }
+    .hero-art .glyph i { width:29px; height:112px; border:1px solid #a6d2c8; border-radius:8px; background:#0e2b39; box-shadow:inset 0 0 22px #7fe7c025,0 8px 22px #0007; }
+    .hero-art .glyph i:nth-child(2) { height:150px; transform:translateY(-20px); }
+    .hero-art .glyph i:nth-child(3) { height:89px; transform:translateY(25px); background:var(--rose); border-color:#ffe1df; }
+    .hero-art .glyph i:nth-child(4) { height:137px; transform:translateY(-14px); }
+    .hero-art .glyph i:nth-child(5) { height:104px; transform:translateY(8px); }
+    .hero-art span { position:absolute; bottom:17px; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#d1ebe5; }
+    .stage { padding:clamp(18px,3vw,32px); border:1px solid #66918e; border-radius:25px; background:linear-gradient(150deg,#163f47,#0f2c3c 54%,#252f43); box-shadow:0 25px 70px #0005; }
+    .stage-head { display:flex; align-items:start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    h2 { margin:0; font-size:clamp(1.8rem,3.6vw,2.8rem); line-height:1.09; letter-spacing:-.045em; }
+    .pill { padding:6px 13px; border:1px solid #90afac; border-radius:99px; font-size:.8rem; white-space:nowrap; }
+    .cue { margin:9px 0 16px; color:var(--muted); }
+    .brief { display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,.56fr); gap:15px; margin:20px 0; }
+    .brief>div { border:1px solid #5b8186; border-radius:17px; padding:17px 19px; background:#0b2734; }
+    .brief .mission { font-size:1.19rem; font-weight:760; margin:0; }
+    .brief .numbers { color:var(--muted); margin:8px 0 0; font-size:.88rem; }
+    .brief .target { display:block; font:800 clamp(2rem,4vw,3rem) ui-monospace,SFMono-Regular,monospace; color:var(--rose); }
+    .brief .target-caption { display:block; color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; }
+    .current { margin:0; color:var(--gold); font-weight:800; }
+    .current[data-winner="Median"] { color:var(--mint); }
+    .label { display:block; color:#ddedeb; font-weight:750; margin:19px 0 9px; }
+    .readings { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .reading { min-width:0; min-height:110px; padding:11px; color:var(--text); text-align:left; border:1px solid #63838a; border-radius:13px; background:#092533; }
+    .reading:hover,.reading[aria-pressed="true"] { border-color:var(--rose); background:#363242; box-shadow:inset 0 0 0 1px #ff9ba86b; }
+    .reading span { display:block; color:var(--muted); font-size:.78rem; }
+    .reading strong { display:block; font:800 clamp(1.4rem,2.4vw,1.95rem) ui-monospace,SFMono-Regular,monospace; margin:5px 0; }
+    .reading i { display:block; height:5px; max-width:100%; background:var(--cyan); border-radius:99px; }
+    .reading[aria-pressed="true"] i { background:var(--rose); }
+    .move-panel { margin-top:18px; padding:20px; border:1px solid #769a9a; border-radius:17px; background:radial-gradient(circle at 100% 0%,#20565a,#0a2938 56%); }
+    .move-panel h3 { margin:0 0 4px; font-size:1.35rem; }
+    .move-panel>p { margin:4px 0 14px; color:var(--muted); font-size:.88rem; }
+    .rail { position:relative; height:142px; margin:25px 11px 0; border-top:1px solid #7a9ca2; background:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),#a7d5cd34 calc(25% - 1px),#a7d5cd34 25%); }
+    .marker { position:absolute; transform:translateX(-50%); white-space:nowrap; font-size:.76rem; font-weight:750; }
+    .marker::before { content:""; display:block; width:13px; height:13px; margin:0 auto 4px; border:2px solid #0c2b37; border-radius:50%; background:currentColor; box-shadow:0 0 0 2px currentColor; }
+    .marker.target { top:11px; color:var(--rose); }
+    .marker.old { top:51px; color:var(--cyan); }
+    .marker.new { top:93px; color:var(--mint); }
+    .axis { display:flex; justify-content:space-between; color:var(--muted); font-size:.78rem; margin:0 11px 17px; }
+    .controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,.32fr); gap:13px; align-items:end; }
+    .controls label { display:block; font-weight:750; margin-bottom:4px; }
+    input[type="range"] { display:block; width:100%; min-height:46px; accent-color:var(--mint); cursor:pointer; }
+    input[type="number"] { width:100%; min-height:46px; padding:8px 10px; border:1px solid #8cabae; border-radius:9px; color:var(--text); background:#082432; font-variant-numeric:tabular-nums; }
+    .proposal { margin:10px 0 0; color:#e6f4ec; font-size:.88rem; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin:17px 0 0; }
+    #input-error,#link-error { min-height:1.3em; color:var(--rose); font-weight:700; font-size:.87rem; }
+    .attempts { color:var(--muted); font-size:.85rem; margin:9px 0 0; }
+    .result { margin-top:18px; padding:21px; border:1px solid #a67a82; border-radius:17px; background:linear-gradient(140deg,#3b3043,#1b3641); }
+    .result[data-outcome="success"] { border-color:#86c2ad; background:linear-gradient(140deg,#1c5c52,#173a47); }
+    [hidden] { display:none!important; }
+    .result h3 { margin:0 0 7px; font-size:clamp(1.7rem,3.2vw,2.25rem); line-height:1.1; }
+    .result p { margin:7px 0; }
+    .benchmark { border-top:1px solid #a2c4be80; margin-top:17px; padding-top:14px; }
+    .benchmark strong { color:var(--mint); }
+    .bar-line { display:grid; grid-template-columns:115px 1fr 90px; gap:9px; align-items:center; margin:9px 0; font-size:.84rem; }
+    .bar-line div { height:13px; border:1px solid #91aaa8; border-radius:99px; background:#0c2935; overflow:hidden; }
+    .bar-line i { display:block; height:100%; background:var(--rose); border-radius:99px; }
+    .bar-line.minimum i { background:var(--mint); }
+    .bar-line b { text-align:right; font-variant-numeric:tabular-nums; }
+    .benchmark .example { color:#d2ece4; font-size:.87rem; }
+    .under { display:grid; grid-template-columns:1fr 1fr; gap:17px; margin:24px 0 43px; }
+    .panel { padding:23px; border:1px solid var(--line); border-radius:19px; background:#112d3b; }
+    .panel p { color:var(--muted); font-size:.9rem; }
+    .rounds { display:grid; gap:8px; }
+    .rounds button { min-height:45px; border:1px solid #658790; border-radius:10px; background:#0b2635; color:var(--text); text-align:left; padding:9px 13px; font-weight:700; }
+    .rounds button:hover { border-color:var(--mint); }
+    #share-status { min-height:1.4em; color:var(--mint); }
+    .note { font-size:.82rem!important; }
+    footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem; }
+    @media(max-width:830px) { .hero,.brief { grid-template-columns:1fr; } .hero-art { min-height:210px; } .hero-art .glyph { transform:scale(.75) rotate(-10deg); } }
+    @media(max-width:650px) { .readings { grid-template-columns:repeat(3,minmax(0,1fr)); } .under,.controls { grid-template-columns:1fr; } .reading { min-height:92px; } .move-panel { padding:14px; } }
+    @media(max-width:420px) { .readings { grid-template-columns:repeat(2,minmax(0,1fr)); } .rail { margin:25px 14px 0; } .marker { font-size:.67rem; } .bar-line { grid-template-columns:85px 1fr 72px; font-size:.75rem; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#stage">Skip to the puzzle</a>
+  <div class="wrap">
+    <header><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><nav aria-label="Main navigation"><a href="index.html">The lab</a><a href="challenge.html">Prediction</a><a href="flip-levers.html">Flip Levers</a><a href="guide.html">Lesson</a></nav></header>
+    <main>
+      <section class="hero"><div><p class="eyebrow">Experiment 08 / One Move</p><h1>One reading.<br><em>One reversal.</em></h1><p class="lead">Five numbers. A chosen target. The mean or median is closer—until you change one reading. Find the smallest move that gives the other estimate a strict lead.</p><div class="actions"><a class="button" href="#stage">Play the first round ↓</a><a class="button secondary" href="flip-levers.html">See the solver ↗</a></div></div><div class="hero-art" aria-hidden="true"><div class="glyph"><i></i><i></i><i></i><i></i><i></i></div><span>Change one. Change the answer.</span></div></section>
+      <section class="stage" id="stage" aria-labelledby="stage-title"><div class="stage-head"><div><p class="eyebrow" id="round-name">Round 1 / 3</p><h2 id="stage-title"><span id="round-title">The narrow crossing</span></h2><p class="cue" id="cue"></p></div><span class="pill">0–100 · four decimal places</span></div><p id="link-error" role="status"></p>
+        <div class="brief"><div><p class="eyebrow">The mission</p><p class="mission" id="mission"></p><p class="numbers" id="current-stats"></p><p class="current" id="current-winner"></p></div><div><span class="target-caption">Chosen target</span><strong class="target" id="target">52</strong><span class="target-caption">Hold this fixed</span></div></div>
+        <span class="label" id="readings-label">1. Choose the one reading you will move</span><div class="readings" role="group" aria-labelledby="readings-label"><button type="button" class="reading" aria-pressed="false"><span>Reading 1</span><strong>40</strong><i></i></button><button type="button" class="reading" aria-pressed="false"><span>Reading 2</span><strong>42</strong><i></i></button><button type="button" class="reading" aria-pressed="true"><span>Reading 3</span><strong>50</strong><i></i></button><button type="button" class="reading" aria-pressed="false"><span>Reading 4</span><strong>60</strong><i></i></button><button type="button" class="reading" aria-pressed="false"><span>Reading 5</span><strong>68</strong><i></i></button></div>
+        <div class="move-panel"><h3>2. Set a new value</h3><p>Your proposed verdict stays hidden until you commit. The plot marks the original and proposed reading.</p><div class="rail" aria-hidden="true"><span id="target-marker" class="marker target" style="left:52%">target</span><span id="old-marker" class="marker old" style="left:50%">old</span><span id="new-marker" class="marker new" style="left:50%">new</span></div><div class="axis" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div><div class="controls"><div><label for="slider">Reading <span id="selected-reading">3</span> · from <span id="selected-old">50</span> to <output id="proposal-value">50</output></label><input id="slider" type="range" min="0" max="100" step="0.1" value="50"></div><div><label for="proposed">Exact new value</label><input id="proposed" type="number" min="0" max="100" step="any" inputmode="decimal" value="50" aria-describedby="precision-note"></div></div><p class="proposal" id="proposal-summary" role="status"></p><p id="precision-note" class="proposal">Drag for a rough move; type up to four decimal places to find the exact minimum.</p><p id="input-error" role="alert"></p><button id="submit" class="action" type="button">Commit this move ↗</button><p class="attempts" id="attempt-count">Attempts this puzzle: 0</p></div>
+        <div class="result" id="result" hidden role="status"><h3 id="result-title"></h3><p id="result-detail"></p><div class="benchmark" id="benchmark" hidden><div class="bar-line"><span>Your move</span><div><i id="your-bar"></i></div><b id="personal-move"></b></div><div class="bar-line minimum"><span>Shortest move</span><div><i id="minimum-bar"></i></div><b id="minimum-move"></b></div><p><strong id="move-comparison"></strong></p><p class="example" id="optimal-example"></p></div><div class="actions"><button class="action" id="next" type="button" hidden>Next puzzle ↗</button><button class="action secondary" id="play-again" type="button" hidden>Try an even smaller move</button><a class="button secondary" id="puzzle-link" href="flip-levers.html">Inspect all five exact levers ↗</a></div></div>
+      </section>
+      <div class="under"><section class="panel"><p class="eyebrow">Three different reversals</p><h2>Choose a round.</h2><p>Each arrangement has a strict reversal. Your best move and attempts stay on this page for the current puzzle only.</p><div class="rounds"><button data-round="0" type="button">01 / The narrow crossing →</button><button data-round="1" type="button">02 / Turn the tide →</button><button data-round="2" type="button">03 / The long reach →</button></div></section><section class="panel"><p class="eyebrow">Pass the puzzle on</p><h2>See who can beat your move.</h2><p>The link opens the same starting arrangement, with the solution hidden. It does not include your guesses or score.</p><div class="actions"><button class="action secondary" id="copy" type="button">Copy puzzle link</button><a class="button secondary" id="share-link" href="one-move.html?round=1">Open exact puzzle ↗</a></div><p id="share-status" role="status"></p><p class="note">“Shortest” means the least change to a single reading on a four-decimal grid in 0–100 that produces the opposing strict winner. A tie is not a reversal. The target and cases are invented what-if inputs, not measured truth. Shared custom puzzle URLs contain all five readings and the target; use invented or public values. This page computes locally and keeps no account or leaderboard.</p></section></div>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="flip-levers.html">Exact solver</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+  <script src="flip-levers.js?v=3" defer></script>
+  <script src="one-move.js?v=1" defer></script>
+</body>
+</html>
