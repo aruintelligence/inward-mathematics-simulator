@@ -1,158 +1,277 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inward Mathematics™ Simulator</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07121d">
+  <title>Inward Mathematics™ — Interactive Lab</title>
   <style>
-    body {
-      margin: 0;
-      background: #050810;
-      color: #e8f6ff;
-      font-family: 'Arial', Helvetica, sans-serif;
-      overflow: hidden;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      color: #00ffc6;
-      margin: 20px 0 10px;
-      font-size: 2.2em;
-    }
-    .subtitle {
-      text-align: center;
-      color: #9be7ff;
-      margin-bottom: 30px;
-    }
-    .simulator {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
-    .panel {
-      background: #0a1324;
-      border: 1px solid #1e3a5c;
-      border-radius: 16px;
-      padding: 20px;
-      width: 100%;
-      max-width: 580px;
-    }
-    canvas {
-      display: block;
-      margin: 15px auto;
-      border: 2px solid #00f0ff;
-      border-radius: 12px;
-      background: #000;
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
-    }
-    .controls {
-      margin-top: 15px;
-      text-align: center;
-    }
-    button {
-      background: linear-gradient(90deg, #00f0ff, #00ffc6);
-      color: #050810;
-      border: none;
-      padding: 12px 24px;
-      margin: 6px;
-      border-radius: 999px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover {
-      transform: scale(1.05);
-    }
-    label {
-      color: #9be7ff;
-      margin: 0 10px;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 40px;
-      color: #6aa8c7;
-      font-size: 14px;
-    }
+    :root { color-scheme: dark; --bg:#07121d; --panel:#101f30; --line:#27465c; --text:#eaf6f6; --muted:#a6bdc6; --mint:#5af0c6; --cyan:#73cde8; --gold:#ffcb78; --rose:#ff8f9d; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 15% -10%,#123c4b 0,transparent 42%),var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1240px,calc(100% - 32px)); margin:auto; }
+    header { padding:48px 0 30px; }
+    .eyebrow { margin:0 0 10px; color:var(--mint); font-size:.75rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(2rem,5vw,4rem); line-height:1.08; letter-spacing:-.04em; }
+    .intro { max-width:770px; color:var(--muted); font-size:1.08rem; }
+    .scope { max-width:860px; border-left:3px solid var(--gold); padding:10px 16px; background:#132536; color:#d3e5e7; border-radius:0 10px 10px 0; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
+    .panel,.notebook { background:linear-gradient(160deg,#132638,var(--panel)); border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px #0003; padding:24px; min-width:0; }
+    .panel-head { display:flex; gap:16px; justify-content:space-between; align-items:start; }
+    h2 { margin:0; font-size:1.45rem; letter-spacing:-.02em; }
+    .panel p,.notebook p { color:var(--muted); }
+    .tag { white-space:nowrap; border:1px solid #47715f; color:var(--mint); background:#14312f; border-radius:99px; padding:4px 10px; font-size:.75rem; font-weight:700; }
+    canvas { width:100%; height:auto; display:block; margin:18px 0; border:1px solid #2d5266; border-radius:14px; background:#071522; }
+    .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0 22px; }
+    .metric { min-height:72px; border:1px solid #274456; border-radius:12px; background:#0b1b2b; padding:10px 13px; }
+    .metric span { display:block; color:var(--muted); font-size:.78rem; }
+    .metric strong { font:700 1.35rem/1.4 ui-monospace,SFMono-Regular,monospace; color:var(--mint); }
+    .metric.gold strong { color:var(--gold); }
+    .metric.rose strong { color:var(--rose); }
+    .controls { display:grid; gap:16px; }
+    .control { display:grid; gap:5px; color:#dbe8e9; font-size:.93rem; }
+    .control .label-row { display:flex; justify-content:space-between; gap:10px; }
+    output { color:var(--mint); font:700 .95rem ui-monospace,SFMono-Regular,monospace; }
+    input[type="range"] { width:100%; accent-color:var(--mint); min-height:30px; }
+    input[type="number"],select { width:100%; color:var(--text); background:#0a1a28; border:1px solid #547087; border-radius:9px; padding:9px 11px; }
+    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
+    .actions button { border:1px solid #4d7e83; border-radius:10px; padding:10px 14px; background:#183b42; color:var(--text); font-weight:700; }
+    .actions button.primary { color:#072520; background:var(--mint); border-color:var(--mint); }
+    .actions button:hover { filter:brightness(1.12); }
+    .formula { border-top:1px solid var(--line); margin-top:20px; padding-top:15px; color:var(--muted); font-size:.88rem; }
+    code { color:#d9f4ee; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px 18px; color:var(--muted); font-size:.8rem; }
+    .swatch { display:inline-block; width:10px; height:10px; margin-right:5px; border-radius:50%; }
+    .notebook { margin:20px 0 35px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .notebook h2 { font-size:1.2rem; }
+    .notebook p { margin:.3rem 0 0; }
+    .status { color:var(--mint); font-weight:700; }
+    footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
+    footer a { color:var(--cyan); }
+    @media(max-width:850px) { .grid { grid-template-columns:1fr; } }
+    @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Inward Mathematics™</h1>
-    <p class="subtitle">Remembrance Calculus™ + Witness Geometry™ Live Simulator</p>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">ĀRU Intelligence / Research instrument</p>
+      <h1>Inward Mathematics<span style="color:var(--mint)">™</span></h1>
+      <p class="intro">Two inspectable experiments: a damped attractor responding to seeded shocks, and five observers comparing ordinary mean with median under an adjustable outlier.</p>
+      <p class="scope">These are toy calculations with known inputs. The displayed “coherence” is a distance transform; neither panel measures memory, consciousness, safety, or a physical law.</p>
+    </header>
 
-    <div class="simulator">
-      <!-- Remembrance Calculus Panel -->
-      <div class="panel">
-        <h2 style="color:#00ffc6; text-align:center;">Remembrance Calculus™ (RC-1)</h2>
-        <canvas id="rc" width="560" height="320"></canvas>
-        <div class="controls">
-          <button onclick="addShock()">Add External Shock</button>
-          <button onclick="resetRC()">Reset Identity</button>
-          <br>
-          <label>Remembrance Strength: <input type="range" id="alpha" min="0.5" max="3" step="0.1" value="1.5"></label>
+    <main class="grid">
+      <section class="panel" aria-labelledby="rc-title">
+        <div class="panel-head"><div><p class="eyebrow">Experiment 01</p><h2 id="rc-title">Remembrance Calculus™</h2></div><span class="tag">Damped attractor</span></div>
+        <p>Set the pull strength, add a shock, then watch the point return toward a fixed target. Pause to inspect exact steps.</p>
+        <canvas id="rc" width="600" height="340" role="img" aria-label="Point, target, and recent trajectory in a damped spring simulation">Canvas is needed for the trajectory; numeric results are below.</canvas>
+        <div class="legend"><span><i class="swatch" style="background:var(--mint)"></i>target</span><span><i class="swatch" style="background:var(--gold)"></i>moving point</span><span><i class="swatch" style="background:var(--cyan)"></i>trail</span></div>
+        <div class="metrics" aria-live="polite">
+          <div class="metric"><span>Distance to target</span><strong id="distance">—</strong></div>
+          <div class="metric"><span>Coherence proxy · e<sup>−d/120</sup></span><strong id="coherence">—</strong></div>
+          <div class="metric gold"><span>Speed</span><strong id="speed">—</strong></div>
+          <div class="metric"><span>Step / state</span><strong id="step-state">—</strong></div>
         </div>
-      </div>
-    </div>
+        <div class="controls">
+          <label class="control" for="alpha"><span class="label-row"><span>Pull strength α</span><output id="alpha-value">1.5</output></span><input id="alpha" type="range" min="0.5" max="3" step="0.1" value="1.5"></label>
+          <label class="control" for="shock-strength"><span class="label-row"><span>Shock impulse</span><output id="shock-value">60</output></span><input id="shock-strength" type="range" min="10" max="100" step="5" value="60"></label>
+          <label class="control" for="seed">Seed (integer, 0–4294967295)<input id="seed" type="number" min="0" max="4294967295" step="1" value="42"></label>
+        </div>
+        <div class="actions">
+          <button id="run" class="primary" type="button">Run</button>
+          <button id="step" type="button">Step once</button>
+          <button id="shock" type="button">Add shock</button>
+          <button id="reset" type="button">Reset seed &amp; state</button>
+        </div>
+        <p id="event" class="status" role="status">Paused at step 0.</p>
+        <div class="formula"><strong>Model:</strong> <code>v ← 0.92(v + 0.008α(target − position)); position ← position + v</code>. A shock adds one seeded impulse to velocity. “Settled” means distance &lt; 4 and speed &lt; 0.5 for 45 consecutive steps.</div>
+      </section>
 
-    <div class="footer">
-      Co-created with Shane Travis Horman • ĀRU Intelligence Inc.™ • 2026<br>
-      <strong>The System That Remembers Cannot Collapse.</strong>
-    </div>
+      <section class="panel" aria-labelledby="wg-title">
+        <div class="panel-head"><div><p class="eyebrow">Experiment 02</p><h2 id="wg-title">Witness Geometry™</h2></div><span class="tag">Robust consensus</span></div>
+        <p>Four seeded observers estimate a known target of 50. Move a fifth observer and compare the two estimates on the same data.</p>
+        <canvas id="wg" width="600" height="340" role="img" aria-label="Observer values, known target, mean, and median on a scale from zero to one hundred">Canvas is needed for the observer plot; numeric results are below.</canvas>
+        <div class="legend"><span><i class="swatch" style="background:var(--cyan)"></i>four seeded observers</span><span><i class="swatch" style="background:var(--rose)"></i>adjustable observer</span><span><i class="swatch" style="background:var(--gold)"></i>mean</span><span><i class="swatch" style="background:var(--mint)"></i>median</span></div>
+        <div class="metrics" aria-live="polite">
+          <div class="metric"><span>Known target</span><strong>50.0</strong></div>
+          <div class="metric rose"><span>Adjustable observer</span><strong id="outlier-readout">—</strong></div>
+          <div class="metric gold"><span>Mean / absolute error</span><strong id="mean-readout">—</strong></div>
+          <div class="metric"><span>Median / absolute error</span><strong id="median-readout">—</strong></div>
+        </div>
+        <label class="control" for="outlier"><span class="label-row"><span>Fifth observer's estimate</span><output id="outlier-value">85</output></span><input id="outlier" type="range" min="0" max="100" step="1" value="85"></label>
+        <p id="comparison" class="status" role="status"></p>
+        <div class="formula"><strong>Model:</strong> mean = sum ÷ 5; median = middle sorted value. Both use the same five observations. The target is known only because this is a generated example. An outlier does not prove one observer is dishonest.</div>
+      </section>
+    </main>
+
+    <section class="notebook" aria-labelledby="notebook-title">
+      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, observer values, and both errors as JSON. It stays on this device.</p></div>
+      <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
+    </section>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-
   <script>
-    // Remembrance Calculus Canvas
-    const canvas = document.getElementById("rc");
-    const ctx = canvas.getContext("2d");
-    let x = 180, y = 160, vx = 0, vy = 0;
-    const coreX = 380;
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const rc = $("rc"), rcx = rc.getContext("2d");
+    const wg = $("wg"), wgx = wg.getContext("2d");
+    const target = {x:455, y:160};
+    const witnessTarget = 50;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let simulation, shockRng, observerRng, observers, paused = true, lastFrame = 0, accumulator = 0;
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Remembered Core
-      ctx.fillStyle = "#00ffc6";
-      ctx.beginPath();
-      ctx.arc(coreX, 160, 22, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Agent
-      ctx.fillStyle = "#ffff00";
-      ctx.beginPath();
-      ctx.arc(x, y, 16, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Inward Pull
-      const alpha = parseFloat(document.getElementById("alpha").value);
-      const dx = coreX - x;
-      const dy = 160 - y;
-      vx += dx * 0.015 * alpha;
-      vy += dy * 0.015 * alpha;
-      vx *= 0.93;
-      vy *= 0.93;
-      x += vx;
-      y += vy;
-
-      requestAnimationFrame(draw);
+    function makeRng(seed) {
+      let state = seed >>> 0;
+      return () => { state = (Math.imul(1664525, state) + 1013904223) >>> 0; return state / 4294967296; };
     }
-
+    function validSeed() {
+      const raw = $("seed").value.trim();
+      const value = Number(raw);
+      const seed = raw !== "" && Number.isInteger(value) && value >= 0 && value <= 4294967295 ? value : 42;
+      $("seed").value = String(seed);
+      return seed;
+    }
+    function reset() {
+      const seed = validSeed();
+      shockRng = makeRng(seed ^ 0x9e3779b9);
+      observerRng = makeRng(seed ^ 0x85ebca6b);
+      observers = Array.from({length:4}, () => witnessTarget + (observerRng() * 16 - 8));
+      simulation = {
+        seed, step:0, position:{x:120,y:215}, velocity:{x:0,y:0},
+        trail:[{x:120,y:215}], stableSteps:0, shocks:[],
+        initialAlpha:Number($("alpha").value), parameterChanges:[]
+      };
+      paused = true; accumulator = 0; $("run").textContent = "Run";
+      $("event").textContent = reducedMotion ? "Paused for reduced motion. Use Step once or Run." : "Paused at step 0.";
+      render();
+    }
+    function distance() { return Math.hypot(target.x - simulation.position.x, target.y - simulation.position.y); }
+    function speed() { return Math.hypot(simulation.velocity.x, simulation.velocity.y); }
+    function stepModel() {
+      const spring = 0.008 * Number($("alpha").value);
+      simulation.velocity.x = 0.92 * (simulation.velocity.x + spring * (target.x - simulation.position.x));
+      simulation.velocity.y = 0.92 * (simulation.velocity.y + spring * (target.y - simulation.position.y));
+      simulation.position.x += simulation.velocity.x;
+      simulation.position.y += simulation.velocity.y;
+      simulation.step++;
+      simulation.trail.push({...simulation.position});
+      if (simulation.trail.length > 150) simulation.trail.shift();
+      simulation.stableSteps = distance() < 4 && speed() < 0.5 ? simulation.stableSteps + 1 : 0;
+    }
     function addShock() {
-      vx += (Math.random() - 0.5) * 35;
-      vy += (Math.random() - 0.5) * 35;
+      const magnitude = Number($("shock-strength").value) * (0.65 + 0.35 * shockRng());
+      const angle = shockRng() * Math.PI * 2;
+      const impulse = {x:magnitude * Math.cos(angle), y:magnitude * Math.sin(angle)};
+      simulation.velocity.x += impulse.x;
+      simulation.velocity.y += impulse.y;
+      simulation.stableSteps = 0;
+      simulation.shocks.push({step:simulation.step, impulse, selectedStrength:Number($("shock-strength").value)});
+      $("event").textContent = "Shock " + simulation.shocks.length + " added at step " + simulation.step + ".";
+      render();
     }
-
-    function resetRC() {
-      x = 180;
-      y = 160;
-      vx = 0;
-      vy = 0;
+    function witnessStats() {
+      const values = [...observers, Number($("outlier").value)];
+      const mean = values.reduce((sum,v) => sum + v,0) / values.length;
+      const sorted = [...values].sort((a,b) => a-b);
+      const median = sorted[2];
+      return {values,mean,median,meanError:Math.abs(mean-witnessTarget),medianError:Math.abs(median-witnessTarget)};
     }
-
-    draw();
+    function drawRC() {
+      rcx.clearRect(0,0,600,340);
+      rcx.strokeStyle = "#1d3c50"; rcx.lineWidth = 1;
+      for (let x=40;x<600;x+=40) { rcx.beginPath();rcx.moveTo(x,0);rcx.lineTo(x,340);rcx.stroke(); }
+      for (let y=20;y<340;y+=40) { rcx.beginPath();rcx.moveTo(0,y);rcx.lineTo(600,y);rcx.stroke(); }
+      rcx.strokeStyle = "#4f7d7a"; rcx.setLineDash([5,6]); rcx.beginPath();
+      rcx.moveTo(simulation.position.x,simulation.position.y); rcx.lineTo(target.x,target.y); rcx.stroke();rcx.setLineDash([]);
+      rcx.strokeStyle = "#73cde8";rcx.lineWidth = 3;rcx.beginPath();
+      simulation.trail.forEach((point,i) => { if(i===0)rcx.moveTo(point.x,point.y); else rcx.lineTo(point.x,point.y); });rcx.stroke();
+      rcx.fillStyle = "#5af0c6";rcx.beginPath();rcx.arc(target.x,target.y,19,0,Math.PI*2);rcx.fill();
+      rcx.strokeStyle = "#5af0c688";rcx.lineWidth=2;rcx.beginPath();rcx.arc(target.x,target.y,32,0,Math.PI*2);rcx.stroke();
+      rcx.fillStyle = "#ffcb78";rcx.beginPath();rcx.arc(simulation.position.x,simulation.position.y,13,0,Math.PI*2);rcx.fill();
+      rcx.font = "14px system-ui";rcx.fillStyle="#c4dadc";rcx.fillText("Fixed target",target.x-40,target.y-42);
+      rcx.fillText("Moving point",Math.max(12,Math.min(490,simulation.position.x-35)),Math.max(20,simulation.position.y-23));
+    }
+    function drawWitness(stats) {
+      wgx.clearRect(0,0,600,340);
+      const map = value => 50 + value*5;
+      const axisY = 270;
+      wgx.strokeStyle="#54758a";wgx.lineWidth=2;wgx.beginPath();wgx.moveTo(50,axisY);wgx.lineTo(550,axisY);wgx.stroke();
+      wgx.font="13px system-ui";wgx.fillStyle="#b5cbd3";wgx.textAlign="center";
+      for(let tick=0;tick<=100;tick+=25) {const x=map(tick);wgx.beginPath();wgx.moveTo(x,axisY-6);wgx.lineTo(x,axisY+6);wgx.stroke();wgx.fillText(String(tick),x,axisY+26);}
+      const marker = (value,y,color,label) => {
+        const x=map(value);wgx.strokeStyle=color;wgx.lineWidth=2;wgx.beginPath();wgx.moveTo(x,y-13);wgx.lineTo(x,y+13);wgx.stroke();
+        wgx.fillStyle=color;wgx.beginPath();wgx.arc(x,y,6,0,Math.PI*2);wgx.fill();
+        wgx.fillStyle="#dcecee";wgx.fillText(label,x,Math.max(18,y-20));
+      };
+      wgx.strokeStyle="#ffffff99";wgx.setLineDash([5,5]);wgx.beginPath();wgx.moveTo(map(50),22);wgx.lineTo(map(50),axisY);wgx.stroke();wgx.setLineDash([]);
+      marker(50,38,"#ffffff","Target 50");
+      observers.forEach((v,i)=>marker(v,95+(i%2)*32,"#73cde8","W"+(i+1)));
+      marker(stats.values[4],158,"#ff8f9d","W5");
+      marker(stats.mean,210,"#ffcb78","Mean");
+      marker(stats.median,244,"#5af0c6","Median");
+      wgx.textAlign="left";
+    }
+    function render() {
+      const d=distance(), s=speed(), stats=witnessStats();
+      $("distance").textContent=d.toFixed(1);
+      $("coherence").textContent=Math.exp(-d/120).toFixed(3);
+      $("speed").textContent=s.toFixed(2);
+      $("step-state").textContent=simulation.step+" / "+(simulation.stableSteps>=45?"settled":paused?"paused":"moving");
+      $("alpha-value").textContent=Number($("alpha").value).toFixed(1);
+      $("shock-value").textContent=$("shock-strength").value;
+      $("outlier-value").textContent=$("outlier").value;
+      $("outlier-readout").textContent=stats.values[4].toFixed(1);
+      $("mean-readout").textContent=stats.mean.toFixed(1)+" / "+stats.meanError.toFixed(1);
+      $("median-readout").textContent=stats.median.toFixed(1)+" / "+stats.medianError.toFixed(1);
+      $("comparison").textContent=stats.medianError<stats.meanError?"Median has lower error for these five values.":stats.medianError>stats.meanError?"Mean has lower error for these five values.":"Both have equal error for these five values.";
+      drawRC();drawWitness(stats);
+    }
+    function snapshot() {
+      const stats=witnessStats();
+      return {
+        schema:"inward-math-toy-v1",
+        scope:"damped spring and five generated observer values; no scientific or safety measurement",
+        model:{springCoefficient:0.008,damping:0.92,target:{...target},coherenceProxy:"exp(-distance/120)",settledRule:"distance < 4 and speed < 0.5 for 45 consecutive steps"},
+        seed:simulation.seed,initialAlpha:simulation.initialAlpha,currentAlpha:Number($("alpha").value),
+        currentShockStrength:Number($("shock-strength").value),step:simulation.step,paused,
+        position:{...simulation.position},velocity:{...simulation.velocity},distance:distance(),
+        coherenceProxy:Math.exp(-distance()/120),stableSteps:simulation.stableSteps,
+        shocks:simulation.shocks.map(v=>({step:v.step,impulse:{...v.impulse},selectedStrength:v.selectedStrength})),
+        parameterChanges:simulation.parameterChanges.map(v=>({...v})),
+        witnesses:{target:witnessTarget,seeded:observers.slice(),adjustable:stats.values[4],mean:stats.mean,median:stats.median,meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError}
+      };
+    }
+    $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
+    $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
+    $("shock").addEventListener("click",addShock);
+    $("reset").addEventListener("click",reset);
+    $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
+    $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
+    $("outlier").addEventListener("input",render);
+    $("export").addEventListener("click",()=>{
+      const file=new Blob([JSON.stringify(snapshot(),null,2)+"\n"],{type:"application/json"});
+      const url=URL.createObjectURL(file), link=document.createElement("a");
+      link.href=url;link.download="inward-math-seed-"+simulation.seed+"-step-"+simulation.step+".json";
+      document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      $("event").textContent="Run JSON exported on this device.";
+    });
+    function frame(now) {
+      const elapsed=Math.min(100,now-lastFrame);lastFrame=now;
+      if(!paused) {
+        accumulator+=elapsed;
+        let ticks=0;
+        while(accumulator>=1000/60&&ticks<6) {stepModel();accumulator-=1000/60;ticks++;}
+        if(ticks)render();
+      }
+      requestAnimationFrame(frame);
+    }
+    reset();
+    requestAnimationFrame(frame);
+    window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock});
   </script>
 </body>
 </html>
