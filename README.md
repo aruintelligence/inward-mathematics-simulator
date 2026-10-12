@@ -4,6 +4,8 @@ A dependency-free browser demonstration of two **toy models**: a damped attracto
 
 **[Open the live interactive lab](https://aruintelligence.github.io/inward-mathematics-simulator/)** · [Read the source](index.html)
 
+**[Share the five-minute mean vs median lesson](https://aruintelligence.github.io/inward-mathematics-simulator/guide.html)** — two opposing worked examples, revealable answers, a short activity, and links into the lab. It is a static page that can be shared without an account.
+
 ![One number changes the answer: mean and median error curves across 128 generated seeds, with the seed-42 cohort result at fifth estimate 50.](social-card.png)
 
 ## Open it
