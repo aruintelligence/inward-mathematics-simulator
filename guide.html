@@ -62,13 +62,13 @@
 <body>
   <a class="skip" href="#lesson">Skip to lesson</a>
   <div class="wrap">
-    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="worksheet.html">Printable worksheet</a><a href="challenge.html">Prediction challenge</a><a href="atlas.html">Outcome atlas</a><a href="index.html">Interactive lab</a><a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a></nav></header>
+    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="worksheet.html">Printable worksheet</a><a href="target-lens.html">Target Lens</a><a href="challenge.html">Prediction challenge</a><a href="atlas.html">Outcome atlas</a><a href="index.html">Interactive lab</a><a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a></nav></header>
     <main id="lesson">
       <div class="hero">
         <p class="eyebrow">A five-minute interactive lesson</p>
         <h1>When does the mean beat the median?</h1>
         <p class="lead">One unusual value can pull an average away from a known target. But the median is not automatically the better answer. Make a prediction, check two opposite examples, then change the numbers yourself.</p>
-        <a class="button" href="index.html#workbench-title">Try your own numbers ↗</a><a class="button secondary" href="worksheet.html">Print the three-case worksheet ↗</a><a class="button secondary" href="#examples">See the two examples ↓</a>
+        <a class="button" href="index.html#workbench-title">Try your own numbers ↗</a><a class="button secondary" href="target-lens.html">Move only the target ↗</a><a class="button secondary" href="worksheet.html">Print the three-case worksheet ↗</a><a class="button secondary" href="#examples">See the two examples ↓</a>
       </div>
       <p class="callout">These are invented teaching examples with a target chosen for each case. In real work, the target may be unknown. An unusual observation is not automatically wrong, and comparing errors here does not prove a universal rule.</p>
 
@@ -81,14 +81,14 @@
             <p class="numbers">48 · 49 · 50 · 51 · 85</p>
             <p>Known target: <strong>50</strong>. Which estimate lands closer?</p>
             <details><summary>Reveal the arithmetic</summary><p class="answer">Mean = 283 ÷ 5 = <strong>56.6</strong> (error 6.6). Median = <strong>50</strong> (error 0). The median is closer to this target. Remove 85 and the mean becomes 49.5; the median also becomes 49.5.</p></details>
-            <a href="index.html#workbench-title">Inspect the plotted example ↗</a>
+            <a href="index.html#workbench-title">Inspect the plotted example ↗</a> · <a href="target-lens.html?values=48%2C49%2C50%2C51%2C85&amp;target=50">Move the target; keep these readings ↗</a>
           </article>
           <article class="card">
             <h3>Case 2: the mean wins</h3>
             <p class="numbers">40 · 42 · 50 · 60 · 68</p>
             <p>Known target: <strong>52</strong>. Which estimate lands closer?</p>
             <details><summary>Reveal the arithmetic</summary><p class="answer">Mean = 260 ÷ 5 = <strong>52</strong> (error 0). Median = <strong>50</strong> (error 2). The mean is closer to this target. The target is supplied for the exercise, not inferred from the observations.</p></details>
-            <a href="index.html#workbench-title">Open workbench; choose “Load mean-wins example” ↗</a>
+            <a href="index.html#workbench-title">Open workbench; choose “Load mean-wins example” ↗</a> · <a href="target-lens.html?values=40%2C42%2C50%2C60%2C68&amp;target=52">Find this case's flip point ↗</a>
           </article>
         </div>
       </section>
@@ -100,6 +100,7 @@
           <li><strong>Predict:</strong> read each set of five observations and choose mean or median before opening the answer, or <a href="challenge.html">try a blind shareable challenge</a>.</li>
           <li><strong>Test:</strong> open the <a href="index.html#workbench-title">workbench</a>. Use the two example buttons, then paste a set of your own 3–40 numbers.</li>
           <li><strong>Challenge:</strong> remove the value farthest from the original median. Which estimate changes more? Then use five invented readings and a target to make a <a href="challenge.html?values=40%2C42%2C50%2C60%2C68&amp;target=52">prediction challenge of your own</a>.</li>
+          <li><strong>Move the reference:</strong> open <a href="target-lens.html?values=48%2C49%2C50%2C51%2C85&amp;target=50">Target Lens</a>, keep all five readings fixed, and find the exact target where both errors tie.</li>
           <li><strong>Extend:</strong> open the <a href="atlas.html?start=42&amp;offset=0&amp;fifth=50">outcome atlas</a>. At fifth reading 50, why can the mean have lower average error even when the median wins more individual cases? Select a cell, then open it in the full lab.</li>
         </ol>
         <p>The generated cohort is deterministic toy data, not a sample of real observers. Workbench analysis runs in your browser. A challenge link includes all five values and the target in its URL, so use public or invented values only.</p>

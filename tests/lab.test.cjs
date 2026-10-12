@@ -514,16 +514,49 @@ test("workbench offers a challenge only for shareable data and clears it on inva
   const lab=loadLab();
   assert.equal(lab.element("workbench-challenge").hidden,false);
   assert.equal(lab.element("workbench-challenge").href,"challenge.html?values=48%2C49%2C50%2C51%2C85&target=50");
+  assert.equal(lab.element("workbench-target-lens").hidden,false);
+  assert.equal(lab.element("workbench-target-lens").href,"target-lens.html?values=48%2C49%2C50%2C51%2C85&target=50");
   lab.element("known-target").value="";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
+  assert.equal(lab.element("workbench-target-lens").hidden,true);
   lab.element("known-target").value="50";
   lab.element("dataset").value="48,49,50,51,100.12345";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
+  assert.equal(lab.element("workbench-target-lens").hidden,true);
   lab.element("dataset").value="bad input";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
+  assert.equal(lab.element("workbench-target-lens").hidden,true);
+});
+
+test("target lens finds the exact crossover and handles a permanent tie", () => {
+  const {PRESETS,parseView,evaluate}=require("../target-lens.js");
+  const a=PRESETS.a;
+  assert.equal(evaluate(a.values,50).winner,"Median");
+  assert.equal(evaluate(a.values,60).winner,"Mean");
+  assert.equal(evaluate(a.values,53.3).winner,"Equal");
+  assert.equal(evaluate(a.values,50).boundary,53.3);
+  const b=PRESETS.b;
+  assert.equal(evaluate(b.values,50).winner,"Median");
+  assert.equal(evaluate(b.values,51).winner,"Equal");
+  assert.equal(evaluate(b.values,52).winner,"Mean");
+  const c=PRESETS.c;
+  for(const target of [0,13.75,50,100]) {
+    const result=evaluate(c.values,target);
+    assert.equal(result.winner,"Equal");
+    assert.equal(result.meanError,result.medianError);
+  }
+  const shared=parseView("?values=48%2C49%2C50%2C51%2C85&target=53.3");
+  assert.deepEqual(shared.values,a.values);
+  assert.equal(evaluate(shared.values,shared.target).winner,"Equal");
+  assert.equal(parseView("?values=48%2C49%2C50%2C51%2C85&target=101"),false);
+  assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5&target=50&target=51"),false);
+  assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5.12345&target=50"),false);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="target-lens\.html"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","guide.html"),"utf8"),/href="target-lens\.html\?values=/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","worksheet.html"),"utf8"),/href="target-lens\.html\?values=/);
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
