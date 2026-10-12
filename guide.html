@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07121d">
+  <title>Mean vs Median With Outliers: A Five-Minute Interactive Lesson</title>
+  <meta name="description" content="When does an outlier move the mean more than the median? Try two opposite examples, check the arithmetic, and test your own numbers in a free browser lab.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/guide.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Mean vs Median With Outliers | An Interactive Lesson">
+  <meta property="og:description" content="Predict the result, check two counterexamples, and use your own numbers in a free interactive lab.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/guide.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#07121d; --panel:#11283a; --text:#eaf6f6; --muted:#b2cad0; --mint:#5af0c6; --gold:#ffcb78; --line:#31596a; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:radial-gradient(circle at 80% -15%,#185348,transparent 45%),var(--bg); color:var(--text); font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif; }
+    .wrap { width:min(1000px,calc(100% - 32px)); margin:auto; }
+    a { color:var(--mint); }
+    a:focus-visible,summary:focus-visible { outline:3px solid var(--gold); outline-offset:4px; }
+    .skip { position:absolute; top:-70px; left:16px; padding:8px 14px; background:var(--gold); color:#07121d; border-radius:9px; }
+    .skip:focus { top:10px; }
+    header { padding:24px 0 10px; }
+    nav { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    nav strong { font-size:1rem; letter-spacing:.04em; margin-right:auto; }
+    nav a { color:var(--text); text-decoration:none; font-size:.92rem; }
+    nav a:hover { color:var(--mint); }
+    .hero { padding:56px 0 36px; }
+    .eyebrow { color:var(--mint); font-size:.76rem; text-transform:uppercase; letter-spacing:.18em; font-weight:800; }
+    h1 { max-width:920px; font-size:clamp(2.35rem,6vw,4.7rem); line-height:1.07; letter-spacing:-.045em; margin:12px 0 20px; }
+    .lead { max-width:760px; color:var(--muted); font-size:1.17rem; }
+    .button { display:inline-flex; align-items:center; justify-content:center; padding:12px 18px; min-height:48px; margin:10px 10px 0 0; border-radius:11px; color:#05251f; background:var(--mint); font-weight:800; text-decoration:none; }
+    .button.secondary { color:var(--text); background:#173a43; border:1px solid #487c7d; }
+    .button:hover { filter:brightness(1.12); }
+    .callout { border-left:3px solid var(--gold); padding:10px 17px; background:#132d39; border-radius:0 10px 10px 0; color:#d8e9e8; }
+    main { padding-bottom:55px; }
+    section { margin:32px 0; }
+    h2 { font-size:clamp(1.55rem,3vw,2.15rem); line-height:1.2; margin:0 0 12px; }
+    h3 { margin:0 0 8px; font-size:1.18rem; }
+    p { margin:8px 0 16px; }
+    .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .card { min-width:0; padding:22px; border:1px solid var(--line); border-radius:18px; background:linear-gradient(150deg,#173849,var(--panel)); }
+    .card p { color:var(--muted); }
+    .numbers { font:750 clamp(1.1rem,3vw,1.65rem) ui-monospace,SFMono-Regular,monospace; color:var(--gold); overflow-wrap:anywhere; }
+    .answer { border-top:1px solid var(--line); padding-top:13px; }
+    .answer strong { color:var(--mint); }
+    details { border:1px solid var(--line); border-radius:12px; background:#12283a; padding:12px 18px; margin:10px 0; }
+    summary { cursor:pointer; font-weight:750; }
+    details p { margin-bottom:3px; color:var(--muted); }
+    .steps { counter-reset:step; list-style:none; padding:0; display:grid; gap:12px; }
+    .steps li { counter-increment:step; border:1px solid var(--line); background:#102637; border-radius:12px; padding:14px 18px 14px 58px; position:relative; }
+    .steps li::before { content:counter(step); position:absolute; left:17px; top:14px; color:var(--mint); font-weight:900; }
+    footer { border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; padding:22px 0 35px; }
+    @media(max-width:700px) { .cards { grid-template-columns:1fr; } .hero { padding-top:32px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#lesson">Skip to lesson</a>
+  <div class="wrap">
+    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Interactive lab</a><a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a></nav></header>
+    <main id="lesson">
+      <div class="hero">
+        <p class="eyebrow">A five-minute interactive lesson</p>
+        <h1>When does the mean beat the median?</h1>
+        <p class="lead">One unusual value can pull an average away from a known target. But the median is not automatically the better answer. Make a prediction, check two opposite examples, then change the numbers yourself.</p>
+        <a class="button" href="index.html#workbench-title">Try your own numbers ↗</a><a class="button secondary" href="#examples">See the two examples ↓</a>
+      </div>
+      <p class="callout">These are invented teaching examples with a target chosen for each case. In real work, the target may be unknown. An unusual observation is not automatically wrong, and comparing errors here does not prove a universal rule.</p>
+
+      <section id="examples" aria-labelledby="examples-title">
+        <p class="eyebrow">Predict before you reveal</p>
+        <h2 id="examples-title">The same two estimators. Opposite outcomes.</h2>
+        <div class="cards">
+          <article class="card">
+            <h3>Case 1: one high reading</h3>
+            <p class="numbers">48 · 49 · 50 · 51 · 85</p>
+            <p>Known target: <strong>50</strong>. Which estimate lands closer?</p>
+            <details><summary>Reveal the arithmetic</summary><p class="answer">Mean = 283 ÷ 5 = <strong>56.6</strong> (error 6.6). Median = <strong>50</strong> (error 0). The median is closer to this target. Remove 85 and the mean becomes 49.5; the median also becomes 49.5.</p></details>
+            <a href="index.html#workbench-title">Inspect the plotted example ↗</a>
+          </article>
+          <article class="card">
+            <h3>Case 2: the mean wins</h3>
+            <p class="numbers">40 · 42 · 50 · 60 · 68</p>
+            <p>Known target: <strong>52</strong>. Which estimate lands closer?</p>
+            <details><summary>Reveal the arithmetic</summary><p class="answer">Mean = 260 ÷ 5 = <strong>52</strong> (error 0). Median = <strong>50</strong> (error 2). The mean is closer to this target. The target is supplied for the exercise, not inferred from the observations.</p></details>
+            <a href="index.html#workbench-title">Open workbench; choose “Load mean-wins example” ↗</a>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="activity-title">
+        <p class="eyebrow">Teach it or explore it</p>
+        <h2 id="activity-title">A five-minute activity</h2>
+        <ol class="steps">
+          <li><strong>Predict:</strong> read each set of five observations and choose mean or median before opening the answer.</li>
+          <li><strong>Test:</strong> open the <a href="index.html#workbench-title">workbench</a>. Use the two example buttons, then paste a set of your own 3–40 numbers.</li>
+          <li><strong>Challenge:</strong> remove the value farthest from the original median. Which estimate changes more? The workbench computes both changes.</li>
+          <li><strong>Extend:</strong> open the <a href="index.html?seed=42&amp;fifth=50#start">128-seed reversal</a>. Why can the mean have lower average error even when the median wins more individual cases?</li>
+        </ol>
+        <p>The generated cohort is deterministic toy data, not a sample of real observers. The workbench keeps your own numbers on your device and offers a local JSON download.</p>
+      </section>
+
+      <section aria-labelledby="questions-title">
+        <h2 id="questions-title">Questions people ask</h2>
+        <details><summary>Is the median always more accurate when there is an outlier?</summary><p>No. Accuracy depends on a reference target and how the observations were produced. The second example shows a mean with zero error against its stated target.</p></details>
+        <details><summary>What if I do not know the true value?</summary><p>You can still compare mean, median, and how much each moves when one observation is removed. Without a trustworthy target, this lab does not call either estimate more accurate.</p></details>
+        <details><summary>Should I delete a value because it is far from the median?</summary><p>No. The removal is a sensitivity test. Keep or exclude an observation based on your data collection and analysis rules, not on this chart alone.</p></details>
+      </section>
+      <a class="button" href="index.html#workbench-title">Open the interactive lab ↗</a>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+</body>
+</html>
