@@ -19,10 +19,10 @@
     .intro { max-width:770px; color:var(--muted); font-size:1.08rem; }
     .scope { max-width:860px; border-left:3px solid var(--gold); padding:10px 16px; background:#132536; color:#d3e5e7; border-radius:0 10px 10px 0; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
-    .panel,.notebook { background:linear-gradient(160deg,#132638,var(--panel)); border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px #0003; padding:24px; min-width:0; }
+    .panel,.notebook,.sensitivity { background:linear-gradient(160deg,#132638,var(--panel)); border:1px solid var(--line); border-radius:20px; box-shadow:0 20px 50px #0003; padding:24px; min-width:0; }
     .panel-head { display:flex; gap:16px; justify-content:space-between; align-items:start; }
     h2 { margin:0; font-size:1.45rem; letter-spacing:-.02em; }
-    .panel p,.notebook p { color:var(--muted); }
+    .panel p,.notebook p,.sensitivity p { color:var(--muted); }
     .tag { white-space:nowrap; border:1px solid #47715f; color:var(--mint); background:#14312f; border-radius:99px; padding:4px 10px; font-size:.75rem; font-weight:700; }
     canvas { width:100%; height:auto; display:block; margin:18px 0; border:1px solid #2d5266; border-radius:14px; background:#071522; }
     .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0 22px; }
@@ -45,6 +45,16 @@
     code { color:#d9f4ee; }
     .legend { display:flex; flex-wrap:wrap; gap:8px 18px; color:var(--muted); font-size:.8rem; }
     .swatch { display:inline-block; width:10px; height:10px; margin-right:5px; border-radius:50%; }
+    .sensitivity { margin-top:20px; }
+    .sensitivity .status { color:var(--mint); }
+    .sweep-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .table-wrap { overflow-x:auto; }
+    table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:.9rem; }
+    th,td { padding:9px 12px; text-align:right; border-bottom:1px solid var(--line); }
+    th:first-child,td:first-child { text-align:left; }
+    th { color:var(--muted); font-weight:600; }
+    tbody tr:first-child { background:#163c40; }
+    caption { text-align:left; color:var(--muted); padding:5px 0 10px; }
     .notebook { margin:20px 0 35px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
     .notebook h2 { font-size:1.2rem; }
     .notebook p { margin:.3rem 0 0; }
@@ -52,7 +62,8 @@
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
     @media(max-width:850px) { .grid { grid-template-columns:1fr; } }
-    @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
+    @media(max-width:600px) { .sweep-metrics { grid-template-columns:1fr; } }
+    @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
   </style>
 </head>
 <body>
@@ -108,8 +119,35 @@
       </section>
     </main>
 
+    <section class="sensitivity" aria-labelledby="sensitivity-title">
+      <p class="eyebrow">Experiment 02 / sensitivity sweep</p>
+      <h2 id="sensitivity-title">Where does each estimator win?</h2>
+      <p>Hold the four seeded values fixed and try every whole-number fifth estimate from 0 to 100. Each curve is absolute error against the known target of 50. The dashed line marks your current slider position.</p>
+      <canvas id="sweep" width="1200" height="300" role="img" aria-label="Absolute error of mean and median for each fifth observer estimate from zero to one hundred; numeric summary and sample table follow">The numeric sweep summary and sample table are below.</canvas>
+      <div class="legend"><span><i class="swatch" style="background:var(--gold)"></i>mean error</span><span><i class="swatch" style="background:var(--mint)"></i>median error</span><span><i class="swatch" style="background:#fff"></i>current fifth estimate</span></div>
+      <div class="metrics sweep-metrics" aria-live="polite">
+        <div class="metric"><span>Median has lower error</span><strong id="median-wins">—</strong></div>
+        <div class="metric gold"><span>Mean has lower error</span><strong id="mean-wins">—</strong></div>
+        <div class="metric rose"><span>Equal error</span><strong id="equal-count">—</strong></div>
+      </div>
+      <p id="sweep-summary" class="status" role="status"></p>
+      <div class="table-wrap"><table>
+        <caption>Selected positions from the 101-position sweep; errors are absolute distances from 50.</caption>
+        <thead><tr><th scope="col">Fifth estimate</th><th scope="col">Mean error</th><th scope="col">Median error</th><th scope="col">Lower error</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Current: <span id="sample-current-value">—</span></th><td id="sample-current-mean">—</td><td id="sample-current-median">—</td><td id="sample-current-winner">—</td></tr>
+          <tr><th scope="row">0</th><td id="sample-0-mean">—</td><td id="sample-0-median">—</td><td id="sample-0-winner">—</td></tr>
+          <tr><th scope="row">25</th><td id="sample-25-mean">—</td><td id="sample-25-median">—</td><td id="sample-25-winner">—</td></tr>
+          <tr><th scope="row">50</th><td id="sample-50-mean">—</td><td id="sample-50-median">—</td><td id="sample-50-winner">—</td></tr>
+          <tr><th scope="row">75</th><td id="sample-75-mean">—</td><td id="sample-75-median">—</td><td id="sample-75-winner">—</td></tr>
+          <tr><th scope="row">100</th><td id="sample-100-mean">—</td><td id="sample-100-median">—</td><td id="sample-100-winner">—</td></tr>
+        </tbody>
+      </table></div>
+      <p class="formula"><strong>Reading this sweep:</strong> Counts describe these 101 evenly spaced inputs, not the chance of an estimator winning in the world. A different seed changes the four fixed estimates. The maximum errors below refer only to this 0–100 grid.</p>
+    </section>
+
     <section class="notebook" aria-labelledby="notebook-title">
-      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, observer values, and both errors as JSON. It stays on this device.</p></div>
+      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, observer values, and all 101 sweep points as JSON. It stays on this device.</p></div>
       <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
     </section>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
@@ -119,10 +157,11 @@
     const $ = id => document.getElementById(id);
     const rc = $("rc"), rcx = rc.getContext("2d");
     const wg = $("wg"), wgx = wg.getContext("2d");
+    const sweepCanvas = $("sweep"), sweepX = sweepCanvas.getContext("2d");
     const target = {x:455, y:160};
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let simulation, shockRng, observerRng, observers, paused = true, lastFrame = 0, accumulator = 0;
+    let simulation, shockRng, observerRng, observers, sensitivity, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -140,6 +179,7 @@
       shockRng = makeRng(seed ^ 0x9e3779b9);
       observerRng = makeRng(seed ^ 0x85ebca6b);
       observers = Array.from({length:4}, () => witnessTarget + (observerRng() * 16 - 8));
+      sensitivity = buildSensitivity();
       simulation = {
         seed, step:0, position:{x:120,y:215}, velocity:{x:0,y:0},
         trail:[{x:120,y:215}], stableSteps:0, shocks:[],
@@ -148,6 +188,7 @@
       paused = true; accumulator = 0; $("run").textContent = "Run";
       $("event").textContent = reducedMotion ? "Paused for reduced motion. Use Step once or Run." : "Paused at step 0.";
       render();
+      renderSensitivity();
     }
     function distance() { return Math.hypot(target.x - simulation.position.x, target.y - simulation.position.y); }
     function speed() { return Math.hypot(simulation.velocity.x, simulation.velocity.y); }
@@ -173,12 +214,75 @@
       $("event").textContent = "Shock " + simulation.shocks.length + " added at step " + simulation.step + ".";
       render();
     }
-    function witnessStats() {
-      const values = [...observers, Number($("outlier").value)];
+    function witnessStatsAt(fifthObserver) {
+      const values = [...observers, fifthObserver];
       const mean = values.reduce((sum,v) => sum + v,0) / values.length;
       const sorted = [...values].sort((a,b) => a-b);
       const median = sorted[2];
       return {values,mean,median,meanError:Math.abs(mean-witnessTarget),medianError:Math.abs(median-witnessTarget)};
+    }
+    function witnessStats() { return witnessStatsAt(Number($("outlier").value)); }
+    function winner(point) {
+      if (Math.abs(point.meanAbsoluteError-point.medianAbsoluteError)<1e-9) return "Equal";
+      return point.meanAbsoluteError<point.medianAbsoluteError?"Mean":"Median";
+    }
+    function buildSensitivity() {
+      const points = Array.from({length:101}, (_,fifthObserver) => {
+        const stats = witnessStatsAt(fifthObserver);
+        return {fifthObserver,mean:stats.mean,median:stats.median,meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError};
+      });
+      const summary = {meanLowerErrorCount:0,medianLowerErrorCount:0,equalErrorCount:0,worstMeanAbsoluteError:0,worstMedianAbsoluteError:0};
+      for (const point of points) {
+        const result = winner(point);
+        if (result==="Mean") summary.meanLowerErrorCount++;
+        else if (result==="Median") summary.medianLowerErrorCount++;
+        else summary.equalErrorCount++;
+        summary.worstMeanAbsoluteError = Math.max(summary.worstMeanAbsoluteError,point.meanAbsoluteError);
+        summary.worstMedianAbsoluteError = Math.max(summary.worstMedianAbsoluteError,point.medianAbsoluteError);
+      }
+      return {grid:{min:0,max:100,step:1},summary,points};
+    }
+    function drawSensitivity() {
+      const ctx=sweepX, points=sensitivity.points, chosen=Number($("outlier").value);
+      const left=70,right=1160,top=25,bottom=238;
+      const yMax=Math.max(4,Math.ceil(Math.max(sensitivity.summary.worstMeanAbsoluteError,sensitivity.summary.worstMedianAbsoluteError)/4)*4);
+      const x=value=>left+(right-left)*value/100;
+      const y=error=>bottom-(bottom-top)*error/yMax;
+      ctx.clearRect(0,0,1200,300);
+      ctx.font="15px system-ui";ctx.lineWidth=1;ctx.strokeStyle="#315367";ctx.fillStyle="#b5cbd3";ctx.textAlign="right";
+      for(let tick=0;tick<=4;tick++) {
+        const error=tick*yMax/4,py=y(error);
+        ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(right,py);ctx.stroke();
+        ctx.fillText(error.toFixed(1),left-12,py+5);
+      }
+      ctx.textAlign="center";
+      for(let value=0;value<=100;value+=25) {
+        ctx.fillText(String(value),x(value),bottom+26);
+      }
+      ctx.fillText("Fifth observer estimate",(left+right)/2,bottom+53);
+      for (const [key,color] of [["meanAbsoluteError","#ffcb78"],["medianAbsoluteError","#5af0c6"]]) {
+        ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();
+        points.forEach((point,i)=>{if(i===0)ctx.moveTo(x(point.fifthObserver),y(point[key]));else ctx.lineTo(x(point.fifthObserver),y(point[key]));});
+        ctx.stroke();
+        const point=points[chosen];ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(chosen),y(point[key]),5,0,Math.PI*2);ctx.fill();
+      }
+      ctx.strokeStyle="#ffffff";ctx.lineWidth=1;ctx.setLineDash([5,6]);ctx.beginPath();ctx.moveTo(x(chosen),top);ctx.lineTo(x(chosen),bottom);ctx.stroke();ctx.setLineDash([]);
+    }
+    function renderSensitivity() {
+      const summary=sensitivity.summary, chosen=Number($("outlier").value);
+      $("median-wins").textContent=summary.medianLowerErrorCount+" / 101";
+      $("mean-wins").textContent=summary.meanLowerErrorCount+" / 101";
+      $("equal-count").textContent=summary.equalErrorCount+" / 101";
+      $("sweep-summary").textContent="Worst error on this grid: mean "+summary.worstMeanAbsoluteError.toFixed(2)+"; median "+summary.worstMedianAbsoluteError.toFixed(2)+". Counts are grid positions, not probabilities.";
+      const samples=[["current",chosen],["0",0],["25",25],["50",50],["75",75],["100",100]];
+      $("sample-current-value").textContent=String(chosen);
+      for (const [id,value] of samples) {
+        const point=sensitivity.points[value];
+        $("sample-"+id+"-mean").textContent=point.meanAbsoluteError.toFixed(2);
+        $("sample-"+id+"-median").textContent=point.medianAbsoluteError.toFixed(2);
+        $("sample-"+id+"-winner").textContent=winner(point);
+      }
+      drawSensitivity();
     }
     function drawRC() {
       rcx.clearRect(0,0,600,340);
@@ -233,7 +337,7 @@
     function snapshot() {
       const stats=witnessStats();
       return {
-        schema:"inward-math-toy-v1",
+        schema:"inward-math-toy-v2",
         scope:"damped spring and five generated observer values; no scientific or safety measurement",
         model:{springCoefficient:0.008,damping:0.92,target:{...target},coherenceProxy:"exp(-distance/120)",settledRule:"distance < 4 and speed < 0.5 for 45 consecutive steps"},
         seed:simulation.seed,initialAlpha:simulation.initialAlpha,currentAlpha:Number($("alpha").value),
@@ -242,7 +346,8 @@
         coherenceProxy:Math.exp(-distance()/120),stableSteps:simulation.stableSteps,
         shocks:simulation.shocks.map(v=>({step:v.step,impulse:{...v.impulse},selectedStrength:v.selectedStrength})),
         parameterChanges:simulation.parameterChanges.map(v=>({...v})),
-        witnesses:{target:witnessTarget,seeded:observers.slice(),adjustable:stats.values[4],mean:stats.mean,median:stats.median,meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError}
+        witnesses:{target:witnessTarget,seeded:observers.slice(),adjustable:stats.values[4],mean:stats.mean,median:stats.median,meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError},
+        witnessSensitivity:sensitivity
       };
     }
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
@@ -251,7 +356,7 @@
     $("reset").addEventListener("click",reset);
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
-    $("outlier").addEventListener("input",render);
+    $("outlier").addEventListener("input",()=>{render();renderSensitivity();});
     $("export").addEventListener("click",()=>{
       const file=new Blob([JSON.stringify(snapshot(),null,2)+"\n"],{type:"application/json"});
       const url=URL.createObjectURL(file), link=document.createElement("a");

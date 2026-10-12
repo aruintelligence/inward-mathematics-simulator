@@ -86,6 +86,38 @@ test("observer comparison uses the same four values under outlier changes", () =
   assert.ok(extreme.medianAbsoluteError<extreme.meanAbsoluteError);
 });
 
+test("sensitivity sweep exposes both winning regions and agrees with selected telemetry", () => {
+  const lab=loadLab();
+  const sweep=snapshot(lab).witnessSensitivity;
+  assert.deepEqual(sweep.grid,{min:0,max:100,step:1});
+  assert.equal(sweep.points.length,101);
+  assert.equal(sweep.summary.medianLowerErrorCount,84);
+  assert.equal(sweep.summary.meanLowerErrorCount,17);
+  assert.equal(sweep.summary.equalErrorCount,0);
+  assert.ok(sweep.points[0].medianAbsoluteError<sweep.points[0].meanAbsoluteError);
+  assert.ok(sweep.points[40].meanAbsoluteError<sweep.points[40].medianAbsoluteError);
+  assert.equal(lab.element("sample-0-winner").textContent,"Median");
+  input(lab.element("outlier"),40);
+  const selected=snapshot(lab).witnesses;
+  assert.equal(selected.meanAbsoluteError,sweep.points[40].meanAbsoluteError);
+  assert.equal(selected.medianAbsoluteError,sweep.points[40].medianAbsoluteError);
+  assert.equal(lab.element("sample-current-winner").textContent,"Mean");
+  assert.equal(lab.element("sample-current-value").textContent,"40");
+  assert.equal(lab.element("mean-wins").textContent,"17 / 101");
+});
+
+test("resetting a new seed recomputes the full sensitivity sweep", () => {
+  const lab=loadLab();
+  const first=snapshot(lab).witnessSensitivity;
+  lab.element("seed").value="43";
+  click(lab.element("reset"));
+  const second=snapshot(lab).witnessSensitivity;
+  assert.notDeepEqual(second.points,first.points);
+  assert.equal(second.points.length,101);
+  assert.equal(second.summary.meanLowerErrorCount+second.summary.medianLowerErrorCount+second.summary.equalErrorCount,101);
+  assert.equal(second.points[85].mean,(snapshot(lab).witnesses.seeded.reduce((sum,value)=>sum+value,85))/5);
+});
+
 test("export button downloads seed, parameter changes, and exact shock impulse", async () => {
   const lab=loadLab();
   input(lab.element("alpha"),2.1);
@@ -100,7 +132,8 @@ test("export button downloads seed, parameter changes, and exact shock impulse",
   assert.deepEqual(report.parameterChanges.map(change=>change.parameter),["alpha","shockStrength"]);
   assert.equal(report.shocks[0].selectedStrength,75);
   assert.equal(report.witnesses.target,50);
-  assert.equal(report.schema,"inward-math-toy-v1");
+  assert.equal(report.schema,"inward-math-toy-v2");
+  assert.equal(report.witnessSensitivity.points.length,101);
 });
 
 test("invalid seed uses the documented default", () => {
