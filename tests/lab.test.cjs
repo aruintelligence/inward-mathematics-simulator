@@ -118,6 +118,39 @@ test("resetting a new seed recomputes the full sensitivity sweep", () => {
   assert.equal(second.points[85].mean,(snapshot(lab).witnesses.seeded.reduce((sum,value)=>sum+value,85))/5);
 });
 
+test("seed cohort distinguishes average error from win frequency", () => {
+  const lab=loadLab();
+  const cohort=snapshot(lab).witnessCohort;
+  assert.equal(cohort.startSeed,42);
+  assert.equal(cohort.count,128);
+  assert.equal(cohort.members.length,128);
+  assert.equal(cohort.points.length,101);
+  assert.deepEqual(cohort.members[0].observers,snapshot(lab).witnesses.seeded);
+  assert.equal(cohort.points[50].meanLowerErrorCount,53);
+  assert.equal(cohort.points[50].medianLowerErrorCount,75);
+  assert.ok(cohort.points[50].meanAverageAbsoluteError<cohort.points[50].medianAverageAbsoluteError);
+  assert.ok(Math.abs(cohort.points[50].meanAverageAbsoluteError-1.4300321095623072)<1e-10);
+  input(lab.element("outlier"),50);
+  assert.equal(lab.element("cohort-50-winner").textContent,"Mean");
+  assert.equal(lab.element("cohort-50-count").textContent,"75 / 128");
+  assert.match(lab.element("cohort-summary").textContent,/More individual seeds favor Median/);
+  assert.equal(cohort.points[85].meanLowerErrorCount,2);
+  assert.equal(cohort.points[85].medianLowerErrorCount,126);
+});
+
+test("seed cohort wraps at the unsigned 32-bit boundary", () => {
+  const lab=loadLab();
+  lab.element("seed").value="4294967295";
+  click(lab.element("reset"));
+  const cohort=snapshot(lab).witnessCohort;
+  assert.equal(cohort.members[0].seed,4294967295);
+  assert.equal(cohort.members[1].seed,0);
+  lab.element("seed").value="0";
+  click(lab.element("reset"));
+  assert.deepEqual(cohort.members[1].observers,snapshot(lab).witnesses.seeded);
+  for(const point of cohort.points) assert.equal(point.meanLowerErrorCount+point.medianLowerErrorCount+point.equalErrorCount,128);
+});
+
 test("export button downloads seed, parameter changes, and exact shock impulse", async () => {
   const lab=loadLab();
   input(lab.element("alpha"),2.1);
@@ -132,8 +165,10 @@ test("export button downloads seed, parameter changes, and exact shock impulse",
   assert.deepEqual(report.parameterChanges.map(change=>change.parameter),["alpha","shockStrength"]);
   assert.equal(report.shocks[0].selectedStrength,75);
   assert.equal(report.witnesses.target,50);
-  assert.equal(report.schema,"inward-math-toy-v2");
+  assert.equal(report.schema,"inward-math-toy-v3");
   assert.equal(report.witnessSensitivity.points.length,101);
+  assert.equal(report.witnessCohort.members.length,128);
+  assert.equal(report.witnessCohort.points.length,101);
 });
 
 test("invalid seed uses the documented default", () => {
