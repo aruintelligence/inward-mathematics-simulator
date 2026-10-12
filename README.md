@@ -18,6 +18,12 @@ The first screen offers three guided cases: an extreme fifth estimate at 85, a c
 
 The checked-in [social preview](social-card.png) is generated from the same seed-42 cohort equations with `python tools/render_social_card.py` (Pillow required only to regenerate the image). Its chart is illustrative of this specific toy cohort; it does not report a population result.
 
+## Bring your own numbers
+
+The local workbench accepts 3–40 finite observations between −1,000,000 and 1,000,000, separated by commas, semicolons, or whitespace. An optional **known target** lets you compare absolute errors; without one, the workbench shows both estimates without declaring either more accurate. It plots the original observations, mean, median, and supplied target. It then removes the original observation farthest from the original median and recomputes both estimators. This leave-one-out comparison shows sensitivity; it does not establish that the removed point is invalid. An even-length dataset uses the average of its two middle sorted values. Ties for the farthest observation use the first entered value.
+
+Use the invented outlier and mean-wins examples to learn the controls, or paste your own numbers. **Save this analysis as JSON** downloads the inputs, optional target, exact computed values, errors, and leave-one-out result. The data stays in the browser: the page has no backend, network request, or analytics. Custom inputs are not put into share links and are separate from the generated seed experiment and its export. Display labels round to four decimal places; the saved JSON retains JavaScript's numeric values. Avoid interpreting a supplied target as independently verified ground truth.
+
 ## Experiment 1: Remembrance Calculus™
 
 The yellow point moves toward a fixed green target. Each discrete step applies:
