@@ -57,6 +57,20 @@
     .scene-card span { color:var(--muted); font-size:.91rem; }
     .scene-card em { margin-top:auto; color:var(--gold); font-style:normal; font-weight:750; }
     .journey-outcome { border-left:3px solid var(--mint); padding:10px 15px; margin:16px 0; background:#143039; color:#eaf6f6; border-radius:0 9px 9px 0; }
+    .sensitivity.workbench { margin:24px 0 20px; border-color:#438376; background:radial-gradient(circle at 95% 0,#185348 0,transparent 32%),linear-gradient(160deg,#132638,var(--panel)); }
+    .workbench h2 { font-size:clamp(1.6rem,3vw,2.3rem); }
+    .workbench-intro { max-width:850px; }
+    .workbench-form { display:grid; grid-template-columns:minmax(0,2fr) minmax(180px,1fr); gap:12px; align-items:end; }
+    .workbench textarea { width:100%; min-height:78px; resize:vertical; color:var(--text); background:#0a1a28; border:1px solid #547087; border-radius:9px; padding:11px; font:inherit; }
+    .workbench textarea:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .workbench .actions { align-items:center; margin:12px 0; }
+    .workbench .actions button { min-height:44px; }
+    .workbench .data-note { color:var(--muted); font-size:.88rem; margin:8px 0; }
+    #workbench-error { color:var(--rose); font-weight:700; }
+    #workbench-result[hidden] { display:none; }
+    .workbench .result-lead { font-size:1.12rem; color:var(--text); }
+    .workbench .result-lead strong { color:var(--mint); }
+    .workbench .formula { margin-top:12px; }
     .share-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; font-size:.9rem; }
     .share-row a { color:var(--cyan); }
     .share-row .share-action { cursor:pointer; padding:8px 12px; }
@@ -110,7 +124,7 @@
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
     @media(max-width:850px) { .grid,.hero-layout { grid-template-columns:1fr; } .hero-instrument { max-width:680px; } }
-    @media(max-width:700px) { .scene-grid { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
+    @media(max-width:700px) { .scene-grid,.workbench-form { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
     @media(max-width:600px) { .sweep-metrics,.cohort-metrics { grid-template-columns:1fr; } }
     @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
     @media(prefers-reduced-motion:reduce) { .hero-instrument::after { animation:none; } .scene-card { transition:none; } }
@@ -126,7 +140,7 @@
           <h1>Inward Mathematics<span style="color:var(--mint)">™</span></h1>
           <p class="hero-hook">One number can change the answer.</p>
           <p class="intro">Move one of five generated estimates. Watch the mean and median diverge, then see what happens when the same test runs across 128 seeds. Every input and equation is open to inspect.</p>
-          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="#rc-title">Explore the models</a></div>
+          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
         </div>
         <aside class="hero-instrument" aria-label="Live fifth-observer reading and estimator errors">
           <p class="eyebrow">Live witness reading</p>
@@ -149,6 +163,37 @@
       </div>
       <p id="journey-outcome" class="journey-outcome" role="status"></p>
       <div class="share-row"><button id="copy-link" class="share-action" type="button">Copy this exact case</button><a id="share-link" href="#start">Open the case link</a><span id="share-status" role="status"></span></div>
+    </section>
+
+    <section id="workbench" class="sensitivity workbench" aria-labelledby="workbench-title">
+      <p class="eyebrow">Your data / local workbench</p>
+      <h2 id="workbench-title">See what one value does to your numbers.</h2>
+      <p class="workbench-intro">Paste 3–40 numbers, separated by commas or spaces. Add a known target if you have one. The result shows what changes when the value farthest from the median is removed. Your entries stay in this browser; this page sends nothing to a server.</p>
+      <div class="workbench-form">
+        <label class="control" for="dataset">Your observations<textarea id="dataset" spellcheck="false">48, 49, 50, 51, 85</textarea></label>
+        <label class="control" for="known-target">Known target (optional)<input id="known-target" type="number" step="any" placeholder="For example, 50" value="50"></label>
+      </div>
+      <div class="actions">
+        <button id="analyze" class="primary" type="button">Analyze these numbers</button>
+        <button id="example-outlier" type="button">Load outlier example</button>
+        <button id="example-mean" type="button">Load mean-wins example</button>
+      </div>
+      <p class="data-note">Finite values from −1,000,000 to 1,000,000; use a period for decimals. The examples are invented. Do not treat a removed value as invalid simply because it is far from the median.</p>
+      <p id="workbench-error" role="alert"></p>
+      <div id="workbench-result" hidden>
+        <p id="workbench-summary" class="result-lead" role="status"></p>
+        <canvas id="workbench-chart" width="1200" height="320" role="img" aria-label="Observation positions with mean, median, and optional target; numeric summary follows">The numeric analysis follows.</canvas>
+        <div class="legend"><span><i class="swatch" style="background:var(--cyan)"></i>observations</span><span><i class="swatch" style="background:var(--gold)"></i>mean</span><span><i class="swatch" style="background:var(--mint)"></i>median</span><span><i class="swatch" style="background:#fff"></i>known target, if provided</span></div>
+        <div class="metrics">
+          <div class="metric gold"><span>Mean</span><strong id="workbench-mean">—</strong></div>
+          <div class="metric"><span>Median</span><strong id="workbench-median">—</strong></div>
+        </div>
+        <p id="workbench-target-note"></p>
+        <p id="workbench-leaveout"></p>
+        <p id="workbench-values" class="data-note"></p>
+        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><span id="workbench-save-status" role="status"></span></div>
+        <p class="formula">The mean is the sum divided by the number of observations. The median is the middle sorted value, or the average of the two middle values. “Farthest” means greatest absolute distance from the original median; ties use the first entered value. Removing a point is a counterfactual, not a recommendation to discard data. A target you enter is a reference you supplied, not one verified by this page.</p>
+      </div>
     </section>
 
     <div class="grid">
@@ -262,11 +307,12 @@
     const wg = $("wg"), wgx = wg.getContext("2d");
     const sweepCanvas = $("sweep"), sweepX = sweepCanvas.getContext("2d");
     const cohortCanvas = $("cohort"), cohortX = cohortCanvas.getContext("2d");
+    const workbenchCanvas = $("workbench-chart"), workbenchX = workbenchCanvas.getContext("2d");
     const target = {x:455, y:160};
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scenes = {outlier:{fifth:85,target:"wg-title"},mean:{fifth:40,target:"sensitivity-title"},reversal:{fifth:50,target:"cohort-title"}};
-    let simulation, shockRng, observers, sensitivity, cohort, activeScene=null, paused = true, lastFrame = 0, accumulator = 0;
+    let simulation, shockRng, observers, sensitivity, cohort, workbenchAnalysis=null, activeScene=null, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -293,6 +339,84 @@
     }
     function caseUrl() {
       return window.location.href.split(/[?#]/)[0]+"?seed="+simulation.seed+"&fifth="+Number($("outlier").value)+"#start";
+    }
+    function analyzeDataset(raw,targetRaw="") {
+      const input=String(raw).trim(),targetText=String(targetRaw).trim();
+      if(input.length>512) throw new Error("Use at most 512 characters for the observations.");
+      const tokens=input.split(/[,;\s]+/).filter(Boolean);
+      if(tokens.length<3 || tokens.length>40) throw new Error("Enter 3 to 40 numbers, separated by commas or spaces.");
+      const numeric=/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
+      const parse=(token,label)=>{
+        const number=Number(token);
+        if(!numeric.test(token) || !Number.isFinite(number) || Math.abs(number)>1000000) throw new Error(label+" must be a finite number from −1,000,000 to 1,000,000.");
+        return number;
+      };
+      const values=tokens.map((token,i)=>parse(token,"Observation "+(i+1)));
+      const targetValue=targetText===""?null:parse(targetText,"The known target");
+      const medianOf=items=>{
+        const sorted=[...items].sort((a,b)=>a-b),middle=Math.floor(sorted.length/2);
+        return sorted.length%2?sorted[middle]:(sorted[middle-1]+sorted[middle])/2;
+      };
+      const meanOf=items=>items.reduce((sum,value)=>sum+value,0)/items.length;
+      const mean=meanOf(values),median=medianOf(values);
+      let removedIndex=0;
+      for(let i=1;i<values.length;i++) if(Math.abs(values[i]-median)>Math.abs(values[removedIndex]-median)) removedIndex=i;
+      const without=values.filter((_,i)=>i!==removedIndex);
+      const afterMean=meanOf(without),afterMedian=medianOf(without);
+      return {
+        schema:"inward-math-dataset-v1",values,sorted:[...values].sort((a,b)=>a-b),target:targetValue,count:values.length,mean,median,
+        errors:targetValue===null?null:{meanAbsoluteError:Math.abs(mean-targetValue),medianAbsoluteError:Math.abs(median-targetValue)},
+        leaveOneOut:{removedIndex,removedValue:values[removedIndex],mean:afterMean,median:afterMedian,meanChange:Math.abs(mean-afterMean),medianChange:Math.abs(median-afterMedian)}
+      };
+    }
+    function displayNumber(value) { return new Intl.NumberFormat("en-US",{maximumFractionDigits:4}).format(value); }
+    function drawWorkbench(analysis) {
+      const ctx=workbenchX,left=85,right=1120,axisY=245;
+      const all=[...analysis.values,analysis.mean,analysis.median];
+      if(analysis.target!==null) all.push(analysis.target);
+      const low=Math.min(...all),high=Math.max(...all),padding=Math.max((high-low)*0.08,high===low?1:0.001);
+      const min=low-padding,max=high+padding,x=value=>left+(value-min)/(max-min)*(right-left);
+      ctx.clearRect(0,0,1200,320);
+      ctx.strokeStyle="#54758a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(left,axisY);ctx.lineTo(right,axisY);ctx.stroke();
+      ctx.font="17px system-ui";ctx.textAlign="center";ctx.fillStyle="#b5cbd3";
+      for(const value of [low,(low+high)/2,high]) {
+        const px=x(value);ctx.beginPath();ctx.moveTo(px,axisY-7);ctx.lineTo(px,axisY+7);ctx.stroke();ctx.fillText(displayNumber(value),px,axisY+30);
+      }
+      ctx.fillText("Observation value",(left+right)/2,axisY+58);
+      analysis.sorted.forEach((value,i)=>{
+        ctx.fillStyle="#73cde8";ctx.beginPath();ctx.arc(x(value),151+(i%3)*27,7,0,Math.PI*2);ctx.fill();
+      });
+      for(const [value,label,color,y] of [[analysis.mean,"Mean","#ffcb78",35],[analysis.median,"Median","#5af0c6",63],...(analysis.target===null?[]:[[analysis.target,"Target","#ffffff",91]])]) {
+        ctx.strokeStyle=color;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(x(value),y+8);ctx.lineTo(x(value),axisY-9);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle=color;ctx.fillText(label+" "+displayNumber(value),x(value),y);
+      }
+    }
+    function renderWorkbench() {
+      try {
+        const analysis=analyzeDataset($("dataset").value,$("known-target").value);
+        workbenchAnalysis=analysis;
+        $("workbench-error").textContent="";
+        $("workbench-result").hidden=false;
+        $("workbench-mean").textContent=displayNumber(analysis.mean);
+        $("workbench-median").textContent=displayNumber(analysis.median);
+        $("workbench-values").textContent="Sorted observations: "+analysis.sorted.map(displayNumber).join(", ")+". Displayed values are rounded to four decimal places.";
+        if(analysis.errors) {
+          const outcome=winner(analysis.errors),phrase=outcome==="Equal"?"Both have equal absolute error against your target.":"The "+outcome.toLowerCase()+" is closer to your stated target.";
+          $("workbench-summary").textContent=analysis.count+" observations. "+phrase;
+          $("workbench-target-note").textContent="Against your target "+displayNumber(analysis.target)+": mean absolute error "+displayNumber(analysis.errors.meanAbsoluteError)+"; median absolute error "+displayNumber(analysis.errors.medianAbsoluteError)+".";
+        } else {
+          $("workbench-summary").textContent=analysis.count+" observations. Without a known target, neither estimator is declared more accurate.";
+          $("workbench-target-note").textContent="No target supplied. The chart compares estimates, not accuracy.";
+        }
+        const leave=analysis.leaveOneOut;
+        $("workbench-leaveout").textContent="Remove observation "+(leave.removedIndex+1)+" ("+displayNumber(leave.removedValue)+"): mean moves by "+displayNumber(leave.meanChange)+" to "+displayNumber(leave.mean)+"; median moves by "+displayNumber(leave.medianChange)+" to "+displayNumber(leave.median)+".";
+        $("workbench-save-status").textContent="";
+        drawWorkbench(analysis);
+      } catch(error) {
+        workbenchAnalysis=null;
+        $("workbench-result").hidden=true;
+        $("workbench-error").textContent=error.message;
+      }
     }
     function renderIntro() {
       const fifth=Number($("outlier").value),stats=witnessStats(),point=cohort.points[fifth];
@@ -539,6 +663,17 @@
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
     $("outlier").addEventListener("input",()=>{activeScene=null;render();renderSensitivity();renderCohort();renderIntro();});
     for(const key of Object.keys(scenes)) $("scene-"+key).addEventListener("click",()=>loadScene(key));
+    $("analyze").addEventListener("click",renderWorkbench);
+    $("example-outlier").addEventListener("click",()=>{$("dataset").value="48, 49, 50, 51, 85";$("known-target").value="50";renderWorkbench();});
+    $("example-mean").addEventListener("click",()=>{$("dataset").value="40, 42, 50, 60, 68";$("known-target").value="52";renderWorkbench();});
+    $("workbench-export").addEventListener("click",()=>{
+      if(!workbenchAnalysis) return;
+      const file=new Blob([JSON.stringify(workbenchAnalysis,null,2)+"\n"],{type:"application/json"});
+      const url=URL.createObjectURL(file),link=document.createElement("a");
+      link.href=url;link.download="inward-math-dataset-analysis.json";
+      document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      $("workbench-save-status").textContent="Analysis saved on this device.";
+    });
     $("copy-link").addEventListener("click",async()=>{
       try {
         await navigator.clipboard.writeText(caseUrl());
@@ -566,8 +701,9 @@
     }
     applySharedCase();
     reset();
+    renderWorkbench();
     requestAnimationFrame(frame);
-    window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock});
+    window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
 </body>
 </html>
