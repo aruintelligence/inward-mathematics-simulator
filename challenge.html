@@ -68,9 +68,46 @@
     .actions .button { display:inline-flex; align-items:center; color:#05251f; background:var(--mint); border-color:var(--mint); }
     .actions a:not(.button) { font-size:.91rem; }
     .status { color:var(--mint); min-height:1.4em; }
+    .embed-kit { margin:25px 0; padding:16px 20px; border:1px solid var(--line); border-radius:13px; background:#0d2434; }
+    .embed-kit summary { cursor:pointer; color:var(--mint); font-weight:800; }
+    .embed-kit p { color:var(--muted); margin:9px 0; }
+    .embed-kit textarea { display:block; width:100%; min-height:92px; resize:vertical; padding:10px; border:1px solid #648a93; border-radius:9px; background:#071522; color:var(--text); font:13px/1.5 ui-monospace,SFMono-Regular,monospace; }
+    .embed-kit textarea:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .embed-kit button { margin-top:10px; }
+    .embed-note,#full-challenge { display:none; }
     .scope { border-left:3px solid var(--gold); background:#122938; padding:10px 16px; border-radius:0 9px 9px 0; color:#d7e8e7; }
     footer { border-top:1px solid var(--line); color:var(--muted); padding:20px 0 35px; font-size:.84rem; }
     @media(max-width:640px) { .values { grid-template-columns:repeat(2,minmax(0,1fr)); } .values li:last-child { grid-column:1/-1; } .numbers { grid-template-columns:1fr; } .choices button { flex:1; min-width:95px; } }
+    body.embedded { background:#07121d; font-size:15px; }
+    .embedded .wrap { width:100%; padding:0 10px; }
+    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .eyebrow.intro-label { display:none; }
+    .embedded h1 { font-size:clamp(1.45rem,5vw,2rem); margin:12px 0 3px; }
+    .embedded .challenge { margin:10px 0; padding:13px; border-radius:15px; box-shadow:none; }
+    .embedded .case-head .eyebrow { margin:3px 0; }
+    .embedded .target { padding:2px 9px; font-size:.84rem; }
+    .embedded h2 { font-size:1.12rem; margin:4px 0; }
+    .embedded .values { grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; margin:9px 0; }
+    .embedded .values li,.embedded .values li:last-child { grid-column:auto; padding:7px 2px; border-radius:8px; }
+    .embedded .values span { font-size:.58rem; letter-spacing:0; }
+    .embedded .values strong { font-size:clamp(.68rem,2.55vw,1rem); }
+    .embedded .plot { height:69px; margin:10px 9px 6px; }
+    .embedded .plot .point { bottom:13px; }
+    .embedded .plot .point:nth-child(even) { bottom:33px; }
+    .embedded .plot .point.fifth { bottom:22px; }
+    .embedded .axis { margin:0 9px 9px; }
+    .embedded .question { font-size:1rem; margin:8px 0; }
+    .embedded .choices { gap:5px; }
+    .embedded .choices button { flex:1; min-width:0; min-height:40px; padding:7px 3px; font-size:.84rem; }
+    .embedded .result { margin-top:12px; padding-top:10px; }
+    .embedded .result h3 { font-size:1.1rem; }
+    .embedded .numbers { grid-template-columns:repeat(2,minmax(0,1fr)); margin:8px 0; }
+    .embedded .numbers div { padding:8px; }
+    .embedded .numbers strong { font-size:1.02rem; }
+    .embedded .result .button { padding:8px 11px; min-height:40px; font-size:.86rem; }
+    .embedded .actions { margin:8px 0; }
+    .embedded .actions #next,.embedded .actions #copy,.embedded .actions #share-link { display:none; }
+    .embedded #full-challenge { display:inline; }
+    .embedded .embed-note { display:block; color:var(--muted); font-size:.78rem; margin:5px 0 12px; }
     @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; } }
   </style>
 </head>
@@ -79,7 +116,7 @@
   <div class="wrap">
     <header><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Open the full lab ↗</a></header>
     <main id="challenge">
-      <p class="eyebrow">One-minute prediction challenge</p>
+      <p class="eyebrow intro-label">One-minute prediction challenge</p>
       <h1>Which estimate gets closer?</h1>
       <p class="intro">Five generated readings aim at a known target of 50. Choose the mean, median, or a tie before the calculation appears. Then inspect the same inputs in the full lab.</p>
       <section class="challenge" aria-labelledby="case-title">
@@ -110,7 +147,9 @@
           <a class="button" id="lab-link" href="index.html#start">Inspect this exact case in the lab ↗</a> <a id="atlas-link" href="atlas.html">Find it in the 12,928-case atlas ↗</a>
         </div>
       </section>
-      <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><span id="share-status" class="status" role="status"></span></div>
+      <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><a id="full-challenge" href="challenge.html">Explore the full challenge ↗</a><span id="share-status" class="status" role="status"></span></div>
+      <details class="embed-kit"><summary>Put this challenge on your own page</summary><p>Copy this iframe into a webpage or course page that accepts HTML. It embeds this exact generated case, asks for a prediction before revealing the answer, and links back to the full lab. The widget has no account, tracking, or backend. Test the display in your publishing platform before sharing it.</p><label for="embed-code">Embed code</label><textarea id="embed-code" readonly rows="3"></textarea><button id="copy-embed" type="button">Copy embed code</button><span id="embed-status" class="status" role="status"></span></details>
+      <p class="embed-note">Generated toy readings; target 50. One case does not establish a universal rule. <a href="index.html">Inspect the method in the lab.</a></p>
       <p class="scope">This is a deterministic toy example. The four generated values use the lab's seed rule; the fifth value is a chosen input. A closer estimate here is not a generally superior estimator, and the numbers do not measure memory, consciousness, safety, or a physical law. Displayed observations are rounded to four decimal places; calculations use their full generated precision.</p>
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
@@ -139,15 +178,19 @@
       return {seed,fifth,values,mean,median,meanError,medianError,winner};
     }
     const selected=params(),stats=statsAt(selected.seed,selected.fifth);
+    if(new URLSearchParams(window.location.search).get("embed")==="1") document.body.classList.add("embedded");
     const challengeUrl=()=>window.location.href.split(/[?#]/)[0]+"?seed="+selected.seed+"&fifth="+selected.fifth;
     const labUrl=()=>"index.html?seed="+selected.seed+"&fifth="+selected.fifth+"#start";
+    const embedCode=()=>'<iframe title="Mean or median prediction challenge" src="https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed='+selected.seed+'&fifth='+selected.fifth+'&embed=1" loading="lazy" width="100%" height="800" style="max-width:680px;border:0;border-radius:16px"></iframe>';
     for(let i=0;i<5;i++) {
       $("value-"+(i+1)).textContent=i===4?String(stats.values[i]):stats.values[i].toFixed(4);
       $("dot-"+(i+1)).style.left=stats.values[i]+"%";
     }
     $("share-link").href=challengeUrl();
+    $("full-challenge").href=challengeUrl();
     $("lab-link").href=labUrl();
     $("atlas-link").href="atlas.html?start="+selected.seed+"&offset=0&fifth="+selected.fifth;
+    $("embed-code").value=embedCode();
     function reveal(pick) {
       for(const answer of ["mean","median","equal"]) {
         const button=$("guess-"+answer);
@@ -172,7 +215,11 @@
       try { await navigator.clipboard.writeText(challengeUrl());$("share-status").textContent="Exact challenge link copied."; }
       catch { $("share-status").textContent="Use the visible challenge link to copy or open it."; }
     });
-    window.InwardMathChallenge=Object.freeze({statsAt,challengeUrl});
+    $("copy-embed").addEventListener("click",async()=>{
+      try { await navigator.clipboard.writeText(embedCode());$("embed-status").textContent="Embed code copied."; }
+      catch { $("embed-status").textContent="Select the visible embed code to copy it."; }
+    });
+    window.InwardMathChallenge=Object.freeze({statsAt,challengeUrl,embedCode});
   </script>
 </body>
 </html>
