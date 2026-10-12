@@ -125,10 +125,9 @@
     render();
   }
   $("target-range").addEventListener("input",event=>setTarget(fmt(Number(event.target.value))));
+  $("target-input").addEventListener("input",event=>setTarget(event.target.value));
   $("target-input").addEventListener("change",event=>{
-    const prior=current.target;
-    setTarget(event.target.value);
-    if(current.target===prior && $("input-error").textContent) event.target.value=fmt(prior);
+    if(validNumber(event.target.value,targetPattern)===null) event.target.value=fmt(current.target);
   });
   $("jump-tie").addEventListener("click",()=>setTarget(fmt(evaluate(current.values,current.target).boundary)));
   document.querySelectorAll(".preset").forEach(button=>button.addEventListener("click",()=>{
