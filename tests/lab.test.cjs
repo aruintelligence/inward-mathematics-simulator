@@ -54,16 +54,16 @@ function click(element) {return element.handlers.click();}
 function input(element, value) {element.value=String(value);element.handlers.input();}
 function snapshot(lab) {return JSON.parse(JSON.stringify(lab.window.InwardMathLab.snapshot()));}
 
-function loadChallenge(search="") {
+function loadChallenge(search="",options={}) {
   const html=fs.readFileSync(path.join(__dirname,"..","challenge.html"),"utf8");
   const script=html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script,"the challenge must contain its model script");
-  const elements=new Map(),share={copied:null},classes=new Set();
+  const elements=new Map(),share={copied:null,sent:null},classes=new Set();
   const download={clicked:false,blob:null,filename:null,type:null,revoked:null,labels:[]};
   const context=new Proxy({}, {get:(_target,key)=>key==="fillText"?(label)=>download.labels.push(label):()=>{}});
   function element(id) {
     if(!elements.has(id)) elements.set(id,{
-      textContent:"",value:"",href:"",hidden:id==="result"||id==="counterfactual"||id==="result-card-kit",disabled:false,style:{},attributes:{},handlers:{},
+      textContent:"",value:"",href:"",hidden:id==="result"||id==="counterfactual"||id==="result-card-kit"||id==="share-data-note",disabled:false,style:{},attributes:{},handlers:{},
       addEventListener(name,handler){this.handlers[name]=handler;},
       setAttribute(name,value){this.attributes[name]=value;},
       getContext(){return context;},
@@ -73,6 +73,10 @@ function loadChallenge(search="") {
   }
   const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+search}};
   const navigator={clipboard:{async writeText(value){share.copied=value;}}};
+  if(options.nativeShare) navigator.share=async value=>{
+    share.sent=value;
+    if(options.nativeShare==="cancel") throw Object.assign(new Error("Canceled"),{name:"AbortError"});
+  };
   const document={getElementById:element,body:{classList:{add(name){classes.add(name);}},append(){}},createElement(){return {set download(value){download.filename=value;},click(){download.clicked=true;},remove(){}};}};
   const URL={createObjectURL(blob){download.blob=blob;return "blob:mock";},revokeObjectURL(url){download.revoked=url;}};
   vm.runInNewContext(script[1],{window,document,navigator,URLSearchParams,URL,Blob,setTimeout:callback=>callback()},{timeout:1000});
@@ -295,6 +299,35 @@ test("challenge reveals the first prediction and keeps a reproducible share link
   assert.equal(correct.element("verdict").textContent,"You called it.");
 });
 
+test("blind invitation copies a useful prompt and the exact link without revealing the answer", async () => {
+  const challenge=loadChallenge("?seed=42&fifth=40");
+  assert.equal(challenge.element("result").hidden,true);
+  assert.equal(challenge.element("share-data-note").hidden,true);
+  await click(challenge.element("share-invite"));
+  assert.match(challenge.share.copied,/^Five readings, one stated target\. Which gets closer: mean, median, or equal error\?/);
+  assert.ok(challenge.share.copied.endsWith("challenge.html?seed=42&fifth=40"));
+  assert.doesNotMatch(challenge.share.copied,/46\.38|Mean is closer|Surprise/);
+  assert.equal(challenge.element("share-status").textContent,"Invitation copied. Paste it into a message.");
+  click(challenge.element("guess-median"));
+  await click(challenge.element("share-invite"));
+  assert.doesNotMatch(challenge.share.copied,/46\.38|Mean is closer|Surprise/);
+});
+
+test("native share sends the blind custom invitation and cancellation does not copy it", async () => {
+  const query="?values=40%2C42%2C50%2C60%2C68&target=52";
+  const challenge=loadChallenge(query,{nativeShare:true});
+  assert.equal(challenge.element("share-data-note").hidden,false);
+  await click(challenge.element("share-invite"));
+  assert.equal(challenge.share.sent.url,"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+query);
+  assert.match(challenge.share.sent.text,/before the answer appears/);
+  assert.equal(challenge.share.copied,null);
+  assert.equal(challenge.element("share-status").textContent,"Invitation shared.");
+  const canceled=loadChallenge(query,{nativeShare:"cancel"});
+  await click(canceled.element("share-invite"));
+  assert.equal(canceled.share.copied,null);
+  assert.equal(canceled.element("share-status").textContent,"Sharing canceled.");
+});
+
 test("result PNG stays behind the reveal and reflects the original generated answer", () => {
   const challenge=loadChallenge("?seed=42&fifth=40");
   assert.equal(challenge.element("result-card-kit").hidden,true);
@@ -353,6 +386,7 @@ test("embeddable challenge preserves the exact case and leaves answer collection
   click(challenge.element("guess-median"));
   assert.equal(challenge.element("result").hidden,false);
   assert.equal(challenge.element("lab-link").href,"index.html?seed=43&fifth=85#start");
+  assert.match(challenge.html,/\.embedded \.actions #next,[^}]*\.embedded \.actions #share-invite[^}]*\{ display:none; \}/);
 });
 
 test("reader-supplied challenge keeps the answer hidden, computes the target, and carries exact values into the workbench", () => {

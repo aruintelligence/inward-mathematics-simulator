@@ -66,8 +66,11 @@
     .numbers div:last-child strong { color:var(--mint); }
     .actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px 15px; margin:22px 0; }
     .actions .button { display:inline-flex; align-items:center; color:#05251f; background:var(--mint); border-color:var(--mint); }
+    .actions .share-invite { color:#05251f; background:var(--mint); border-color:var(--mint); }
     .actions a:not(.button) { font-size:.91rem; }
     .status { color:var(--mint); min-height:1.4em; }
+    .share-data-note { margin:-8px 0 20px; color:var(--rose); font-size:.9rem; }
+    .share-data-note[hidden] { display:none; }
     .counterfactual { margin:25px 0; padding:clamp(18px,3vw,28px); border:1px solid var(--line); border-radius:17px; background:#0d2434; }
     .counterfactual[hidden] { display:none; }
     .counterfactual p { margin:8px 0 15px; }
@@ -110,7 +113,7 @@
     @media(max-width:640px) { .values { grid-template-columns:repeat(2,minmax(0,1fr)); } .values li:last-child { grid-column:1/-1; } .numbers { grid-template-columns:1fr; } .choices button { flex:1; min-width:95px; } }
     body.embedded { background:#07121d; font-size:15px; }
     .embedded .wrap { width:100%; padding:0 10px; }
-    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .counterfactual,.embedded .result-card-kit,.embedded .eyebrow.intro-label { display:none; }
+    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .counterfactual,.embedded .result-card-kit,.embedded .share-data-note,.embedded .eyebrow.intro-label { display:none; }
     .embedded h1 { font-size:clamp(1.45rem,5vw,2rem); margin:12px 0 3px; }
     .embedded .challenge { margin:10px 0; padding:13px; border-radius:15px; box-shadow:none; }
     .embedded .case-head .eyebrow { margin:3px 0; }
@@ -135,7 +138,7 @@
     .embedded .numbers strong { font-size:1.02rem; }
     .embedded .result .button { padding:8px 11px; min-height:40px; font-size:.86rem; }
     .embedded .actions { margin:8px 0; }
-    .embedded .actions #next,.embedded .actions #copy,.embedded .actions #share-link { display:none; }
+    .embedded .actions #next,.embedded .actions #copy,.embedded .actions #share-invite,.embedded .actions #share-link { display:none; }
     .embedded #full-challenge { display:inline; }
     .embedded .embed-note { display:block; color:var(--muted); font-size:.78rem; margin:5px 0 12px; }
     @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; } }
@@ -178,7 +181,8 @@
           <a class="button" id="lab-link" href="index.html#start">Inspect this exact case in the lab ↗</a> <a id="atlas-link" href="atlas.html">Find it in the 12,928-case atlas ↗</a>
         </div>
       </section>
-      <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><a id="full-challenge" href="challenge.html">Explore the full challenge ↗</a><span id="share-status" class="status" role="status"></span></div>
+      <div class="actions"><button id="share-invite" class="share-invite" type="button">Invite someone to predict ↗</button><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><a id="full-challenge" href="challenge.html">Explore the full challenge ↗</a><span id="share-status" class="status" role="status"></span></div>
+      <p id="share-data-note" class="share-data-note" hidden>This invitation link contains all five reader-supplied values and the stated target. Share only invented or public data.</p>
       <section class="counterfactual" id="counterfactual" aria-labelledby="sweep-title" hidden>
         <p class="eyebrow">After the reveal · change one reading</p>
         <h2 id="sweep-title">Where does the answer flip?</h2>
@@ -259,6 +263,7 @@
       $("embed-description").textContent+=" Reader-supplied values are in the embed URL; use invented or public data only.";
       $("builder-values").value=stats.values.join(", ");
       $("builder-target").value=String(stats.target);
+      $("share-data-note").hidden=false;
     }
     $("target-badge").textContent="Target "+stats.target;
     $("plot").setAttribute("aria-label","Five readings on a scale from zero to one hundred, with the stated target at "+stats.target);
@@ -378,6 +383,20 @@
     });
     $("copy").addEventListener("click",async()=>{
       try { await navigator.clipboard.writeText(challengeUrl());$("share-status").textContent="Exact challenge link copied."; }
+      catch { $("share-status").textContent="Use the visible challenge link to copy or open it."; }
+    });
+    $("share-invite").addEventListener("click",async()=>{
+      const message="Five readings, one stated target. Which gets closer: mean, median, or equal error? Make your call before the answer appears.";
+      if(typeof navigator.share==="function") {
+        try {
+          await navigator.share({title:"Mean or median? Make your prediction",text:message,url:challengeUrl()});
+          $("share-status").textContent="Invitation shared.";
+          return;
+        } catch(error) {
+          if(error?.name==="AbortError") { $("share-status").textContent="Sharing canceled.";return; }
+        }
+      }
+      try { await navigator.clipboard.writeText(message+"\n"+challengeUrl());$("share-status").textContent="Invitation copied. Paste it into a message."; }
       catch { $("share-status").textContent="Use the visible challenge link to copy or open it."; }
     });
     $("copy-embed").addEventListener("click",async()=>{
