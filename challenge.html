@@ -21,7 +21,7 @@
     body { margin:0; background:radial-gradient(circle at 50% -10%,#14534e,transparent 45%),var(--bg); color:var(--text); font:17px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
     .wrap { width:min(1080px,calc(100% - 32px)); margin:auto; }
     a { color:var(--mint); }
-    a:focus-visible,button:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
     .skip { position:absolute; top:-70px; left:16px; padding:9px 14px; background:var(--gold); color:var(--bg); border-radius:9px; }
     .skip:focus { top:10px; }
     header { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:26px 0; font-size:.9rem; }
@@ -68,6 +68,20 @@
     .actions .button { display:inline-flex; align-items:center; color:#05251f; background:var(--mint); border-color:var(--mint); }
     .actions a:not(.button) { font-size:.91rem; }
     .status { color:var(--mint); min-height:1.4em; }
+    .counterfactual { margin:25px 0; padding:clamp(18px,3vw,28px); border:1px solid var(--line); border-radius:17px; background:#0d2434; }
+    .counterfactual[hidden] { display:none; }
+    .counterfactual p { margin:8px 0 15px; }
+    .counterfactual .sweep-context,.counterfactual .sweep-scope { color:var(--muted); font-size:.9rem; }
+    .sweep-control { display:flex; justify-content:space-between; gap:12px; font-weight:750; }
+    #sweep-fifth { color:var(--rose); font:800 1.25rem ui-monospace,SFMono-Regular,monospace; }
+    #fifth-sweep { display:block; width:100%; margin:13px 0 22px; accent-color:var(--rose); cursor:pointer; }
+    .sweep-map { position:relative; height:35px; border:1px solid #afc9d0; border-radius:7px; margin:0 3px; }
+    .sweep-marker { position:absolute; top:-6px; bottom:-6px; width:3px; transform:translateX(-50%); background:white; box-shadow:0 0 0 2px #07121d; pointer-events:none; }
+    .sweep-axis { display:flex; justify-content:space-between; color:var(--muted); font-size:.78rem; margin:5px 3px 8px; }
+    .sweep-legend { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:.86rem; }
+    .sweep-legend span::before { content:""; display:inline-block; width:12px; height:12px; margin-right:6px; border-radius:3px; vertical-align:-1px; background:var(--swatch); }
+    #sweep-reading { font-weight:750; }
+    .counterfactual .button { display:inline-flex; align-items:center; margin:4px 0 6px; }
     .embed-kit { margin:25px 0; padding:16px 20px; border:1px solid var(--line); border-radius:13px; background:#0d2434; }
     .embed-kit summary { cursor:pointer; color:var(--mint); font-weight:800; }
     .embed-kit p { color:var(--muted); margin:9px 0; }
@@ -89,7 +103,7 @@
     @media(max-width:640px) { .values { grid-template-columns:repeat(2,minmax(0,1fr)); } .values li:last-child { grid-column:1/-1; } .numbers { grid-template-columns:1fr; } .choices button { flex:1; min-width:95px; } }
     body.embedded { background:#07121d; font-size:15px; }
     .embedded .wrap { width:100%; padding:0 10px; }
-    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .eyebrow.intro-label { display:none; }
+    .embedded header,.embedded .intro,.embedded footer,.embedded .scope,.embedded .embed-kit,.embedded .builder,.embedded .counterfactual,.embedded .eyebrow.intro-label { display:none; }
     .embedded h1 { font-size:clamp(1.45rem,5vw,2rem); margin:12px 0 3px; }
     .embedded .challenge { margin:10px 0; padding:13px; border-radius:15px; box-shadow:none; }
     .embedded .case-head .eyebrow { margin:3px 0; }
@@ -158,6 +172,21 @@
         </div>
       </section>
       <div class="actions"><button id="next" type="button">Try another challenge ↻</button><button id="copy" type="button">Copy this challenge link</button><a id="share-link" href="challenge.html">Open/share this exact challenge</a><a id="full-challenge" href="challenge.html">Explore the full challenge ↗</a><span id="share-status" class="status" role="status"></span></div>
+      <section class="counterfactual" id="counterfactual" aria-labelledby="sweep-title" hidden>
+        <p class="eyebrow">After the reveal · change one reading</p>
+        <h2 id="sweep-title">Where does the answer flip?</h2>
+        <p>Keep the first four readings and stated target fixed. Move only the fifth reading to compare both absolute errors. The answer above stays on the original case.</p>
+        <p class="sweep-context" id="sweep-context"></p>
+        <div class="sweep-control"><label for="fifth-sweep">Explore fifth reading</label><output id="sweep-fifth" for="fifth-sweep"></output></div>
+        <input id="fifth-sweep" type="range" min="0" max="100" step="1" value="40" aria-describedby="sweep-context sweep-counts">
+        <div class="sweep-map" id="sweep-map" role="img" aria-label="Winning estimate across fifth readings from zero to one hundred"><span class="sweep-marker" id="sweep-marker" aria-hidden="true"></span></div>
+        <div class="sweep-axis" aria-hidden="true"><span>0</span><span>Fifth reading</span><span>100</span></div>
+        <div class="sweep-legend" aria-hidden="true"><span style="--swatch:#ffcb78">Mean closer</span><span style="--swatch:#5af0c6">Median closer</span><span style="--swatch:#73cde8">Equal error</span></div>
+        <p id="sweep-counts"></p>
+        <p id="sweep-reading" role="status"></p>
+        <a class="button" id="sweep-link" href="challenge.html">Open this selection as a new blind challenge ↗</a>
+        <p class="sweep-scope">These are 101 evenly spaced whole-number positions, not probabilities. This comparison uses the same generated toy readings or reader-supplied values and target as the original case.</p>
+      </section>
       <details class="builder" id="builder"><summary>Create a challenge with your own numbers</summary><p>Enter exactly five readings and a known target, all from 0 to 100 with at most four decimal places. Previewing opens a new challenge with the answer hidden. These numbers become part of its URL and may appear in browser history, hosting logs, and links you share. Use invented or public data, never private information.</p><label for="builder-values">Five readings, separated by commas<input id="builder-values" type="text" value="48, 49, 50, 51, 85" spellcheck="false"></label><label for="builder-target">Known target<input id="builder-target" type="text" value="50" inputmode="decimal"></label><button id="build" type="button">Preview my challenge ↗</button><p id="builder-error" role="alert"></p></details>
       <details class="embed-kit"><summary>Put this challenge on your own page</summary><p id="embed-description">Copy this iframe into a webpage or course page that accepts HTML. It embeds this exact case, asks for a prediction before revealing the answer, and links back to the full lab. The widget has no account, tracking, or backend. Test the display in your publishing platform before sharing it.</p><label for="embed-code">Embed code</label><textarea id="embed-code" readonly rows="3"></textarea><button id="copy-embed" type="button">Copy embed code</button><span id="embed-status" class="status" role="status"></span></details>
       <p class="embed-note"><span id="embed-note-lead">Generated toy readings; target 50. One case does not establish a universal rule. </span><a href="index.html">Inspect the method in the lab.</a></p>
@@ -235,6 +264,33 @@
     $("lab-link").href=labUrl();
     $("atlas-link").href="atlas.html?start="+selected.seed+"&offset=0&fifth="+selected.fifth;
     $("embed-code").value=embedCode();
+    const sweep=Array.from({length:101},(_,fifth)=>statsFor([...stats.values.slice(0,4),fifth],stats.target));
+    const counts={Mean:0,Median:0,Equal:0};
+    for(const point of sweep) counts[point.winner]++;
+    const colors={Mean:"#ffcb78",Median:"#5af0c6",Equal:"#73cde8"};
+    const stops=[];
+    for(let start=0;start<sweep.length;) {
+      let end=start+1;
+      while(end<sweep.length && sweep[end].winner===sweep[start].winner) end++;
+      const color=colors[sweep[start].winner];
+      stops.push(color+" "+(start/101*100).toFixed(4)+"%",color+" "+(end/101*100).toFixed(4)+"%");
+      start=end;
+    }
+    $("sweep-map").style.background="linear-gradient(to right,"+stops.join(",")+")";
+    $("sweep-map").setAttribute("aria-label","Across fifth readings 0 through 100 in whole-number steps, mean closer at "+counts.Mean+", median closer at "+counts.Median+", equal error at "+counts.Equal+" positions. The white marker shows the selected fifth reading.");
+    $("sweep-counts").textContent="Across 101 positions: mean closer at "+counts.Mean+", median closer at "+counts.Median+", equal error at "+counts.Equal+".";
+    const initialFifth=Math.round(stats.values[4]);
+    $("sweep-context").textContent="Original fifth reading: "+stats.values[4]+". The explorer starts at "+initialFifth+" and uses whole-number steps.";
+    function updateSweep(fifth) {
+      const point=sweep[fifth];
+      $("sweep-fifth").textContent=String(fifth);
+      $("sweep-marker").style.left=fifth+"%";
+      $("sweep-reading").textContent="At fifth reading "+fifth+": mean "+point.mean.toFixed(2)+" (error "+point.meanError.toFixed(2)+"); median "+point.median.toFixed(2)+" (error "+point.medianError.toFixed(2)+"). "+(point.winner==="Equal"?"Equal error.":point.winner+" is closer.");
+      $("sweep-link").href=selected.mode==="custom"?"challenge.html?values="+encodeURIComponent(point.values.join(","))+"&target="+stats.target:"challenge.html?seed="+selected.seed+"&fifth="+fifth;
+    }
+    $("fifth-sweep").value=String(initialFifth);
+    updateSweep(initialFifth);
+    $("fifth-sweep").addEventListener("input",()=>updateSweep(Number($("fifth-sweep").value)));
     function reveal(pick) {
       for(const answer of ["mean","median","equal"]) {
         const button=$("guess-"+answer);
@@ -242,6 +298,7 @@
         button.setAttribute("aria-pressed",String(answer===pick));
       }
       $("result").hidden=false;
+      $("counterfactual").hidden=false;
       const correct=pick.toLowerCase()===stats.winner.toLowerCase();
       $("verdict").textContent=correct?"You called it.":"Surprise: "+(stats.winner==="Equal"?"the errors tie.":"the "+stats.winner.toLowerCase()+" gets closer.");
       $("answer").textContent=(selected.mode==="custom"?"For the five supplied values":"For seed "+selected.seed+" and fifth reading "+selected.fifth)+", "+(stats.winner==="Equal"?"the two errors are equal.":"the "+stats.winner.toLowerCase()+" has the smaller error against "+stats.target+".");
