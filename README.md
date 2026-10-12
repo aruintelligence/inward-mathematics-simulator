@@ -4,6 +4,8 @@ A dependency-free browser demonstration of two **toy models**: a damped attracto
 
 **[Open the live interactive lab](https://aruintelligence.github.io/inward-mathematics-simulator/)** · [Read the source](index.html)
 
+The homepage offers three clear starting routes: make a blind prediction, explore the exact two-axis Decision Field, or analyze your own numbers locally. The live fifth-reading instrument and three guided cases remain on the homepage, with deeper links to Flip Point, Target Lens, the Outcome Atlas, and teaching materials.
+
 **[Share the five-minute mean vs median lesson](https://aruintelligence.github.io/inward-mathematics-simulator/guide.html)** — two opposing worked examples, revealable answers, a short activity, and links into the lab. It is a static page that can be shared without an account.
 
 **[Print the three-case worksheet](https://aruintelligence.github.io/inward-mathematics-simulator/worksheet.html)** — a student sheet with predictions and calculation space, plus a worked teacher answer key on a separate printed page. [Download the two-page PDF](https://aruintelligence.github.io/inward-mathematics-simulator/output/pdf/mean-vs-median-worksheet.pdf) for predictable Letter-size printing. Cases A, B, and C yield median, mean, and equal-error outcomes. On screen, each case opens an exact blind challenge that keeps its answer hidden until the student chooses. The exercises use invented values and stated targets; the targets are not independently verified. Print page 1 for students and page 2 for the answer key. Regenerate the PDF with `python tools/render_worksheet_pdf.py` (requires ReportLab and DejaVu Sans).
