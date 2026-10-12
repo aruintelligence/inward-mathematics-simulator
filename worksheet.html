@@ -32,7 +32,7 @@
     h1 { font-size:clamp(2.3rem,6vw,4.6rem); line-height:1.06; letter-spacing:-.045em; max-width:880px; margin:8px 0 15px; }
     .lead { color:var(--muted); max-width:760px; font-size:1.13rem; }
     button,.button { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:11px 17px; border-radius:10px; border:1px solid var(--mint); background:var(--mint); color:#05251f; cursor:pointer; font:800 1rem system-ui,-apple-system,Segoe UI,sans-serif; text-decoration:none; margin:8px 9px 0 0; }
-    .button.secondary { color:var(--ink); background:#173a43; border-color:#487c7d; }
+    .button.secondary,button.secondary { color:var(--ink); background:#173a43; border-color:#487c7d; }
     button:hover,.button:hover { filter:brightness(1.13); }
     .print-note,.scope { color:var(--muted); }
     .sheet { padding:clamp(17px,3vw,28px); border:1px solid #4b857b; border-radius:20px; background:linear-gradient(150deg,#143746,var(--panel)); }
@@ -114,7 +114,7 @@
         <p class="eyebrow">Free classroom activity / three cases</p>
         <h1>Can the mean lose, win, and tie?</h1>
         <p class="lead">Make three predictions, show the arithmetic, then explain why one estimator cannot win every case. Each digital check hides its answer until you choose.</p>
-        <div class="print-control"><button id="print-sheet" type="button">Print worksheet + answer key</button><a class="button secondary" href="#student-sheet">Start the student sheet ↓</a><p class="print-note">The student sheet prints first; the worked answer key starts on a separate page. Select page 1 in your print dialog for student copies.</p></div>
+        <div class="print-control"><a class="button" href="output/pdf/mean-vs-median-worksheet.pdf" download>Download print-ready PDF ↓</a><button class="secondary" id="print-sheet" type="button">Print this web page</button><a class="button secondary" href="#student-sheet">Start the student sheet ↓</a><p class="print-note">The PDF has a designed student page and a separate worked answer key. Print page 1 for student copies; keep page 2 for discussion.</p></div>
       </div>
       <section class="sheet" id="student-sheet" aria-labelledby="sheet-title">
         <p class="eyebrow">Student sheet</p>
