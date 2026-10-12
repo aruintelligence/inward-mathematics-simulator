@@ -28,6 +28,8 @@ node tests/lab.test.cjs
 
 The first screen offers three guided cases: an extreme fifth estimate at 85, a counterexample where the mean has lower error at 40, and a cohort reversal at 50. Choosing one sets seed 42 and moves to the relevant chart. **Copy this exact case** creates a link with validated `seed` and `fifth` parameters; opening that link restores the same witness setup. The link does not encode the spring's step history or shocks. The live reading and guided outcome update as you change the slider. The page contains a descriptive title, summary, and canonical URL for the published lab; the local file works without a network connection.
 
+The first-screen instrument now has its own fifth-reading slider. Moving it updates the error numbers, the closer estimate, the charts, and the lower lab slider together. **See a mean/median win** jumps to an opposing result for the current seed when one exists; the link beside it opens the selected case as a blind challenge. Guided cases, reset, and shared URLs also update this control. The result is for these five generated values against the stated target of 50, not a general claim about the estimators.
+
 The checked-in [social preview](social-card.png) is generated from the same seed-42 cohort equations with `python tools/render_social_card.py` (Pillow required only to regenerate the image). Its chart is illustrative of this specific toy cohort; it does not report a population result.
 
 ## Bring your own numbers

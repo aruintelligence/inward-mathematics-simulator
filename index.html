@@ -37,7 +37,7 @@
     .hero-instrument::after { content:""; position:absolute; width:240px; height:240px; left:50%; top:38%; translate:-50% -50%; border:1px dashed #ffcb7860; border-radius:50%; pointer-events:none; animation:orbit 28s linear infinite; }
     @keyframes orbit { to { rotate:360deg; } }
     .hero-instrument .eyebrow { position:relative; z-index:1; }
-    .hero-reading { position:relative; z-index:1; min-height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+    .hero-reading { position:relative; z-index:1; min-height:185px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
     .hero-reading strong { font:750 clamp(4.3rem,9vw,7.2rem)/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:-.08em; text-shadow:0 0 40px #5af0c688; }
     .hero-reading span { color:#d0e9e6; font-size:.88rem; letter-spacing:.09em; text-transform:uppercase; }
     .hero-errors { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -45,6 +45,18 @@
     .hero-errors span { display:block; color:var(--muted); font-size:.78rem; }
     .hero-errors strong { font:750 1.4rem ui-monospace,SFMono-Regular,monospace; color:var(--gold); }
     .hero-errors div:last-child strong { color:var(--mint); }
+    .hero-control { position:relative; z-index:1; margin-top:18px; }
+    .hero-control label { display:block; font-weight:750; }
+    .hero-control input { display:block; width:100%; min-height:32px; margin:7px 0 0; accent-color:var(--rose); cursor:pointer; }
+    .hero-scale { display:flex; justify-content:space-between; color:var(--muted); font-size:.78rem; }
+    .hero-verdict { position:relative; z-index:1; margin:13px 0 7px; font-weight:800; color:var(--mint); }
+    .hero-instrument[data-winner="Mean"] .hero-verdict { color:var(--gold); }
+    .hero-instrument[data-winner="Equal"] .hero-verdict { color:var(--cyan); }
+    .hero-next { position:relative; z-index:1; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; font-size:.86rem; }
+    .hero-next button { border:1px solid #9d8255; border-radius:8px; padding:8px 11px; background:#533e28; color:#fff1d9; font-weight:750; }
+    .hero-next button:hover { filter:brightness(1.17); }
+    .hero-next button[hidden] { display:none; }
+    .hero-next a { color:var(--mint); }
     .journey { margin-bottom:20px; }
     .journey h2 { font-size:clamp(1.5rem,3vw,2.2rem); }
     .journey-intro { color:var(--muted); margin:.4rem 0 18px; }
@@ -142,10 +154,13 @@
           <p class="intro">Move one of five generated estimates. Watch the mean and median diverge, then see what happens when the same test runs across 128 seeds. Every input and equation is open to inspect.</p>
           <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="atlas.html">Explore 12,928 outcomes ↗</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
         </div>
-        <aside class="hero-instrument" aria-label="Live fifth-observer reading and estimator errors">
+        <aside class="hero-instrument" id="hero-instrument" aria-label="Interactive fifth-observer reading and estimator errors">
           <p class="eyebrow">Live witness reading</p>
           <div class="hero-reading"><strong id="hero-fifth">85</strong><span>fifth estimate / target 50</span></div>
           <div class="hero-errors"><div><span>Mean error</span><strong id="hero-mean">—</strong></div><div><span>Median error</span><strong id="hero-median">—</strong></div></div>
+          <div class="hero-control"><label for="hero-range">Move the fifth reading</label><input id="hero-range" type="range" min="0" max="100" step="1" value="85" aria-describedby="hero-verdict"><div class="hero-scale" aria-hidden="true"><span>0</span><span>100</span></div></div>
+          <p id="hero-verdict" class="hero-verdict" role="status"></p>
+          <div class="hero-next"><button id="hero-flip" type="button" hidden></button><a id="hero-challenge" href="challenge.html">Challenge someone with this case ↗</a></div>
         </aside>
       </div>
       <p class="scope">These are toy calculations with known inputs. “Coherence” is a distance transform; neither model measures memory, consciousness, safety, or a physical law.</p>
@@ -313,7 +328,7 @@
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scenes = {outlier:{fifth:85,target:"wg-title"},mean:{fifth:40,target:"sensitivity-title"},reversal:{fifth:50,target:"cohort-title"}};
-    let simulation, shockRng, observers, sensitivity, cohort, workbenchAnalysis=null, activeScene=null, paused = true, lastFrame = 0, accumulator = 0;
+    let simulation, shockRng, observers, sensitivity, cohort, workbenchAnalysis=null, activeScene=null, heroFlipTarget=null, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -425,18 +440,32 @@
     }
     function renderIntro() {
       const fifth=Number($("outlier").value),stats=witnessStats(),point=cohort.points[fifth];
+      $("hero-range").value=String(fifth);
       $("hero-fifth").textContent=String(fifth);
       $("hero-mean").textContent=stats.meanError.toFixed(2);
       $("hero-median").textContent=stats.medianError.toFixed(2);
       for(const key of Object.keys(scenes)) $("scene-"+key).setAttribute("aria-pressed",String(activeScene===key));
       const one=winner({meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError});
+      $("hero-instrument").setAttribute("data-winner",one);
+      $("hero-verdict").textContent=one==="Equal"?"Equal error at "+fifth+".":"At "+fifth+", "+one.toLowerCase()+" is closer by "+Math.abs(stats.meanError-stats.medianError).toFixed(2)+".";
+      const alternatives=sensitivity.points.filter(candidate=>winner(candidate)!==one&&winner(candidate)!=="Equal");
+      const flip=alternatives.reduce((best,candidate)=>!best||Math.abs(candidate.meanAbsoluteError-candidate.medianAbsoluteError)>Math.abs(best.meanAbsoluteError-best.medianAbsoluteError)?candidate:best,null);
+      heroFlipTarget=flip?.fifthObserver??null;
+      $("hero-flip").hidden=flip===null;
+      if(flip) $("hero-flip").textContent="See a "+winner(flip).toLowerCase()+" win at "+heroFlipTarget+" ↗";
       const average=winner({meanAbsoluteError:point.meanAverageAbsoluteError,medianAbsoluteError:point.medianAverageAbsoluteError});
       const oneText=one==="Equal"?"both have equal error":"the "+one.toLowerCase()+" has lower error";
       const averageText=average==="Equal"?"both have equal average error":"the "+average.toLowerCase()+" has lower average error";
       $("journey-outcome").textContent="Seed "+simulation.seed+", fifth estimate "+fifth+": "+oneText+" in this single case (mean "+stats.meanError.toFixed(2)+", median "+stats.medianError.toFixed(2)+"). Across 128 generated seeds, "+averageText+"; the median wins in "+point.medianLowerErrorCount+" individual cases. Follow the charts below to inspect why.";
       $("share-link").href=caseUrl();
       $("challenge-link").href="challenge.html?seed="+simulation.seed+"&fifth="+fifth;
+      $("hero-challenge").href=$("challenge-link").href;
       $("atlas-link").href="atlas.html?start="+simulation.seed+"&offset=0&fifth="+fifth;
+    }
+    function updateFifth(value) {
+      $("outlier").value=String(value);
+      activeScene=null;
+      render();renderSensitivity();renderCohort();renderIntro();
     }
     function loadScene(key) {
       activeScene=key;
@@ -668,7 +697,9 @@
     $("reset").addEventListener("click",()=>{activeScene=null;reset();});
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
-    $("outlier").addEventListener("input",()=>{activeScene=null;render();renderSensitivity();renderCohort();renderIntro();});
+    $("outlier").addEventListener("input",()=>updateFifth(Number($("outlier").value)));
+    $("hero-range").addEventListener("input",()=>updateFifth(Number($("hero-range").value)));
+    $("hero-flip").addEventListener("click",()=>{if(heroFlipTarget!==null) updateFifth(heroFlipTarget);});
     for(const key of Object.keys(scenes)) $("scene-"+key).addEventListener("click",()=>loadScene(key));
     $("analyze").addEventListener("click",renderWorkbench);
     $("example-outlier").addEventListener("click",()=>{$("dataset").value="48, 49, 50, 51, 85";$("known-target").value="50";renderWorkbench();});

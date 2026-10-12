@@ -130,6 +130,30 @@ test("observer comparison uses the same four values under outlier changes", () =
   assert.ok(extreme.medianAbsoluteError<extreme.meanAbsoluteError);
 });
 
+test("first-screen control finds an opposing result and stays synchronized with the lab", () => {
+  const lab=loadLab();
+  assert.equal(lab.element("hero-range").value,"85");
+  assert.match(lab.element("hero-verdict").textContent,/At 85, median is closer by 5\.26/);
+  assert.equal(lab.element("hero-challenge").href,"challenge.html?seed=42&fifth=85");
+  assert.equal(lab.element("hero-flip").hidden,false);
+  assert.match(lab.element("hero-flip").textContent,/See a mean win at \d+/);
+  const opposite=Number(lab.element("hero-flip").textContent.match(/at (\d+)/)[1]);
+  click(lab.element("hero-flip"));
+  assert.equal(snapshot(lab).witnesses.adjustable,opposite);
+  assert.equal(lab.element("outlier").value,String(opposite));
+  assert.equal(lab.element("hero-range").value,String(opposite));
+  assert.equal(lab.element("hero-instrument").attributes["data-winner"],"Mean");
+  assert.equal(lab.element("hero-challenge").href,"challenge.html?seed=42&fifth="+opposite);
+  input(lab.element("hero-range"),50);
+  assert.equal(snapshot(lab).witnesses.adjustable,50);
+  assert.equal(lab.element("sample-current-value").textContent,"50");
+  assert.equal(lab.element("cohort-current-value").textContent,"50");
+  assert.equal(lab.element("outlier").value,"50");
+  input(lab.element("outlier"),85);
+  assert.equal(lab.element("hero-range").value,"85");
+  assert.equal(lab.element("hero-fifth").textContent,"85");
+});
+
 test("sensitivity sweep exposes both winning regions and agrees with selected telemetry", () => {
   const lab=loadLab();
   const sweep=snapshot(lab).witnessSensitivity;
