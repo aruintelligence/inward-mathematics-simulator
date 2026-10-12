@@ -73,6 +73,27 @@ function loadChallenge(search="") {
   return {window,element,share};
 }
 
+function loadAtlas(search="") {
+  const html=fs.readFileSync(path.join(__dirname,"..","atlas.html"),"utf8");
+  const script=html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(script,"the atlas must contain its model script");
+  const elements=new Map(),share={copied:null};
+  const context=new Proxy({}, {get:()=>()=>{}});
+  function element(id) {
+    if(!elements.has(id)) elements.set(id,{
+      textContent:"",value:"",href:"",disabled:false,handlers:{},
+      addEventListener(name,handler){this.handlers[name]=handler;},
+      getContext(){return context;},
+      getBoundingClientRect(){return {left:0,top:0,width:808,height:768};},
+    });
+    return elements.get(id);
+  }
+  const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/atlas.html"+search}};
+  const navigator={clipboard:{async writeText(value){share.copied=value;}}};
+  vm.runInNewContext(script[1],{window,document:{getElementById:element},navigator,URLSearchParams},{timeout:2000});
+  return {window,element,share};
+}
+
 test("same seed and same shock timing replay the exact model state", () => {
   const lab=loadLab();
   assert.equal(snapshot(lab).step,0);
@@ -249,6 +270,55 @@ test("challenge rejects malformed link settings and does not leak a selected ans
   assert.equal(challenge.element("value-5").textContent,"40");
   assert.equal(challenge.window.InwardMathChallenge.challengeUrl(),"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=42&fifth=40");
   assert.equal(challenge.element("result").hidden,true);
+});
+
+test("atlas covers the exact cohort grid and agrees with the full lab", () => {
+  const atlas=loadAtlas("?start=42&offset=0&fifth=50");
+  const lab=loadLab("?seed=42&fifth=50");
+  const snapshot=atlas.window.InwardMathAtlas.snapshot();
+  const counts=snapshot.counts;
+  assert.equal(counts.Mean+counts.Median+counts.Equal,128*101);
+  assert.equal(atlas.element("column-mean-wins").textContent,"53");
+  assert.equal(atlas.element("column-median-wins").textContent,"75");
+  assert.equal(atlas.window.InwardMathAtlas.columnSummary(50).meanAverage,lab.window.InwardMathLab.snapshot().witnessCohort.points[50].meanAverageAbsoluteError);
+  assert.deepEqual(JSON.parse(JSON.stringify(snapshot.cell.values)),[...lab.window.InwardMathLab.snapshot().witnesses.seeded,50]);
+  for(const fifth of [0,40,85,100]) {
+    const expected=lab.window.InwardMathLab.snapshot().witnessCohort.members[0].observers;
+    const actual=atlas.window.InwardMathAtlas.statsAt(42,fifth);
+    assert.deepEqual(JSON.parse(JSON.stringify(actual.values)),[...expected,fifth]);
+  }
+});
+
+test("atlas selection and exact links preserve the case, including seed wrap", async () => {
+  const atlas=loadAtlas("?start=4294967295&offset=1&fifth=85");
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().cell.seed,0);
+  assert.equal(atlas.element("lab-link").href,"index.html?seed=0&fifth=85#start");
+  assert.equal(atlas.element("challenge-link").href,"challenge.html?seed=0&fifth=85");
+  atlas.window.InwardMathAtlas.select(2,50);
+  assert.equal(atlas.element("share-link").href,"https://aruintelligence.github.io/inward-mathematics-simulator/atlas.html?start=4294967295&offset=2&fifth=50");
+  await click(atlas.element("copy"));
+  assert.equal(atlas.share.copied,atlas.element("share-link").href);
+  assert.equal(atlas.element("share-status").textContent,"Exact atlas view copied.");
+});
+
+test("atlas rejects invalid links and offers numeric and map selection", () => {
+  const atlas=loadAtlas("?start=4294967296&offset=128&fifth=101");
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().start,42);
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().fifth,50);
+  atlas.element("map").handlers.click({clientX:40*8+3,clientY:3*6+2});
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().offset,3);
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().fifth,40);
+  assert.equal(atlas.element("lab-link").href,"index.html?seed=45&fifth=40#start");
+  atlas.element("fifth").value="-1";
+  atlas.element("fifth").handlers.change();
+  assert.equal(atlas.element("fifth").value,"40");
+  assert.match(atlas.element("share-status").textContent,/whole number/);
+  atlas.element("fifth-range").value="50";
+  atlas.element("fifth-range").handlers.input();
+  click(atlas.element("find-median"));
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().cell.winner,"Median");
+  click(atlas.element("find-mean"));
+  assert.equal(atlas.window.InwardMathAtlas.snapshot().cell.winner,"Mean");
 });
 
 test("own-data workbench computes the mean, median, and an explicit leave-one-out counterfactual", () => {

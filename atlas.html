@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07121d">
+  <title>Outcome Atlas | Inward Mathematics™</title>
+  <meta name="description" content="Explore 12,928 reproducible mean-versus-median toy cases. Select any cell to inspect its exact observations, compare errors, and open the case in the interactive lab.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/atlas.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="12,928 Outcomes. Which Estimate Wins?">
+  <meta property="og:description" content="A clickable atlas of mean and median error across 128 generated seeds and 101 fifth readings. Every cell opens into an exact reproducible case.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/atlas.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#07121d; --panel:#102b3b; --text:#eaf6f6; --muted:#b2cad0; --mint:#5af0c6; --gold:#ffcb78; --line:#31596a; --rose:#ff8f9d; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 25% -10%,#14534e,transparent 40%),var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    .wrap { width:min(1250px,calc(100% - 32px)); margin:auto; }
+    a { color:var(--mint); }
+    button,input { font:inherit; }
+    button,a.button { cursor:pointer; border:1px solid #5d8685; border-radius:11px; min-height:45px; padding:10px 15px; background:#163e43; color:var(--text); font-weight:750; text-decoration:none; }
+    button:hover:not(:disabled),a.button:hover { filter:brightness(1.13); }
+    button:disabled { opacity:.45; cursor:default; }
+    button:focus-visible,a:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .skip { position:absolute; top:-70px; left:16px; padding:9px 14px; background:var(--gold); color:var(--bg); border-radius:9px; }
+    .skip:focus { top:10px; }
+    header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:24px 0; font-size:.9rem; }
+    header strong { letter-spacing:.05em; }
+    header a { color:var(--text); text-decoration:none; }
+    .eyebrow { color:var(--mint); font-size:.75rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; }
+    h1 { max-width:950px; font-size:clamp(2.5rem,6vw,5rem); line-height:1.04; letter-spacing:-.05em; margin:8px 0 15px; }
+    .lead { max-width:850px; color:var(--muted); font-size:1.14rem; }
+    .lede { margin:15px 0 32px; }
+    .lede strong { color:var(--gold); }
+    .layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(300px,.85fr); align-items:start; gap:20px; }
+    .panel { border:1px solid #477c78; border-radius:22px; padding:clamp(16px,2.5vw,25px); background:radial-gradient(circle at 85% 0%,#185349,transparent 35%),linear-gradient(150deg,#112e42,#0b2030); box-shadow:0 20px 60px #0005; }
+    h2 { font-size:clamp(1.4rem,2.5vw,2rem); line-height:1.2; margin:5px 0 12px; }
+    h3 { margin:20px 0 7px; font-size:1.1rem; }
+    p { margin:8px 0 14px; }
+    .legend { display:flex; flex-wrap:wrap; gap:10px 18px; color:var(--muted); font-size:.86rem; }
+    .key { display:inline-block; width:13px; height:13px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+    .map-frame { max-width:100%; overflow:auto; border:1px solid var(--line); border-radius:13px; background:#071522; margin:16px 0 8px; }
+    canvas { display:block; width:808px; height:768px; touch-action:manipulation; cursor:crosshair; }
+    .axis { display:flex; justify-content:space-between; color:var(--muted); font-size:.82rem; }
+    .instruction { color:var(--muted); font-size:.88rem; }
+    .controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:17px 0; }
+    label { display:grid; gap:5px; color:var(--muted); font-size:.85rem; }
+    input[type=number] { width:100%; min-width:0; color:var(--text); background:#091c2b; border:1px solid #6a8995; border-radius:9px; padding:10px; }
+    input[type=range] { width:100%; accent-color:var(--mint); min-height:38px; }
+    .range { margin:14px 0 5px; }
+    .quick { display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
+    .quick button:first-child { background:#35543b; }
+    .quick button:nth-child(2) { background:#675233; }
+    .stat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .stat { border:1px solid var(--line); border-radius:12px; background:#0a1e2d; padding:12px; }
+    .stat span { display:block; color:var(--muted); font-size:.78rem; }
+    .stat strong { display:block; font:750 clamp(1.15rem,2vw,1.5rem) ui-monospace,SFMono-Regular,monospace; }
+    .stat.mean strong { color:var(--gold); }
+    .stat.median strong { color:var(--mint); }
+    .result { border-top:1px solid var(--line); padding-top:12px; }
+    .result .values { color:var(--muted); font:650 .9rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .result .verdict { color:var(--mint); font-size:1.3rem; font-weight:800; }
+    .links { display:flex; flex-wrap:wrap; gap:9px; margin:16px 0 5px; }
+    .links .primary { background:var(--mint); border-color:var(--mint); color:#05251f; }
+    .status { color:var(--mint); min-height:1.5em; font-size:.86rem; }
+    .scope { border-left:3px solid var(--gold); background:#122938; padding:12px 16px; margin:30px 0; border-radius:0 9px 9px 0; color:#d7e8e7; }
+    footer { border-top:1px solid var(--line); color:var(--muted); padding:20px 0 35px; font-size:.84rem; }
+    @media(max-width:1050px) { .layout { grid-template-columns:1fr; } .detail { max-width:760px; } }
+    @media(max-width:620px) { .controls { grid-template-columns:1fr 1fr; } .controls label:first-child { grid-column:1/-1; } .lede { margin-bottom:20px; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#atlas">Skip to outcome atlas</a>
+  <div class="wrap">
+    <header><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><nav><a href="index.html">Full lab ↗</a> · <a href="challenge.html">Prediction challenge</a></nav></header>
+    <main id="atlas">
+      <p class="eyebrow">An explorable map of the toy model</p>
+      <h1>12,928 outcomes.<br>Every one inspectable.</h1>
+      <p class="lead">Each column changes the fifth reading from 0 to 100. Each row starts from a different generated seed. Pick a cell to see the exact five readings and why the mean or median gets closer to the target of 50.</p>
+      <p class="lede" id="hook">At fifth reading 50, the median wins more individual seeds while the mean has lower average error. Follow the colors, then inspect a counterexample.</p>
+      <div class="layout">
+        <section class="panel" aria-labelledby="map-title">
+          <p class="eyebrow">101 readings × 128 seeds</p>
+          <h2 id="map-title">The outcome atlas</h2>
+          <div class="legend"><span><i class="key" style="background:#dba247"></i>Mean has lower error</span><span><i class="key" style="background:#38bba1"></i>Median has lower error</span><span><i class="key" style="background:#8ca5ae"></i>Equal error</span></div>
+          <p class="instruction">Brighter cells have a larger error difference. White outline marks the selected cell. Scroll the map horizontally on narrow screens, or use the exact controls below it.</p>
+          <div class="map-frame"><canvas id="map" width="808" height="768" role="img" aria-label="Outcome map with 128 seed rows and 101 fifth-reading columns. Gold means lower mean error; mint means lower median error. Use the numeric controls for an accessible exact selection.">Use the numeric controls below to inspect the same results.</canvas></div>
+          <div class="axis"><span>Fifth reading 0</span><span>50</span><span>100 →</span></div>
+          <div class="controls">
+            <label for="start">Cohort start seed<input id="start" type="number" min="0" max="4294967295" step="1" value="42"></label>
+            <label for="offset">Seed row (0–127)<input id="offset" type="number" min="0" max="127" step="1" value="0"></label>
+            <label for="fifth">Fifth reading (0–100)<input id="fifth" type="number" min="0" max="100" step="1" value="50"></label>
+          </div>
+          <label class="range" for="fifth-range">Sweep the fifth reading<input id="fifth-range" type="range" min="0" max="100" step="1" value="50"></label>
+          <div class="quick"><button id="find-median" type="button">Find a median win</button><button id="find-mean" type="button">Find a mean win</button><button id="reset" type="button">Return to reading 50</button></div>
+        </section>
+        <aside class="panel detail" aria-labelledby="detail-title">
+          <p class="eyebrow">The selected column</p>
+          <h2 id="detail-title">What happens at <span id="column-value">50</span>?</h2>
+          <div class="stat-grid"><div class="stat mean"><span>Mean wins / 128 seeds</span><strong id="column-mean-wins">—</strong></div><div class="stat median"><span>Median wins / 128 seeds</span><strong id="column-median-wins">—</strong></div><div class="stat mean"><span>Mean average error</span><strong id="column-mean-error">—</strong></div><div class="stat median"><span>Median average error</span><strong id="column-median-error">—</strong></div></div>
+          <p id="column-story" class="instruction"></p>
+          <div class="result" aria-live="polite">
+            <p class="eyebrow">One exact cell</p>
+            <h3 id="case-title">Seed 42 · fifth reading 50</h3>
+            <p class="values" id="case-values"></p>
+            <p class="verdict" id="case-verdict"></p>
+            <div class="stat-grid"><div class="stat mean"><span>Mean / error</span><strong id="case-mean">—</strong></div><div class="stat median"><span>Median / error</span><strong id="case-median">—</strong></div></div>
+            <p class="instruction">Mean = sum of five ÷ 5. Median = middle sorted reading. Absolute error = distance from the stated target 50.</p>
+            <div class="links"><a id="lab-link" class="button primary" href="index.html">Open exact case in the lab ↗</a><a id="challenge-link" class="button" href="challenge.html">Predict this case ↗</a></div>
+            <div class="links"><button id="copy" type="button">Copy this atlas view</button><a id="share-link" href="atlas.html">Open/share exact view</a></div>
+            <p id="share-status" class="status" role="status"></p>
+          </div>
+        </aside>
+      </div>
+      <p class="scope"><strong>How to read this:</strong> 128 consecutive seeds (wrapping modulo 2³²) each produce four pseudorandom values in [42, 58). Every seed is tested against every integer fifth reading from 0 through 100. The colors compare absolute error against the chosen target 50. These 12,928 cells are a deterministic grid, not independent real observations or probabilities. A lower error in one cell, or more winning cells, does not establish a generally superior estimator.</p>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+  <script>
+    "use strict";
+    const $=id=>document.getElementById(id);
+    const valid=(value,max)=>/^\d+$/.test(String(value)) && Number.isInteger(Number(value)) && Number(value)<=max;
+    const query=new URLSearchParams(window.location.search);
+    let start=valid(query.get("start"),4294967295)?Number(query.get("start")):42;
+    let offset=valid(query.get("offset"),127)?Number(query.get("offset")):0;
+    let fifth=valid(query.get("fifth"),100)?Number(query.get("fifth")):50;
+    const same=(a,b)=>Math.abs(a-b)<1e-9;
+    function observers(seed) {
+      let state=(seed^0x85ebca6b)>>>0;
+      return Array.from({length:4},()=>{
+        state=(Math.imul(1664525,state)+1013904223)>>>0;
+        return 42+16*state/4294967296;
+      });
+    }
+    function statsAt(seed,fifthReading,base=observers(seed)) {
+      const values=[...base,fifthReading];
+      const mean=values.reduce((sum,value)=>sum+value,0)/5;
+      const median=[...values].sort((a,b)=>a-b)[2];
+      const meanError=Math.abs(mean-50),medianError=Math.abs(median-50);
+      const winner=same(meanError,medianError)?"Equal":meanError<medianError?"Mean":"Median";
+      return {seed,fifth:fifthReading,values,mean,median,meanError,medianError,winner};
+    }
+    function buildAtlas(startSeed) {
+      const rows=Array.from({length:128},(_,row)=>{
+        const seed=(startSeed+row)>>>0,base=observers(seed);
+        return Array.from({length:101},(_,reading)=>statsAt(seed,reading,base));
+      });
+      const counts={Mean:0,Median:0,Equal:0};
+      for(const row of rows) for(const cell of row) counts[cell.winner]++;
+      return {startSeed,rows,counts};
+    }
+    let atlas=buildAtlas(start);
+    const canvas=$("map"),ctx=canvas.getContext("2d"),cellWidth=8,cellHeight=6;
+    function cellColor(cell) {
+      if(cell.winner==="Equal") return "#8ca5ae";
+      const strength=Math.min(1,Math.abs(cell.meanError-cell.medianError)/4);
+      const light=30+Math.round(28*strength);
+      return cell.winner==="Mean"?"hsl(38 91% "+light+"%)":"hsl(164 72% "+light+"%)";
+    }
+    function draw() {
+      if(!ctx)return;
+      for(let row=0;row<128;row++) for(let col=0;col<101;col++) {
+        ctx.fillStyle=cellColor(atlas.rows[row][col]);
+        ctx.fillRect(col*cellWidth,row*cellHeight,cellWidth,cellHeight);
+      }
+      ctx.strokeStyle="#ffffff26";ctx.lineWidth=1;
+      for(let col=10;col<101;col+=10) {ctx.beginPath();ctx.moveTo(col*cellWidth+.5,0);ctx.lineTo(col*cellWidth+.5,768);ctx.stroke();}
+      for(let row=16;row<128;row+=16) {ctx.beginPath();ctx.moveTo(0,row*cellHeight+.5);ctx.lineTo(808,row*cellHeight+.5);ctx.stroke();}
+      ctx.fillStyle="#ffffff35";
+      ctx.fillRect(fifth*cellWidth,0,cellWidth,768);
+      ctx.fillRect(0,offset*cellHeight,808,cellHeight);
+      ctx.strokeStyle="#ffffff";ctx.lineWidth=2;
+      ctx.strokeRect(fifth*cellWidth+1,offset*cellHeight+1,cellWidth-2,cellHeight-2);
+    }
+    const atlasUrl=()=>window.location.href.split(/[?#]/)[0]+"?start="+start+"&offset="+offset+"&fifth="+fifth;
+    function columnSummary(reading) {
+      const cells=atlas.rows.map(row=>row[reading]);
+      const counts={Mean:0,Median:0,Equal:0};
+      let meanTotal=0,medianTotal=0;
+      for(const cell of cells) {counts[cell.winner]++;meanTotal+=cell.meanError;medianTotal+=cell.medianError;}
+      return {counts,meanAverage:meanTotal/128,medianAverage:medianTotal/128};
+    }
+    function update() {
+      const cell=atlas.rows[offset][fifth],column=columnSummary(fifth);
+      $("start").value=String(start);$("offset").value=String(offset);$("fifth").value=String(fifth);$("fifth-range").value=String(fifth);
+      $("column-value").textContent=String(fifth);
+      $("column-mean-wins").textContent=String(column.counts.Mean);
+      $("column-median-wins").textContent=String(column.counts.Median);
+      $("column-mean-error").textContent=column.meanAverage.toFixed(2);
+      $("column-median-error").textContent=column.medianAverage.toFixed(2);
+      const averageWinner=same(column.meanAverage,column.medianAverage)?"neither has a lower average":column.meanAverage<column.medianAverage?"the mean has lower average error":"the median has lower average error";
+      const countWinner=column.counts.Mean===column.counts.Median?"the win counts tie":column.counts.Mean>column.counts.Median?"the mean wins more individual seeds":"the median wins more individual seeds";
+      $("hook").textContent="At fifth reading "+fifth+", "+countWinner+"; "+averageWinner+". Follow the colors, then inspect an exact case.";
+      $("column-story").textContent="Across these 128 generated seeds, "+averageWinner+". The count of individual wins and the average size of errors can disagree."+(column.counts.Equal?" Equal-error cases: "+column.counts.Equal+".":"");
+      $("case-title").textContent="Seed "+cell.seed+" · fifth reading "+fifth;
+      $("case-values").textContent="Readings: "+cell.values.map((value,index)=>index===4?String(value):value.toFixed(4)).join(" · ");
+      $("case-verdict").textContent=cell.winner==="Equal"?"Equal error at the target.":"The "+cell.winner.toLowerCase()+" gets closer.";
+      $("case-mean").textContent=cell.mean.toFixed(2)+" / "+cell.meanError.toFixed(2);
+      $("case-median").textContent=cell.median.toFixed(2)+" / "+cell.medianError.toFixed(2);
+      $("lab-link").href="index.html?seed="+cell.seed+"&fifth="+fifth+"#start";
+      $("challenge-link").href="challenge.html?seed="+cell.seed+"&fifth="+fifth;
+      $("share-link").href=atlasUrl();
+      $("find-mean").disabled=column.counts.Mean===0;
+      $("find-median").disabled=column.counts.Median===0;
+      draw();
+    }
+    function select(row,reading) {offset=row;fifth=reading;$("share-status").textContent="";update();}
+    for(const [id,max,key] of [["start",4294967295,"start"],["offset",127,"offset"],["fifth",100,"fifth"]]) {
+      $(id).addEventListener("change",()=>{
+        const raw=$(id).value;
+        if(!valid(raw,max)) {$("share-status").textContent="Enter a whole number from 0 to "+max+".";$(id).value=String(key==="start"?start:key==="offset"?offset:fifth);return;}
+        const value=Number(raw);
+        if(key==="start") {start=value;offset=0;atlas=buildAtlas(start);}
+        else if(key==="offset") offset=value;
+        else fifth=value;
+        $("share-status").textContent="";update();
+      });
+    }
+    $("fifth-range").addEventListener("input",()=>select(offset,Number($("fifth-range").value)));
+    canvas.addEventListener("click",event=>{
+      const rect=canvas.getBoundingClientRect();
+      const col=Math.floor((event.clientX-rect.left)*101/rect.width);
+      const row=Math.floor((event.clientY-rect.top)*128/rect.height);
+      if(col>=0&&col<101&&row>=0&&row<128) select(row,col);
+    });
+    for(const winner of ["Mean","Median"]) $("find-"+winner.toLowerCase()).addEventListener("click",()=>{
+      for(let step=1;step<=128;step++) {
+        const row=(offset+step)%128;
+        if(atlas.rows[row][fifth].winner===winner) {select(row,fifth);break;}
+      }
+    });
+    $("reset").addEventListener("click",()=>select(0,50));
+    $("copy").addEventListener("click",async()=>{
+      try {await navigator.clipboard.writeText(atlasUrl());$("share-status").textContent="Exact atlas view copied.";}
+      catch {$("share-status").textContent="Use the visible view link to copy or open it.";}
+    });
+    update();
+    window.InwardMathAtlas=Object.freeze({statsAt,buildAtlas,columnSummary,select,snapshot:()=>({start,offset,fifth,cell:atlas.rows[offset][fifth],counts:atlas.counts})});
+  </script>
+</body>
+</html>
