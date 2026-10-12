@@ -290,6 +290,65 @@ test("embeddable challenge preserves the exact case and leaves answer collection
   assert.equal(challenge.element("lab-link").href,"index.html?seed=43&fifth=85#start");
 });
 
+test("reader-supplied challenge keeps the answer hidden, computes the target, and carries exact values into the workbench", () => {
+  const query="?values=40%2C42%2C50%2C60%2C68&target=52";
+  const challenge=loadChallenge(query+"&embed=1&guess=median");
+  assert.equal(challenge.element("result").hidden,true);
+  assert.equal(challenge.element("target-badge").textContent,"Target 52");
+  assert.match(challenge.element("plot").style.background,/52%/);
+  assert.equal(challenge.element("atlas-link").hidden,true);
+  assert.equal(challenge.element("value-5").textContent,"68");
+  assert.equal(challenge.window.InwardMathChallenge.challengeUrl(),"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+query);
+  assert.ok(challenge.element("embed-code").value.includes(query.slice(1)+"&embed=1"));
+  assert.equal(challenge.element("lab-link").href,"index.html?dataset=40%2C42%2C50%2C60%2C68&target=52#workbench-title");
+  click(challenge.element("guess-mean"));
+  assert.equal(challenge.element("verdict").textContent,"You called it.");
+  assert.equal(challenge.element("mean-result").textContent,"52.00 / 0.00");
+  assert.equal(challenge.element("median-result").textContent,"50.00 / 2.00");
+  const lab=loadLab("?dataset=40%2C42%2C50%2C60%2C68&target=52");
+  assert.equal(lab.element("dataset").value,"40,42,50,60,68");
+  assert.equal(lab.element("known-target").value,"52");
+  assert.match(lab.element("workbench-summary").textContent,/mean is closer/);
+});
+
+test("custom builder validates five readings and target before creating a public link", () => {
+  const challenge=loadChallenge("?seed=42&fifth=40");
+  challenge.element("builder-values").value="48, 49, 50, 51, 85";
+  challenge.element("builder-target").value="50";
+  click(challenge.element("build"));
+  assert.equal(challenge.window.location.href,"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?values=48%2C49%2C50%2C51%2C85&target=50");
+  const median=loadChallenge("?values=48%2C49%2C50%2C51%2C85&target=50");
+  click(median.element("guess-median"));
+  assert.equal(median.element("verdict").textContent,"You called it.");
+  assert.equal(median.element("median-result").textContent,"50.00 / 0.00");
+  const tie=loadChallenge("?values=0%2C0%2C50%2C100%2C100&target=50");
+  click(tie.element("guess-equal"));
+  assert.equal(tie.element("verdict").textContent,"You called it.");
+  const invalid=loadChallenge("?values=1%2C2%2C3%2C4%2C101&target=50&guess=median");
+  assert.match(invalid.element("link-warning").textContent,/invalid readings/);
+  assert.equal(invalid.element("result").hidden,true);
+  assert.equal(invalid.element("value-5").textContent,"40");
+  invalid.element("builder-values").value="0,1,2,3,4.12345";
+  click(invalid.element("build"));
+  assert.match(invalid.element("builder-error").textContent,/up to four decimal places/);
+});
+
+test("workbench offers a challenge only for shareable data and clears it on invalid input", () => {
+  const lab=loadLab();
+  assert.equal(lab.element("workbench-challenge").hidden,false);
+  assert.equal(lab.element("workbench-challenge").href,"challenge.html?values=48%2C49%2C50%2C51%2C85&target=50");
+  lab.element("known-target").value="";
+  click(lab.element("analyze"));
+  assert.equal(lab.element("workbench-challenge").hidden,true);
+  lab.element("known-target").value="50";
+  lab.element("dataset").value="48,49,50,51,100.12345";
+  click(lab.element("analyze"));
+  assert.equal(lab.element("workbench-challenge").hidden,true);
+  lab.element("dataset").value="bad input";
+  click(lab.element("analyze"));
+  assert.equal(lab.element("workbench-challenge").hidden,true);
+});
+
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
   const atlas=loadAtlas("?start=42&offset=0&fifth=50");
   const lab=loadLab("?seed=42&fifth=50");

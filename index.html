@@ -168,7 +168,7 @@
     <section id="workbench" class="sensitivity workbench" aria-labelledby="workbench-title">
       <p class="eyebrow">Your data / local workbench</p>
       <h2 id="workbench-title">See what one value does to your numbers.</h2>
-      <p class="workbench-intro">Paste 3–40 numbers, separated by commas or spaces. Add a known target if you have one. The result shows what changes when the value farthest from the median is removed. Your entries stay in this browser; this page sends nothing to a server.</p>
+      <p class="workbench-intro">Paste 3–40 numbers, separated by commas or spaces. Add a known target if you have one. The result shows what changes when the value farthest from the median is removed. Analysis runs in this browser. Creating a challenge link puts the selected values in its URL.</p>
       <div class="workbench-form">
         <label class="control" for="dataset">Your observations<textarea id="dataset" spellcheck="false">48, 49, 50, 51, 85</textarea></label>
         <label class="control" for="known-target">Known target (optional)<input id="known-target" type="number" step="any" placeholder="For example, 50" value="50"></label>
@@ -191,7 +191,8 @@
         <p id="workbench-target-note"></p>
         <p id="workbench-leaveout"></p>
         <p id="workbench-values" class="data-note"></p>
-        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><span id="workbench-save-status" role="status"></span></div>
+        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><a id="workbench-challenge" href="challenge.html" hidden>Turn these values into a prediction challenge ↗</a><span id="workbench-save-status" role="status"></span></div>
+        <p class="data-note">A challenge needs exactly five readings and a known target, each from 0 to 100 with at most four decimal places. Its URL contains those values and may appear in browser history or hosting logs. Use invented or public data only.</p>
         <p class="formula">The mean is the sum divided by the number of observations. The median is the middle sorted value, or the average of the two middle values. “Farthest” means greatest absolute distance from the original median; ties use the first entered value. Removing a point is a counterfactual, not a recommendation to discard data. A target you enter is a reference you supplied, not one verified by this page.</p>
       </div>
     </section>
@@ -410,11 +411,15 @@
         }
         const leave=analysis.leaveOneOut;
         $("workbench-leaveout").textContent="Remove observation "+(leave.removedIndex+1)+" ("+displayNumber(leave.removedValue)+"): mean moves by "+displayNumber(leave.meanChange)+" to "+displayNumber(leave.mean)+"; median moves by "+displayNumber(leave.medianChange)+" to "+displayNumber(leave.median)+".";
+        const shareable=analysis.count===5&&analysis.target!==null&&[...analysis.values,analysis.target].every(value=>/^(?:\d{1,3})(?:\.\d{1,4})?$/.test(String(value))&&value<=100);
+        $("workbench-challenge").hidden=!shareable;
+        if(shareable) $("workbench-challenge").href="challenge.html?values="+encodeURIComponent(analysis.values.join(","))+"&target="+analysis.target;
         $("workbench-save-status").textContent="";
         drawWorkbench(analysis);
       } catch(error) {
         workbenchAnalysis=null;
         $("workbench-result").hidden=true;
+        $("workbench-challenge").hidden=true;
         $("workbench-error").textContent=error.message;
       }
     }
@@ -702,8 +707,18 @@
       requestAnimationFrame(frame);
     }
     applySharedCase();
+    const sharedQuery=new URLSearchParams(window.location.search);
+    let sharedDatasetError="";
+    if(sharedQuery.has("dataset")) {
+      try {
+        analyzeDataset(sharedQuery.get("dataset"),sharedQuery.get("target")??"");
+        $("dataset").value=sharedQuery.get("dataset");
+        $("known-target").value=sharedQuery.get("target")??"";
+      } catch { sharedDatasetError="The shared dataset link is invalid; the example is shown instead."; }
+    }
     reset();
     renderWorkbench();
+    if(sharedDatasetError) $("workbench-error").textContent=sharedDatasetError;
     requestAnimationFrame(frame);
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
