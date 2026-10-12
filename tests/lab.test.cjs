@@ -61,7 +61,7 @@ function loadChallenge(search="") {
   const elements=new Map(),share={copied:null},classes=new Set();
   function element(id) {
     if(!elements.has(id)) elements.set(id,{
-      textContent:"",value:"",href:"",hidden:id==="result",disabled:false,style:{},attributes:{},handlers:{},
+      textContent:"",value:"",href:"",hidden:id==="result"||id==="counterfactual",disabled:false,style:{},attributes:{},handlers:{},
       addEventListener(name,handler){this.handlers[name]=handler;},
       setAttribute(name,value){this.attributes[name]=value;},
     });
@@ -70,7 +70,7 @@ function loadChallenge(search="") {
   const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+search}};
   const navigator={clipboard:{async writeText(value){share.copied=value;}}};
   vm.runInNewContext(script[1],{window,document:{getElementById:element,body:{classList:{add(name){classes.add(name);}}}},navigator,URLSearchParams},{timeout:1000});
-  return {window,element,share,classes};
+  return {window,element,share,classes,html};
 }
 
 function loadAtlas(search="") {
@@ -331,6 +331,49 @@ test("custom builder validates five readings and target before creating a public
   invalid.element("builder-values").value="0,1,2,3,4.12345";
   click(invalid.element("build"));
   assert.match(invalid.element("builder-error").textContent,/up to four decimal places/);
+});
+
+test("post-answer sweep agrees with the lab while preserving the original seeded receipt", () => {
+  const challenge=loadChallenge("?seed=42&fifth=40");
+  assert.equal(challenge.element("counterfactual").hidden,true);
+  assert.equal(challenge.element("result").hidden,true);
+  click(challenge.element("guess-mean"));
+  assert.equal(challenge.element("counterfactual").hidden,false);
+  assert.equal(challenge.element("sweep-counts").textContent,"Across 101 positions: mean closer at 17, median closer at 84, equal error at 0.");
+  assert.match(challenge.element("sweep-map").style.background,/linear-gradient/);
+  assert.match(challenge.element("sweep-map").attributes["aria-label"],/mean closer at 17/);
+  const receipt=challenge.element("mean-result").textContent;
+  input(challenge.element("fifth-sweep"),85);
+  const at85=challenge.window.InwardMathChallenge.statsAt(42,85);
+  assert.match(challenge.element("sweep-reading").textContent,/Median is closer\./);
+  assert.match(challenge.element("sweep-reading").textContent,new RegExp("mean "+at85.mean.toFixed(2).replace(".","\\.")+" \\(error "+at85.meanError.toFixed(2).replace(".","\\.")+"\\)"));
+  assert.equal(challenge.element("sweep-marker").style.left,"85%");
+  assert.equal(challenge.element("sweep-link").href,"challenge.html?seed=42&fifth=85");
+  assert.equal(challenge.element("mean-result").textContent,receipt);
+  assert.equal(challenge.element("share-link").href,"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=42&fifth=40");
+  const next=loadChallenge("?seed=42&fifth=85");
+  assert.equal(next.element("result").hidden,true);
+  assert.equal(next.element("counterfactual").hidden,true);
+  assert.match(challenge.html,/\.embedded header,[^}]*\.embedded \.counterfactual[^}]*\{ display:none; \}/);
+});
+
+test("reader-supplied sweep keeps four values and target in its exact new challenge", () => {
+  const challenge=loadChallenge("?values=40%2C42%2C50%2C60%2C68&target=52");
+  click(challenge.element("guess-mean"));
+  assert.equal(challenge.element("mean-result").textContent,"52.00 / 0.00");
+  assert.match(challenge.element("sweep-reading").textContent,/Mean is closer\./);
+  input(challenge.element("fifth-sweep"),100);
+  assert.equal(challenge.element("sweep-link").href,"challenge.html?values=40%2C42%2C50%2C60%2C100&target=52");
+  assert.equal(challenge.element("sweep-reading").textContent,"At fifth reading 100: mean 58.40 (error 6.40); median 50.00 (error 2.00). Median is closer.");
+  assert.equal(challenge.element("mean-result").textContent,"52.00 / 0.00");
+  const next=loadChallenge("?values=40%2C42%2C50%2C60%2C100&target=52");
+  assert.equal(next.element("result").hidden,true);
+  assert.equal(next.element("value-5").textContent,"100");
+  const decimal=loadChallenge("?values=10.5%2C20.25%2C50%2C60.75%2C68.5&target=52.5");
+  click(decimal.element("guess-median"));
+  assert.equal(decimal.element("fifth-sweep").value,"69");
+  assert.match(decimal.element("sweep-context").textContent,/Original fifth reading: 68\.5\. The explorer starts at 69/);
+  assert.equal(decimal.element("sweep-link").href,"challenge.html?values=10.5%2C20.25%2C50%2C60.75%2C69&target=52.5");
 });
 
 test("workbench offers a challenge only for shareable data and clears it on invalid input", () => {
