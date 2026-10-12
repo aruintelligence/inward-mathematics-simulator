@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081923">
+  <title>Shape the Data | Move Five Readings, Watch Mean and Median</title>
+  <meta name="description" content="Drag five readings and a target on a living number line. Watch the mean, median, and their absolute errors respond, then share an exact case.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/shape-the-data.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Shape the data. Watch the middle move. | Inward Mathematics™">
+  <meta property="og:description" content="A hands-on mean and median experiment: drag every reading, see what moves, and find the closer estimate.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/shape-the-data.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#081923; --panel:#102d3b; --ink:#f2f6f1; --muted:#b6cbd0; --line:#48717b; --mint:#65edc4; --gold:#ffd18d; --rose:#ffa4b1; --cyan:#a7dfff; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; min-width:320px; color:var(--ink); background:radial-gradient(circle at 78% 3%,#205956 0,transparent 26%),radial-gradient(circle at 10% 35%,#31304a 0,transparent 31%),var(--bg); font:17px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--mint); }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1180px,calc(100% - 32px)); margin:auto; }
+    .skip { position:absolute; top:-70px; left:16px; z-index:5; padding:9px 14px; border-radius:8px; background:var(--gold); color:#12232a; }
+    .skip:focus { top:10px; }
+    header { padding:23px 0; }
+    nav { display:flex; flex-wrap:wrap; gap:9px 19px; align-items:center; }
+    nav strong { margin-right:auto; font-size:.82rem; letter-spacing:.06em; }
+    nav a { color:var(--ink); font-size:.9rem; text-decoration:none; }
+    nav a:hover { color:var(--mint); }
+    .eyebrow { margin:0 0 10px; color:var(--mint); font-size:.74rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr); gap:35px; align-items:center; padding:48px 0 42px; }
+    h1 { margin:0; font-size:clamp(2.85rem,6.3vw,5.5rem); line-height:1.02; letter-spacing:-.065em; }
+    h1 em { color:var(--gold); font-style:normal; }
+    .lead { max-width:650px; color:#d4e4e2; font-size:1.14rem; }
+    .button,button.action { display:inline-flex; min-height:46px; align-items:center; justify-content:center; padding:10px 16px; border:1px solid var(--mint); border-radius:10px; background:var(--mint); color:#0b2a2a; font-weight:800; text-decoration:none; }
+    .button.secondary,button.action.secondary { border-color:#60828d; background:#1b3c48; color:var(--ink); }
+    .button:hover,button.action:hover { filter:brightness(1.13); }
+    .hero-links,.actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:22px; }
+    .hero-card { position:relative; overflow:hidden; padding:28px; border:1px solid #79b6ad; border-radius:24px; background:radial-gradient(circle at 78% 10%,#257c70,#174b50 43%,#172c40 100%); box-shadow:0 26px 65px #0006; }
+    .hero-card::before { content:""; position:absolute; width:310px; height:310px; right:-80px; top:-140px; border:1px solid #d0ffe44b; border-radius:50%; box-shadow:0 0 0 53px #d0ffe411,0 0 0 105px #d0ffe409; pointer-events:none; }
+    .hero-card>* { position:relative; }
+    .hero-card strong { display:block; margin:8px 0; font-size:clamp(2.7rem,5vw,4.3rem); line-height:1.05; letter-spacing:-.055em; }
+    .hero-card[data-winner="Mean"] strong { color:var(--gold); }
+    .hero-card[data-winner="Median"] strong { color:var(--mint); }
+    .hero-card[data-winner="Equal"] strong { color:var(--cyan); }
+    .hero-card p:last-child { margin:0; color:#deeeeb; }
+    .studio { padding:clamp(17px,3vw,32px); border:1px solid #668e91; border-radius:25px; background:linear-gradient(150deg,#163e48,#102d3b 48%,#242d42); box-shadow:0 25px 70px #0006; }
+    .studio-head { display:flex; justify-content:space-between; gap:12px 24px; align-items:start; }
+    h2 { margin:0; font-size:clamp(1.65rem,3.3vw,2.65rem); line-height:1.12; letter-spacing:-.04em; }
+    .intro { max-width:780px; margin:10px 0 0; color:var(--muted); }
+    .case-pill { padding:5px 11px; border:1px solid #7a9ba2; border-radius:99px; color:#e6f4ef; font-size:.79rem; white-space:nowrap; }
+    .plot-shell { margin-top:23px; overflow-x:auto; border:1px solid #527b84; border-radius:19px; padding:15px 12px 5px; background:radial-gradient(circle at 60% 0,#173f48,#091f2e 65%); }
+    .plot-head { display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px 16px; margin:0 10px; }
+    .plot-head small { color:var(--muted); }
+    #plot { display:block; width:100%; height:auto; touch-action:none; }
+    #plot .lane { stroke:#789ba4; stroke-opacity:.37; stroke-width:2; }
+    #plot .grid { stroke:#b0d7d2; stroke-opacity:.14; stroke-width:1; }
+    #plot .reference { stroke:#ffa4b1; stroke-width:2.5; stroke-dasharray:8 7; }
+    #plot text { fill:#d5e7e7; font:16px system-ui,sans-serif; }
+    #plot .axis-text { fill:#b1c7cb; font-size:14px; }
+    #plot .row-name { fill:#e6f4f1; font-weight:750; }
+    #plot .value-text { font-weight:750; font-variant-numeric:tabular-nums; }
+    #plot .mean-text { fill:var(--gold); } #plot .median-text { fill:var(--mint); } #plot .target-text { fill:var(--rose); }
+    #plot [data-reading],#plot [data-target] { cursor:ew-resize; }
+    #plot .halo { fill:#65edc415; stroke:#9bffe2a8; stroke-width:1.5; }
+    #plot .dot { fill:var(--cyan); stroke:#0c2933; stroke-width:4; }
+    #plot .selected .dot { fill:var(--rose); }
+    #plot .selected .halo { fill:#ffa4b126; stroke:var(--rose); }
+    #plot .target-dot { fill:var(--rose); stroke:#152d38; stroke-width:4; }
+    #plot .mean-dot { fill:var(--gold); stroke:#112b35; stroke-width:4; }
+    #plot .median-dot { fill:var(--mint); stroke:#112b35; stroke-width:4; }
+    .plot-caption { display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px 15px; padding:0 11px 12px; color:var(--muted); font-size:.82rem; }
+    .plot-caption b { color:var(--rose); }
+    .below { display:grid; grid-template-columns:minmax(0,1fr) minmax(250px,.62fr); gap:16px; margin-top:17px; }
+    .control-panel,.result-panel { min-width:0; padding:20px; border:1px solid #4b7480; border-radius:16px; background:#0b2533; }
+    h3 { margin:0 0 5px; font-size:1.23rem; }
+    .control-panel>p,.result-panel>p { margin:5px 0 14px; color:var(--muted); font-size:.9rem; }
+    .control-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .control-item { min-width:0; padding:9px 11px 11px; border:1px solid #496d7b; border-radius:11px; background:#102e3d; }
+    .control-item.selected { border-color:var(--rose); background:#293240; }
+    .control-item.target { border-color:#bd8794; }
+    .control-item label { display:block; margin-bottom:4px; color:#daebeb; font-size:.79rem; font-weight:750; }
+    .control-item input[type="range"] { width:100%; height:30px; margin:0; cursor:pointer; accent-color:var(--cyan); }
+    .control-item.target input[type="range"] { accent-color:var(--rose); }
+    .control-item input[type="number"] { width:100%; min-height:38px; padding:5px 8px; border:1px solid #84a6ad; border-radius:7px; color:var(--ink); background:#08202c; font-variant-numeric:tabular-nums; }
+    #input-error { min-height:1.45em; margin:8px 0 0; color:var(--rose); font-size:.89rem; font-weight:700; }
+    .result-panel { background:linear-gradient(160deg,#112e38,#132e3d); }
+    .error-card { margin:14px 0; }
+    .error-card header { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:0; font-size:.83rem; }
+    .error-card strong { font:800 1.25rem ui-monospace,SFMono-Regular,monospace; }
+    .error-card.mean strong { color:var(--gold); } .error-card.median strong { color:var(--mint); }
+    .error-track { height:13px; overflow:hidden; border:1px solid #506d78; border-radius:99px; background:#09202b; }
+    .error-track i { display:block; height:100%; min-width:2px; border-radius:99px; background:var(--gold); transition:width .16s ease; }
+    .error-card.median .error-track i { background:var(--mint); }
+    .move-report { margin-top:15px; padding:14px; border-left:3px solid var(--rose); border-radius:0 9px 9px 0; background:#223545; }
+    .move-report strong { display:block; color:#ffe3dc; }
+    .move-report p { margin:6px 0 0; color:#dce7e5; font-size:.89rem; }
+    .under { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:24px 0 42px; }
+    .panel { padding:25px; border:1px solid var(--line); border-radius:20px; background:#122e3c; }
+    .panel p { color:var(--muted); }
+    .presets { display:grid; gap:9px; margin-top:16px; }
+    .preset { padding:12px 14px; border:1px solid #567b84; border-radius:11px; background:#0a2431; color:var(--ink); text-align:left; }
+    .preset:hover,.preset[aria-pressed="true"] { border-color:var(--mint); background:#17463f; }
+    .preset strong,.preset span { display:block; }
+    .preset span { color:var(--muted); font-size:.82rem; }
+    #share-status { min-height:1.45em; color:var(--mint); font-size:.91rem; }
+    .note { font-size:.85rem; }
+    footer { padding:23px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem; }
+    @media(max-width:900px) { .hero,.below { grid-template-columns:1fr; } .hero-card { max-width:660px; } }
+    @media(max-width:700px) { .under { grid-template-columns:1fr; } .control-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .studio-head { flex-direction:column; } #plot { min-width:700px; } .plot-head,.plot-caption { min-width:680px; } }
+    @media(max-width:480px) { .hero { padding:25px 0 30px; } .studio { padding:14px; } .plot-shell { padding:8px 2px 0; } .plot-head { margin:0 8px; } .plot-caption { font-size:.75rem; } .control-panel,.result-panel,.panel { padding:16px; } .hero-card { padding:21px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } .error-track i { transition:none; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#studio">Skip to hands-on experiment</a>
+  <div class="wrap">
+    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">The lab</a><a href="challenge.html">Prediction</a><a href="decision-field.html">Decision Field</a><a href="guide.html">Lesson</a></nav></header>
+    <main>
+      <div class="hero"><div><p class="eyebrow">Experiment 06 / Shape the Data</p><h1>Move a number.<br><em>Watch the middle.</em></h1><p class="lead">Five readings become five movable points. Pull one away, bring another through the middle, or shift the target. See precisely when the mean moves, when the median holds, and which estimate ends up closer.</p><div class="hero-links"><a class="button" href="#studio">Grab a reading ↓</a><a class="button secondary" href="challenge.html">Predict first ↗</a></div></div><aside class="hero-card" id="hero-card" data-winner="Median" aria-label="Current result"><p class="eyebrow">The current arrangement</p><strong id="winner">Median is closer.</strong><p id="winner-detail">Move a point to change the result.</p></aside></div>
+      <section class="studio" id="studio" aria-labelledby="studio-title">
+        <div class="studio-head"><div><p class="eyebrow">A living number line / 0 to 100</p><h2 id="studio-title">Every reading is a handle.</h2><p class="intro">Drag a numbered point horizontally. Drag the rose target at the top to move the reference. Each reading has its own lane so overlapping values remain easy to grab. Use the labeled controls below for precise values or a keyboard.</p></div><span class="case-pill" id="case-label">A / one high reading</span></div>
+        <div class="plot-shell"><div class="plot-head"><strong>Five readings and two estimates</strong><small>On narrow screens, swipe above the chart to pan</small></div><svg id="plot" viewBox="0 0 1000 510" role="img" aria-label="Five movable readings on separate lanes, a target reference, and mean and median positions on a 0 to 100 scale"><g id="plot-static"></g><g id="plot-dynamic"></g></svg><div class="plot-caption"><span><b>Rose</b> = chosen target and selected reading</span><span>Gold = mean · Mint = median · Blue = other readings</span></div></div>
+        <div class="below"><div class="control-panel"><h3>Fine controls</h3><p>Tap a range or enter a value. Each input spans 0–100; typed readings can use four decimal places.</p><div class="control-grid" id="control-grid"></div><p id="input-error" role="alert"></p><div class="actions"><button class="action secondary" id="anchor" type="button">Anchor this arrangement</button><button class="action secondary" id="reset" type="button">Reset starting case</button></div></div><div class="result-panel"><h3>Distance to the target</h3><p id="estimates">Mean and median are computed from all five readings.</p><div class="error-card mean"><header><span>Mean absolute error</span><strong id="mean-error">—</strong></header><div class="error-track"><i id="mean-bar"></i></div></div><div class="error-card median"><header><span>Median absolute error</span><strong id="median-error">—</strong></header><div class="error-track"><i id="median-bar"></i></div></div><div class="move-report"><strong id="move-title">Move any reading.</strong><p id="move-detail">Compare the new arrangement with the anchored starting case.</p></div></div></div>
+      </section>
+      <div class="under"><section class="panel" aria-labelledby="presets-title"><p class="eyebrow">Try three different shapes</p><h2 id="presets-title">What breaks the pattern?</h2><div class="presets"><button class="preset" type="button" data-case="a" aria-pressed="true"><strong>A / Pull one reading far away</strong><span>48, 49, 50, 51, 85 · target 50</span></button><button class="preset" type="button" data-case="b" aria-pressed="false"><strong>B / Make the mean win</strong><span>40, 42, 50, 60, 68 · target 52</span></button><button class="preset" type="button" data-case="c" aria-pressed="false"><strong>C / Make both estimates coincide</strong><span>0, 0, 50, 100, 100 · target 50</span></button></div><p>For the exact boundary with one moving reading, see <a href="flip-point.html">Flip Point</a>. For all targets and fifth readings at once, see the <a href="decision-field.html">Decision Field</a>.</p></section>
+        <section class="panel" aria-labelledby="share-title"><p class="eyebrow">Carry your arrangement</p><h2 id="share-title">Turn it into a question.</h2><p>Your five readings and chosen target can open as a blind challenge, a two-axis decision map, or an analysis in the full workbench. Each link carries the six numbers.</p><div class="actions"><a class="button" id="challenge-link" href="challenge.html">Make a blind challenge ↗</a><a class="button secondary" id="field-link" href="decision-field.html">Open the decision field ↗</a><a class="button secondary" id="workbench-link" href="index.html#workbench-title">Analyze in the workbench ↗</a><button class="action secondary" id="copy-view" type="button">Copy exact view</button><a class="button secondary" id="open-view" href="shape-the-data.html">Open exact view ↗</a></div><p id="share-status" role="status"></p><p class="note">The URL may appear in browser history, hosting logs, and shared messages. Use invented or public values only. The target is a chosen reference, not verified truth; one case does not establish a generally better estimator. Calculations run locally in your browser.</p></section></div>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+  <script src="shape-the-data.js?v=1" defer></script>
+</body>
+</html>

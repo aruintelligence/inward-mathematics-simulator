@@ -562,6 +562,30 @@ test("decision field distinguishes a one-target tie from all-target tie rows", (
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="decision-field\.html"/);
 });
 
+test("shape the data keeps mean movement exact and distinguishes target-only changes", () => {
+  const {PRESETS,parseView,evaluate}=require("../shape-the-data.js");
+  const start=evaluate(PRESETS.a.values,PRESETS.a.target);
+  assert.equal(start.mean,56.6);
+  assert.equal(start.median,50);
+  assert.equal(start.winner,"Median");
+  const moved=evaluate([48,49,50,51,95],50);
+  assert.equal(moved.mean-start.mean,2);
+  assert.equal(moved.median-start.median,0);
+  assert.equal(evaluate([48,49,50,51,85],60).mean,start.mean);
+  assert.equal(evaluate([48,49,50,51,85],60).winner,"Mean");
+  assert.equal(evaluate(PRESETS.b.values,51).winner,"Equal");
+  assert.equal(evaluate(PRESETS.c.values,0).sameEstimate,true);
+  assert.equal(evaluate(PRESETS.c.values,100).winner,"Equal");
+  assert.deepEqual(parseView("?values=48%2C49%2C50%2C51%2C85&target=50").values,PRESETS.a.values);
+  assert.equal(parseView("?values=48%2C49%2C50%2C51%2C85&target=50&target=51"),false);
+  assert.equal(parseView("?values=48%2C49%2C50%2C51%2C100.00001&target=50"),false);
+  assert.equal(parseView("?values=48%2C49%2C50%2C51%2C85&target=-1"),false);
+  const lab=loadLab();
+  assert.equal(lab.element("workbench-shape").hidden,false);
+  assert.match(lab.element("workbench-shape").href,/shape-the-data\.html\?values=48%2C49%2C50%2C51%2C85&target=50/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","shape-the-data.html"),"utf8"),/src="shape-the-data\.js\?v=/);
+});
+
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
   const {PRESETS,parseView,evaluate,solve,nearestReversal}=require("../flip-point.js");
   const a=solve(PRESETS.a.fixed,PRESETS.a.target);
