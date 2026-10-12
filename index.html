@@ -4,7 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07121d">
-  <title>Inward Mathematics™ — Interactive Lab</title>
+  <title>Inward Mathematics™ | Interactive Mean vs Median Lab</title>
+  <meta name="description" content="Move one observation and watch mean and median disagree. Explore three guided cases, 101 positions, and a reproducible 128-seed toy cohort in this free interactive lab.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Inward Mathematics™ | One Number Changes the Answer">
+  <meta property="og:description" content="An interactive, reproducible toy lab for mean, median, outliers, and a surprising difference between average error and win frequency.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <style>
     :root { color-scheme: dark; --bg:#07121d; --panel:#101f30; --line:#27465c; --text:#eaf6f6; --muted:#a6bdc6; --mint:#5af0c6; --cyan:#73cde8; --gold:#ffcb78; --rose:#ff8f9d; }
     * { box-sizing:border-box; }
@@ -13,7 +23,44 @@
     button { cursor:pointer; }
     button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
     .wrap { width:min(1240px,calc(100% - 32px)); margin:auto; }
+    .skip-link { position:absolute; top:-70px; left:16px; z-index:10; padding:10px 14px; border-radius:9px; background:var(--gold); color:#07121d; font-weight:800; }
+    .skip-link:focus { top:10px; }
     header { padding:48px 0 30px; }
+    .hero-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr); gap:32px; align-items:center; }
+    .hero-hook { max-width:750px; margin:12px 0; font-size:clamp(1.55rem,3.5vw,2.9rem); line-height:1.14; font-weight:750; letter-spacing:-.035em; color:var(--gold); }
+    .hero-actions { display:flex; flex-wrap:wrap; gap:10px; margin:24px 0 0; }
+    .hero-actions a,.share-action { display:inline-flex; align-items:center; justify-content:center; border-radius:11px; padding:12px 17px; font-weight:750; text-decoration:none; border:1px solid #4d7e83; color:var(--text); background:#183b42; }
+    .hero-actions a:first-child { color:#072520; background:var(--mint); border-color:var(--mint); }
+    .hero-actions a:hover,.share-action:hover { filter:brightness(1.12); }
+    .hero-instrument { position:relative; isolation:isolate; overflow:hidden; border:1px solid #49827d; border-radius:24px; padding:24px; background:radial-gradient(circle at 50% 40%,#1a675a 0,#123a44 31%,#0b2132 66%); box-shadow:0 25px 75px #0008, inset 0 0 90px #73cde815; }
+    .hero-instrument::before { content:""; position:absolute; inset:15px; border:1px solid #8af5d744; border-radius:50%; aspect-ratio:1; max-width:290px; max-height:290px; margin:auto; pointer-events:none; }
+    .hero-instrument::after { content:""; position:absolute; width:240px; height:240px; left:50%; top:38%; translate:-50% -50%; border:1px dashed #ffcb7860; border-radius:50%; pointer-events:none; animation:orbit 28s linear infinite; }
+    @keyframes orbit { to { rotate:360deg; } }
+    .hero-instrument .eyebrow { position:relative; z-index:1; }
+    .hero-reading { position:relative; z-index:1; min-height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+    .hero-reading strong { font:750 clamp(4.3rem,9vw,7.2rem)/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:-.08em; text-shadow:0 0 40px #5af0c688; }
+    .hero-reading span { color:#d0e9e6; font-size:.88rem; letter-spacing:.09em; text-transform:uppercase; }
+    .hero-errors { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .hero-errors div { padding:10px 13px; background:#071522cc; border:1px solid #5c9288; border-radius:11px; }
+    .hero-errors span { display:block; color:var(--muted); font-size:.78rem; }
+    .hero-errors strong { font:750 1.4rem ui-monospace,SFMono-Regular,monospace; color:var(--gold); }
+    .hero-errors div:last-child strong { color:var(--mint); }
+    .journey { margin-bottom:20px; }
+    .journey h2 { font-size:clamp(1.5rem,3vw,2.2rem); }
+    .journey-intro { color:var(--muted); margin:.4rem 0 18px; }
+    .scene-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .scene-card { text-align:left; min-height:180px; border:1px solid #355a6a; background:linear-gradient(155deg,#173549,#0e2535); color:var(--text); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:7px; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
+    .scene-card:hover { transform:translateY(-3px); border-color:var(--mint); box-shadow:0 12px 32px #0005; }
+    .scene-card[aria-pressed="true"] { border-color:var(--gold); box-shadow:inset 0 0 0 1px var(--gold),0 12px 32px #0005; }
+    .scene-card small { color:var(--mint); text-transform:uppercase; font-weight:800; letter-spacing:.12em; }
+    .scene-card strong { font-size:1.2rem; }
+    .scene-card span { color:var(--muted); font-size:.91rem; }
+    .scene-card em { margin-top:auto; color:var(--gold); font-style:normal; font-weight:750; }
+    .journey-outcome { border-left:3px solid var(--mint); padding:10px 15px; margin:16px 0; background:#143039; color:#eaf6f6; border-radius:0 9px 9px 0; }
+    .share-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; font-size:.9rem; }
+    .share-row a { color:var(--cyan); }
+    .share-row .share-action { cursor:pointer; padding:8px 12px; }
+    #share-status { color:var(--mint); }
     .eyebrow { margin:0 0 10px; color:var(--mint); font-size:.75rem; font-weight:800; letter-spacing:.18em; text-transform:uppercase; }
     h1 { margin:0; font-size:clamp(2rem,5vw,4rem); line-height:1.08; letter-spacing:-.04em; }
     .intro { max-width:770px; color:var(--muted); font-size:1.08rem; }
@@ -62,21 +109,49 @@
     .status { color:var(--mint); font-weight:700; }
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
-    @media(max-width:850px) { .grid { grid-template-columns:1fr; } }
+    @media(max-width:850px) { .grid,.hero-layout { grid-template-columns:1fr; } .hero-instrument { max-width:680px; } }
+    @media(max-width:700px) { .scene-grid { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
     @media(max-width:600px) { .sweep-metrics,.cohort-metrics { grid-template-columns:1fr; } }
     @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
+    @media(prefers-reduced-motion:reduce) { .hero-instrument::after { animation:none; } .scene-card { transition:none; } }
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#start">Skip to guided cases</a>
   <div class="wrap">
     <header>
-      <p class="eyebrow">ĀRU Intelligence / Research instrument</p>
-      <h1>Inward Mathematics<span style="color:var(--mint)">™</span></h1>
-      <p class="intro">Two inspectable experiments: a damped attractor responding to seeded shocks, and five observers comparing ordinary mean with median under an adjustable outlier.</p>
-      <p class="scope">These are toy calculations with known inputs. The displayed “coherence” is a distance transform; neither panel measures memory, consciousness, safety, or a physical law.</p>
+      <div class="hero-layout">
+        <div>
+          <p class="eyebrow">ĀRU Intelligence / Live research instrument</p>
+          <h1>Inward Mathematics<span style="color:var(--mint)">™</span></h1>
+          <p class="hero-hook">One number can change the answer.</p>
+          <p class="intro">Move one of five generated estimates. Watch the mean and median diverge, then see what happens when the same test runs across 128 seeds. Every input and equation is open to inspect.</p>
+          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="#rc-title">Explore the models</a></div>
+        </div>
+        <aside class="hero-instrument" aria-label="Live fifth-observer reading and estimator errors">
+          <p class="eyebrow">Live witness reading</p>
+          <div class="hero-reading"><strong id="hero-fifth">85</strong><span>fifth estimate / target 50</span></div>
+          <div class="hero-errors"><div><span>Mean error</span><strong id="hero-mean">—</strong></div><div><span>Median error</span><strong id="hero-median">—</strong></div></div>
+        </aside>
+      </div>
+      <p class="scope">These are toy calculations with known inputs. “Coherence” is a distance transform; neither model measures memory, consciousness, safety, or a physical law.</p>
     </header>
 
-    <main class="grid">
+    <main id="experiments">
+    <section id="start" class="journey" aria-labelledby="start-title">
+      <p class="eyebrow">Start here / three revealing cases</p>
+      <h2 id="start-title">Choose a question. See the evidence.</h2>
+      <p class="journey-intro">Each case loads seed 42 and one fifth estimate. Change the controls afterward to challenge the example.</p>
+      <div class="scene-grid">
+        <button id="scene-outlier" class="scene-card" type="button" aria-pressed="false"><small>01 / extreme value</small><strong>One estimate drifts to 85</strong><span>Why does the mean move farther from the known target?</span><em>Load the outlier case ↗</em></button>
+        <button id="scene-mean" class="scene-card" type="button" aria-pressed="false"><small>02 / counterexample</small><strong>The mean wins at 40</strong><span>See a case where the ordinary average has lower error.</span><em>Load the mean case ↗</em></button>
+        <button id="scene-reversal" class="scene-card" type="button" aria-pressed="false"><small>03 / cohort reversal</small><strong>Average and majority disagree</strong><span>At 50, lower average error and more individual wins point to different estimators.</span><em>Load the cohort case ↗</em></button>
+      </div>
+      <p id="journey-outcome" class="journey-outcome" role="status"></p>
+      <div class="share-row"><button id="copy-link" class="share-action" type="button">Copy this exact case</button><a id="share-link" href="#start">Open the case link</a><span id="share-status" role="status"></span></div>
+    </section>
+
+    <div class="grid">
       <section class="panel" aria-labelledby="rc-title">
         <div class="panel-head"><div><p class="eyebrow">Experiment 01</p><h2 id="rc-title">Remembrance Calculus™</h2></div><span class="tag">Damped attractor</span></div>
         <p>Set the pull strength, add a shock, then watch the point return toward a fixed target. Pause to inspect exact steps.</p>
@@ -118,7 +193,7 @@
         <p id="comparison" class="status" role="status"></p>
         <div class="formula"><strong>Model:</strong> mean = sum ÷ 5; median = middle sorted value. Both use the same five observations. The target is known only because this is a generated example. An outlier does not prove one observer is dishonest.</div>
       </section>
-    </main>
+    </div>
 
     <section class="sensitivity" aria-labelledby="sensitivity-title">
       <p class="eyebrow">Experiment 02 / sensitivity sweep</p>
@@ -177,6 +252,7 @@
       <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, the 101-point sweep, and the 128-seed cohort as JSON. It stays on this device.</p></div>
       <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
     </section>
+    </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
   <script>
@@ -189,7 +265,8 @@
     const target = {x:455, y:160};
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let simulation, shockRng, observers, sensitivity, cohort, paused = true, lastFrame = 0, accumulator = 0;
+    const scenes = {outlier:{fifth:85,target:"wg-title"},mean:{fifth:40,target:"sensitivity-title"},reversal:{fifth:50,target:"cohort-title"}};
+    let simulation, shockRng, observers, sensitivity, cohort, activeScene=null, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -205,6 +282,38 @@
     function makeObservers(seed) {
       const rng = makeRng(seed ^ 0x85ebca6b);
       return Array.from({length:4}, () => witnessTarget + (rng() * 16 - 8));
+    }
+    function applySharedCase() {
+      const params = new URLSearchParams(window.location.search);
+      const seedText=params.get("seed"),fifthText=params.get("fifth");
+      if(seedText!==null && /^\d+$/.test(seedText) && Number.isInteger(Number(seedText)) && Number(seedText)<=4294967295) $("seed").value=seedText;
+      if(fifthText!==null && /^\d+$/.test(fifthText) && Number.isInteger(Number(fifthText)) && Number(fifthText)<=100) $("outlier").value=fifthText;
+      const selected=Number($("outlier").value);
+      if(Number($("seed").value)===42) activeScene=Object.keys(scenes).find(key=>scenes[key].fifth===selected)??null;
+    }
+    function caseUrl() {
+      return window.location.href.split(/[?#]/)[0]+"?seed="+simulation.seed+"&fifth="+Number($("outlier").value)+"#start";
+    }
+    function renderIntro() {
+      const fifth=Number($("outlier").value),stats=witnessStats(),point=cohort.points[fifth];
+      $("hero-fifth").textContent=String(fifth);
+      $("hero-mean").textContent=stats.meanError.toFixed(2);
+      $("hero-median").textContent=stats.medianError.toFixed(2);
+      for(const key of Object.keys(scenes)) $("scene-"+key).setAttribute("aria-pressed",String(activeScene===key));
+      const one=winner({meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError});
+      const average=winner({meanAbsoluteError:point.meanAverageAbsoluteError,medianAbsoluteError:point.medianAverageAbsoluteError});
+      const oneText=one==="Equal"?"both have equal error":"the "+one.toLowerCase()+" has lower error";
+      const averageText=average==="Equal"?"both have equal average error":"the "+average.toLowerCase()+" has lower average error";
+      $("journey-outcome").textContent="Seed "+simulation.seed+", fifth estimate "+fifth+": "+oneText+" in this single case (mean "+stats.meanError.toFixed(2)+", median "+stats.medianError.toFixed(2)+"). Across 128 generated seeds, "+averageText+"; the median wins in "+point.medianLowerErrorCount+" individual cases. Follow the charts below to inspect why.";
+      $("share-link").href=caseUrl();
+    }
+    function loadScene(key) {
+      activeScene=key;
+      $("seed").value="42";
+      $("outlier").value=String(scenes[key].fifth);
+      if(simulation.seed===42) {render();renderSensitivity();renderCohort();renderIntro();}
+      else reset();
+      $(scenes[key].target).scrollIntoView({behavior:reducedMotion?"auto":"smooth",block:"start"});
     }
     function reset() {
       const seed = validSeed();
@@ -222,6 +331,7 @@
       render();
       renderSensitivity();
       renderCohort();
+      renderIntro();
     }
     function distance() { return Math.hypot(target.x - simulation.position.x, target.y - simulation.position.y); }
     function speed() { return Math.hypot(simulation.velocity.x, simulation.velocity.y); }
@@ -424,10 +534,19 @@
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
     $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
     $("shock").addEventListener("click",addShock);
-    $("reset").addEventListener("click",reset);
+    $("reset").addEventListener("click",()=>{activeScene=null;reset();});
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
-    $("outlier").addEventListener("input",()=>{render();renderSensitivity();renderCohort();});
+    $("outlier").addEventListener("input",()=>{activeScene=null;render();renderSensitivity();renderCohort();renderIntro();});
+    for(const key of Object.keys(scenes)) $("scene-"+key).addEventListener("click",()=>loadScene(key));
+    $("copy-link").addEventListener("click",async()=>{
+      try {
+        await navigator.clipboard.writeText(caseUrl());
+        $("share-status").textContent="Exact case link copied.";
+      } catch {
+        $("share-status").textContent="Use the case link to copy or open this setting.";
+      }
+    });
     $("export").addEventListener("click",()=>{
       const file=new Blob([JSON.stringify(snapshot(),null,2)+"\n"],{type:"application/json"});
       const url=URL.createObjectURL(file), link=document.createElement("a");
@@ -445,6 +564,7 @@
       }
       requestAnimationFrame(frame);
     }
+    applySharedCase();
     reset();
     requestAnimationFrame(frame);
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock});
