@@ -80,7 +80,8 @@
   const fmt=value=>String(Number(value.toFixed(8)));
   const approximate=value=>Math.abs(value-Number(value.toFixed(8)))>1e-10?"≈"+fmt(value):fmt(value);
   const x=value=>58+value*7.12;
-  const y=error=>220-error*1.9;
+  let chartCeiling=100;
+  const y=error=>220-error*190/chartCeiling;
   let current={...PRESETS.b,fixed:[...PRESETS.b.fixed],key:"b"};
   const shared=parseView(window.location.search);
   if(shared) current=shared;
@@ -104,6 +105,14 @@
   }
   function drawChart(result) {
     const fixed=current.fixed,sorted=[...fixed].sort((a,b)=>a-b),sum=fixed.reduce((a,b)=>a+b,0);
+    const anchors=[0,sorted[1],sorted[2],100];
+    const largest=Math.max(...anchors.flatMap(value=>[
+      Math.abs((sum+value)/5-current.target),
+      Math.abs(Math.max(sorted[1],Math.min(sorted[2],value))-current.target)
+    ]));
+    chartCeiling=Math.max(5,Math.ceil(largest/5)*5);
+    $("error-maximum").textContent=fmt(chartCeiling);
+    $("error-midpoint").textContent=fmt(chartCeiling/2);
     $("mean-path").setAttribute("d",chartPath(value=>(sum+value)/5));
     $("median-path").setAttribute("d",chartPath(value=>Math.max(sorted[1],Math.min(sorted[2],value))));
     $("cursor-line").setAttribute("x1",x(current.fifth));
