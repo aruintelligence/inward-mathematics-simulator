@@ -164,7 +164,7 @@
         </aside>
         <div class="hero-copy">
           <p class="intro">Move one of five generated estimates. Watch the mean and median diverge, then see what happens when the same test runs across 128 seeds. Every input and equation is open to inspect.</p>
-          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="flip-point.html">Find the flip point ↗</a><a href="target-lens.html">Move the target ↗</a><a href="atlas.html">Explore 12,928 outcomes ↗</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
+          <div class="hero-actions"><a href="#start">Try three guided cases ↓</a><a href="decision-field.html">Explore the decision field ↗</a><a href="flip-point.html">Find the flip point ↗</a><a href="target-lens.html">Move the target ↗</a><a href="atlas.html">Explore 12,928 outcomes ↗</a><a href="#workbench-title">Use your own numbers</a><a href="#rc-title">Explore the models</a></div>
         </div>
       </div>
       <p class="scope">These are toy calculations with known inputs. “Coherence” is a distance transform; neither model measures memory, consciousness, safety, or a physical law.</p>
@@ -210,7 +210,7 @@
         <p id="workbench-target-note"></p>
         <p id="workbench-leaveout"></p>
         <p id="workbench-values" class="data-note"></p>
-        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><a id="workbench-challenge" href="challenge.html" hidden>Turn these values into a prediction challenge ↗</a><a id="workbench-target-lens" href="target-lens.html" hidden>Move the target with these values ↗</a><a id="workbench-flip-point" href="flip-point.html" hidden>Find a flip point with these values ↗</a><span id="workbench-save-status" role="status"></span></div>
+        <div class="actions"><button id="workbench-export" type="button">Save this analysis as JSON</button><a id="workbench-challenge" href="challenge.html" hidden>Turn these values into a prediction challenge ↗</a><a id="workbench-target-lens" href="target-lens.html" hidden>Move the target with these values ↗</a><a id="workbench-flip-point" href="flip-point.html" hidden>Find a flip point with these values ↗</a><a id="workbench-decision-field" href="decision-field.html" hidden>Map the full decision field ↗</a><span id="workbench-save-status" role="status"></span></div>
         <p class="data-note">A challenge or Target Lens link needs exactly five readings and a supplied target, each from 0 to 100 with at most four decimal places. Its URL contains those values and may appear in browser history or hosting logs. Use invented or public data only.</p>
         <p class="formula">The mean is the sum divided by the number of observations. The median is the middle sorted value, or the average of the two middle values. “Farthest” means greatest absolute distance from the original median; ties use the first entered value. Removing a point is a counterfactual, not a recommendation to discard data. A target you enter is a reference you supplied, not one verified by this page.</p>
       </div>
@@ -318,7 +318,7 @@
       <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
     </section>
     </main>
-    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="challenge.html">Prediction challenge</a> · <a href="target-lens.html">Target Lens</a> · <a href="flip-point.html">Flip Point</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="challenge.html">Prediction challenge</a> · <a href="target-lens.html">Target Lens</a> · <a href="flip-point.html">Flip Point</a> · <a href="decision-field.html">Decision Field</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
   <script>
     "use strict";
@@ -434,11 +434,13 @@
         $("workbench-challenge").hidden=!shareable;
         $("workbench-target-lens").hidden=!shareable;
         $("workbench-flip-point").hidden=!shareable;
+        $("workbench-decision-field").hidden=!shareable;
         if(shareable) {
           const query="?values="+encodeURIComponent(analysis.values.join(","))+"&target="+analysis.target;
           $("workbench-challenge").href="challenge.html"+query;
           $("workbench-target-lens").href="target-lens.html"+query;
           $("workbench-flip-point").href="flip-point.html?fixed="+encodeURIComponent(analysis.values.slice(0,4).join(","))+"&fifth="+analysis.values[4]+"&target="+analysis.target;
+          $("workbench-decision-field").href="decision-field.html?fixed="+encodeURIComponent(analysis.values.slice(0,4).join(","))+"&fifth="+analysis.values[4]+"&target="+analysis.target;
         }
         $("workbench-save-status").textContent="";
         drawWorkbench(analysis);
@@ -448,6 +450,7 @@
         $("workbench-challenge").hidden=true;
         $("workbench-target-lens").hidden=true;
         $("workbench-flip-point").hidden=true;
+        $("workbench-decision-field").hidden=true;
         $("workbench-error").textContent=error.message;
       }
     }
