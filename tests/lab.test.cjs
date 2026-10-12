@@ -502,6 +502,10 @@ test("printable worksheet links three blind cases to the correct mean, median, a
   assert.match(html,/@media print\s*\{/);
   assert.match(html,/\.teacher-key\s*\{ break-before:page;/);
   assert.match(html,/addEventListener\("beforeprint"/);
+  assert.match(html,/href="output\/pdf\/mean-vs-median-worksheet\.pdf" download/);
+  const pdf=fs.readFileSync(path.join(__dirname,"..","output","pdf","mean-vs-median-worksheet.pdf"));
+  assert.equal(pdf.subarray(0,5).toString(),"%PDF-");
+  assert.ok(pdf.length>10000);
   assert.match(fs.readFileSync(path.join(__dirname,"..","guide.html"),"utf8"),/href="worksheet\.html"/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="worksheet\.html"/);
 });
