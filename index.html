@@ -48,6 +48,7 @@
     .sensitivity { margin-top:20px; }
     .sensitivity .status { color:var(--mint); }
     .sweep-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .cohort-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .table-wrap { overflow-x:auto; }
     table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:.9rem; }
     th,td { padding:9px 12px; text-align:right; border-bottom:1px solid var(--line); }
@@ -62,7 +63,7 @@
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
     @media(max-width:850px) { .grid { grid-template-columns:1fr; } }
-    @media(max-width:600px) { .sweep-metrics { grid-template-columns:1fr; } }
+    @media(max-width:600px) { .sweep-metrics,.cohort-metrics { grid-template-columns:1fr; } }
     @media(max-width:480px) { header { padding-top:30px; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
   </style>
 </head>
@@ -143,11 +144,37 @@
           <tr><th scope="row">100</th><td id="sample-100-mean">—</td><td id="sample-100-median">—</td><td id="sample-100-winner">—</td></tr>
         </tbody>
       </table></div>
-      <p class="formula"><strong>Reading this sweep:</strong> Counts describe these 101 evenly spaced inputs, not the chance of an estimator winning in the world. A different seed changes the four fixed estimates. The maximum errors below refer only to this 0–100 grid.</p>
+      <p class="formula"><strong>Reading this sweep:</strong> Counts describe these 101 evenly spaced inputs, not the chance of an estimator winning in the world. A different seed changes the four fixed estimates. The reported maximum errors refer only to this 0–100 grid.</p>
+    </section>
+
+    <section class="sensitivity" aria-labelledby="cohort-title">
+      <p class="eyebrow">Experiment 02 / seed cohort</p>
+      <h2 id="cohort-title">Does the pattern survive a seed change?</h2>
+      <p>Repeat the same 101-position sweep across 128 generated seeds, starting at the selected seed. The curves average absolute error over those seeds; the counts report how many individual seeds favor each estimator at your current fifth estimate.</p>
+      <canvas id="cohort" width="1200" height="300" role="img" aria-label="Average absolute errors across 128 generated seeds for every fifth observer estimate; selected values and a sample table follow">The numeric cohort summary and sample table are below.</canvas>
+      <div class="legend"><span><i class="swatch" style="background:var(--gold)"></i>mean average error</span><span><i class="swatch" style="background:var(--mint)"></i>median average error</span><span><i class="swatch" style="background:#fff"></i>current fifth estimate</span></div>
+      <div class="metrics cohort-metrics" aria-live="polite">
+        <div class="metric gold"><span>Mean average absolute error</span><strong id="cohort-mean">—</strong></div>
+        <div class="metric"><span>Median average absolute error</span><strong id="cohort-median">—</strong></div>
+      </div>
+      <p id="cohort-summary" class="status" role="status"></p>
+      <div class="table-wrap"><table>
+        <caption>Selected fifth estimates, averaged across the same 128 seeds.</caption>
+        <thead><tr><th scope="col">Fifth estimate</th><th scope="col">Mean avg. error</th><th scope="col">Median avg. error</th><th scope="col">Median lower in seeds</th><th scope="col">Lower average</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Current: <span id="cohort-current-value">—</span></th><td id="cohort-current-mean">—</td><td id="cohort-current-median">—</td><td id="cohort-current-count">—</td><td id="cohort-current-winner">—</td></tr>
+          <tr><th scope="row">0</th><td id="cohort-0-mean">—</td><td id="cohort-0-median">—</td><td id="cohort-0-count">—</td><td id="cohort-0-winner">—</td></tr>
+          <tr><th scope="row">25</th><td id="cohort-25-mean">—</td><td id="cohort-25-median">—</td><td id="cohort-25-count">—</td><td id="cohort-25-winner">—</td></tr>
+          <tr><th scope="row">50</th><td id="cohort-50-mean">—</td><td id="cohort-50-median">—</td><td id="cohort-50-count">—</td><td id="cohort-50-winner">—</td></tr>
+          <tr><th scope="row">75</th><td id="cohort-75-mean">—</td><td id="cohort-75-median">—</td><td id="cohort-75-count">—</td><td id="cohort-75-winner">—</td></tr>
+          <tr><th scope="row">100</th><td id="cohort-100-mean">—</td><td id="cohort-100-median">—</td><td id="cohort-100-count">—</td><td id="cohort-100-winner">—</td></tr>
+        </tbody>
+      </table></div>
+      <p class="formula"><strong>Protocol:</strong> seeds = (selected seed + 0 through 127) modulo 2<sup>32</sup>. Four estimates per seed come from successive draws of the documented pseudorandom generator, scaled to [42, 58); the same fifth estimate is tested for all 128. Press Reset seed &amp; state to apply a new seed. Averages and seed counts answer different questions; this fixed generated cohort is not a population estimate or external validation.</p>
     </section>
 
     <section class="notebook" aria-labelledby="notebook-title">
-      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, observer values, and all 101 sweep points as JSON. It stays on this device.</p></div>
+      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, the 101-point sweep, and the 128-seed cohort as JSON. It stays on this device.</p></div>
       <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
     </section>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
@@ -158,10 +185,11 @@
     const rc = $("rc"), rcx = rc.getContext("2d");
     const wg = $("wg"), wgx = wg.getContext("2d");
     const sweepCanvas = $("sweep"), sweepX = sweepCanvas.getContext("2d");
+    const cohortCanvas = $("cohort"), cohortX = cohortCanvas.getContext("2d");
     const target = {x:455, y:160};
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let simulation, shockRng, observerRng, observers, sensitivity, paused = true, lastFrame = 0, accumulator = 0;
+    let simulation, shockRng, observers, sensitivity, cohort, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -174,12 +202,16 @@
       $("seed").value = String(seed);
       return seed;
     }
+    function makeObservers(seed) {
+      const rng = makeRng(seed ^ 0x85ebca6b);
+      return Array.from({length:4}, () => witnessTarget + (rng() * 16 - 8));
+    }
     function reset() {
       const seed = validSeed();
       shockRng = makeRng(seed ^ 0x9e3779b9);
-      observerRng = makeRng(seed ^ 0x85ebca6b);
-      observers = Array.from({length:4}, () => witnessTarget + (observerRng() * 16 - 8));
+      observers = makeObservers(seed);
       sensitivity = buildSensitivity();
+      cohort = buildCohort(seed);
       simulation = {
         seed, step:0, position:{x:120,y:215}, velocity:{x:0,y:0},
         trail:[{x:120,y:215}], stableSteps:0, shocks:[],
@@ -189,6 +221,7 @@
       $("event").textContent = reducedMotion ? "Paused for reduced motion. Use Step once or Run." : "Paused at step 0.";
       render();
       renderSensitivity();
+      renderCohort();
     }
     function distance() { return Math.hypot(target.x - simulation.position.x, target.y - simulation.position.y); }
     function speed() { return Math.hypot(simulation.velocity.x, simulation.velocity.y); }
@@ -214,8 +247,8 @@
       $("event").textContent = "Shock " + simulation.shocks.length + " added at step " + simulation.step + ".";
       render();
     }
-    function witnessStatsAt(fifthObserver) {
-      const values = [...observers, fifthObserver];
+    function witnessStatsAt(fifthObserver, fixedObservers=observers) {
+      const values = [...fixedObservers, fifthObserver];
       const mean = values.reduce((sum,v) => sum + v,0) / values.length;
       const sorted = [...values].sort((a,b) => a-b);
       const median = sorted[2];
@@ -242,10 +275,30 @@
       }
       return {grid:{min:0,max:100,step:1},summary,points};
     }
-    function drawSensitivity() {
-      const ctx=sweepX, points=sensitivity.points, chosen=Number($("outlier").value);
+    function buildCohort(startSeed) {
+      const members = Array.from({length:128}, (_,offset) => {
+        const seed = (startSeed+offset)>>>0;
+        return {seed,observers:makeObservers(seed)};
+      });
+      const points = Array.from({length:101}, (_,fifthObserver) => {
+        let totalMeanError=0,totalMedianError=0,meanLowerErrorCount=0,medianLowerErrorCount=0,equalErrorCount=0;
+        for (const member of members) {
+          const stats=witnessStatsAt(fifthObserver,member.observers);
+          totalMeanError+=stats.meanError;
+          totalMedianError+=stats.medianError;
+          const lower=winner({meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError});
+          if(lower==="Mean") meanLowerErrorCount++;
+          else if(lower==="Median") medianLowerErrorCount++;
+          else equalErrorCount++;
+        }
+        return {fifthObserver,meanAverageAbsoluteError:totalMeanError/members.length,medianAverageAbsoluteError:totalMedianError/members.length,meanLowerErrorCount,medianLowerErrorCount,equalErrorCount};
+      });
+      return {startSeed,count:members.length,seedRule:"(startSeed + offset) modulo 2^32",observerRule:"4 successive LCG draws scaled to [42,58) per seed",grid:{min:0,max:100,step:1},members,points};
+    }
+    function drawErrorCurves(ctx,points,meanKey,medianKey,chosen) {
       const left=70,right=1160,top=25,bottom=238;
-      const yMax=Math.max(4,Math.ceil(Math.max(sensitivity.summary.worstMeanAbsoluteError,sensitivity.summary.worstMedianAbsoluteError)/4)*4);
+      const maxError=Math.max(...points.map(point=>Math.max(point[meanKey],point[medianKey])));
+      const yMax=Math.max(4,Math.ceil(maxError/4)*4);
       const x=value=>left+(right-left)*value/100;
       const y=error=>bottom-(bottom-top)*error/yMax;
       ctx.clearRect(0,0,1200,300);
@@ -260,13 +313,13 @@
         ctx.fillText(String(value),x(value),bottom+26);
       }
       ctx.fillText("Fifth observer estimate",(left+right)/2,bottom+53);
-      for (const [key,color] of [["meanAbsoluteError","#ffcb78"],["medianAbsoluteError","#5af0c6"]]) {
+      ctx.strokeStyle="#ffffff";ctx.lineWidth=1;ctx.setLineDash([5,6]);ctx.beginPath();ctx.moveTo(x(chosen),top);ctx.lineTo(x(chosen),bottom);ctx.stroke();ctx.setLineDash([]);
+      for (const [key,color] of [[meanKey,"#ffcb78"],[medianKey,"#5af0c6"]]) {
         ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();
         points.forEach((point,i)=>{if(i===0)ctx.moveTo(x(point.fifthObserver),y(point[key]));else ctx.lineTo(x(point.fifthObserver),y(point[key]));});
         ctx.stroke();
         const point=points[chosen];ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(chosen),y(point[key]),5,0,Math.PI*2);ctx.fill();
       }
-      ctx.strokeStyle="#ffffff";ctx.lineWidth=1;ctx.setLineDash([5,6]);ctx.beginPath();ctx.moveTo(x(chosen),top);ctx.lineTo(x(chosen),bottom);ctx.stroke();ctx.setLineDash([]);
     }
     function renderSensitivity() {
       const summary=sensitivity.summary, chosen=Number($("outlier").value);
@@ -282,7 +335,24 @@
         $("sample-"+id+"-median").textContent=point.medianAbsoluteError.toFixed(2);
         $("sample-"+id+"-winner").textContent=winner(point);
       }
-      drawSensitivity();
+      drawErrorCurves(sweepX,sensitivity.points,"meanAbsoluteError","medianAbsoluteError",chosen);
+    }
+    function renderCohort() {
+      const chosen=Number($("outlier").value),point=cohort.points[chosen];
+      $("cohort-mean").textContent=point.meanAverageAbsoluteError.toFixed(2);
+      $("cohort-median").textContent=point.medianAverageAbsoluteError.toFixed(2);
+      const averageWinner=winner({meanAbsoluteError:point.meanAverageAbsoluteError,medianAbsoluteError:point.medianAverageAbsoluteError});
+      const countWinner=point.meanLowerErrorCount>point.medianLowerErrorCount?"Mean":point.medianLowerErrorCount>point.meanLowerErrorCount?"Median":"Equal";
+      $("cohort-summary").textContent="At fifth estimate "+chosen+", mean has lower error in "+point.meanLowerErrorCount+" seeds; median in "+point.medianLowerErrorCount+"; equal in "+point.equalErrorCount+". Lower average error: "+averageWinner+"."+(averageWinner!==countWinner?" More individual seeds favor "+countWinner+"; frequency and average error answer different questions.":"");
+      $("cohort-current-value").textContent=String(chosen);
+      for (const [id,value] of [["current",chosen],["0",0],["25",25],["50",50],["75",75],["100",100]]) {
+        const sample=cohort.points[value];
+        $("cohort-"+id+"-mean").textContent=sample.meanAverageAbsoluteError.toFixed(2);
+        $("cohort-"+id+"-median").textContent=sample.medianAverageAbsoluteError.toFixed(2);
+        $("cohort-"+id+"-count").textContent=sample.medianLowerErrorCount+" / "+cohort.count;
+        $("cohort-"+id+"-winner").textContent=winner({meanAbsoluteError:sample.meanAverageAbsoluteError,medianAbsoluteError:sample.medianAverageAbsoluteError});
+      }
+      drawErrorCurves(cohortX,cohort.points,"meanAverageAbsoluteError","medianAverageAbsoluteError",chosen);
     }
     function drawRC() {
       rcx.clearRect(0,0,600,340);
@@ -337,7 +407,7 @@
     function snapshot() {
       const stats=witnessStats();
       return {
-        schema:"inward-math-toy-v2",
+        schema:"inward-math-toy-v3",
         scope:"damped spring and five generated observer values; no scientific or safety measurement",
         model:{springCoefficient:0.008,damping:0.92,target:{...target},coherenceProxy:"exp(-distance/120)",settledRule:"distance < 4 and speed < 0.5 for 45 consecutive steps"},
         seed:simulation.seed,initialAlpha:simulation.initialAlpha,currentAlpha:Number($("alpha").value),
@@ -347,7 +417,8 @@
         shocks:simulation.shocks.map(v=>({step:v.step,impulse:{...v.impulse},selectedStrength:v.selectedStrength})),
         parameterChanges:simulation.parameterChanges.map(v=>({...v})),
         witnesses:{target:witnessTarget,seeded:observers.slice(),adjustable:stats.values[4],mean:stats.mean,median:stats.median,meanAbsoluteError:stats.meanError,medianAbsoluteError:stats.medianError},
-        witnessSensitivity:sensitivity
+        witnessSensitivity:sensitivity,
+        witnessCohort:cohort
       };
     }
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
@@ -356,7 +427,7 @@
     $("reset").addEventListener("click",reset);
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
-    $("outlier").addEventListener("input",()=>{render();renderSensitivity();});
+    $("outlier").addEventListener("input",()=>{render();renderSensitivity();renderCohort();});
     $("export").addEventListener("click",()=>{
       const file=new Blob([JSON.stringify(snapshot(),null,2)+"\n"],{type:"application/json"});
       const url=URL.createObjectURL(file), link=document.createElement("a");
