@@ -54,6 +54,25 @@ function click(element) {return element.handlers.click();}
 function input(element, value) {element.value=String(value);element.handlers.input();}
 function snapshot(lab) {return JSON.parse(JSON.stringify(lab.window.InwardMathLab.snapshot()));}
 
+function loadChallenge(search="") {
+  const html=fs.readFileSync(path.join(__dirname,"..","challenge.html"),"utf8");
+  const script=html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(script,"the challenge must contain its model script");
+  const elements=new Map(),share={copied:null};
+  function element(id) {
+    if(!elements.has(id)) elements.set(id,{
+      textContent:"",value:"",href:"",hidden:id==="result",disabled:false,style:{},attributes:{},handlers:{},
+      addEventListener(name,handler){this.handlers[name]=handler;},
+      setAttribute(name,value){this.attributes[name]=value;},
+    });
+    return elements.get(id);
+  }
+  const window={location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html"+search}};
+  const navigator={clipboard:{async writeText(value){share.copied=value;}}};
+  vm.runInNewContext(script[1],{window,document:{getElementById:element},navigator,URLSearchParams},{timeout:1000});
+  return {window,element,share};
+}
+
 test("same seed and same shock timing replay the exact model state", () => {
   const lab=loadLab();
   assert.equal(snapshot(lab).step,0);
@@ -183,12 +202,53 @@ test("shared case links restore validated inputs and can be copied", async () =>
   assert.equal(snapshot(lab).witnesses.adjustable,40);
   const expected="https://aruintelligence.github.io/inward-mathematics-simulator/?seed=43&fifth=40#start";
   assert.equal(lab.element("share-link").href,expected);
+  assert.equal(lab.element("challenge-link").href,"challenge.html?seed=43&fifth=40");
   await click(lab.element("copy-link"));
   assert.equal(lab.share.copied,expected);
   assert.equal(lab.element("share-status").textContent,"Exact case link copied.");
   const invalid=loadLab("?seed=4294967296&fifth=101");
   assert.equal(snapshot(invalid).seed,42);
   assert.equal(snapshot(invalid).witnesses.adjustable,85);
+});
+
+test("challenge matches the lab's exact seeded observations and answer", () => {
+  for(const fifth of [40,50,85]) {
+    const challenge=loadChallenge("?seed=42&fifth="+fifth);
+    const lab=loadLab("?seed=42&fifth="+fifth);
+    const actual=challenge.window.InwardMathChallenge.statsAt(42,fifth);
+    const expected=snapshot(lab).witnesses;
+    assert.deepEqual(JSON.parse(JSON.stringify(actual.values)),[...expected.seeded,fifth]);
+    assert.equal(actual.mean,expected.mean);
+    assert.equal(actual.median,expected.median);
+    assert.equal(actual.meanError,expected.meanAbsoluteError);
+    assert.equal(actual.medianError,expected.medianAbsoluteError);
+    assert.equal(challenge.element("lab-link").href,"index.html?seed=42&fifth="+fifth+"#start");
+    assert.equal(challenge.element("result").hidden,true);
+  }
+});
+
+test("challenge reveals the first prediction and keeps a reproducible share link", async () => {
+  const challenge=loadChallenge("?seed=42&fifth=40");
+  const link="https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=42&fifth=40";
+  assert.equal(challenge.element("share-link").href,link);
+  await click(challenge.element("copy"));
+  assert.equal(challenge.share.copied,link);
+  click(challenge.element("guess-median"));
+  assert.equal(challenge.element("result").hidden,false);
+  assert.match(challenge.element("verdict").textContent,/mean gets closer/);
+  assert.equal(challenge.element("guess-median").attributes["aria-pressed"],"true");
+  assert.equal(challenge.element("guess-mean").disabled,true);
+  assert.equal(challenge.element("mean-result").textContent,"46.38 / 3.62");
+  const correct=loadChallenge("?seed=42&fifth=85");
+  click(correct.element("guess-median"));
+  assert.equal(correct.element("verdict").textContent,"You called it.");
+});
+
+test("challenge rejects malformed link settings and does not leak a selected answer in the URL", () => {
+  const challenge=loadChallenge("?seed=4294967296&fifth=101&guess=median");
+  assert.equal(challenge.element("value-5").textContent,"40");
+  assert.equal(challenge.window.InwardMathChallenge.challengeUrl(),"https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html?seed=42&fifth=40");
+  assert.equal(challenge.element("result").hidden,true);
 });
 
 test("own-data workbench computes the mean, median, and an explicit leave-one-out counterfactual", () => {

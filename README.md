@@ -6,6 +6,8 @@ A dependency-free browser demonstration of two **toy models**: a damped attracto
 
 **[Share the five-minute mean vs median lesson](https://aruintelligence.github.io/inward-mathematics-simulator/guide.html)** — two opposing worked examples, revealable answers, a short activity, and links into the lab. It is a static page that can be shared without an account.
 
+**[Send a prediction challenge](https://aruintelligence.github.io/inward-mathematics-simulator/challenge.html)** — a blind mean-versus-median question with five seeded readings and a known target. A visitor chooses before seeing the exact answer, then opens the same case in the full lab. From the lab, **Challenge someone with this case** carries the selected seed and fifth reading into a shareable URL. The URL contains generated inputs only; it does not include a guess, score, custom workbench data, or spring history. **Try another challenge** chooses from a balanced set of invented examples. The static [challenge preview](challenge-card.png) deliberately does not reveal an answer.
+
 ![One number changes the answer: mean and median error curves across 128 generated seeds, with the seed-42 cohort result at fifth estimate 50.](social-card.png)
 
 ## Open it
