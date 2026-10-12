@@ -518,22 +518,48 @@ test("workbench offers a challenge only for shareable data and clears it on inva
   assert.equal(lab.element("workbench-target-lens").href,"target-lens.html?values=48%2C49%2C50%2C51%2C85&target=50");
   assert.equal(lab.element("workbench-flip-point").hidden,false);
   assert.equal(lab.element("workbench-flip-point").href,"flip-point.html?fixed=48%2C49%2C50%2C51&fifth=85&target=50");
+  assert.equal(lab.element("workbench-decision-field").hidden,false);
+  assert.equal(lab.element("workbench-decision-field").href,"decision-field.html?fixed=48%2C49%2C50%2C51&fifth=85&target=50");
   lab.element("known-target").value="";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
   assert.equal(lab.element("workbench-flip-point").hidden,true);
+  assert.equal(lab.element("workbench-decision-field").hidden,true);
   lab.element("known-target").value="50";
   lab.element("dataset").value="48,49,50,51,100.12345";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
   assert.equal(lab.element("workbench-flip-point").hidden,true);
+  assert.equal(lab.element("workbench-decision-field").hidden,true);
   lab.element("dataset").value="bad input";
   click(lab.element("analyze"));
   assert.equal(lab.element("workbench-challenge").hidden,true);
   assert.equal(lab.element("workbench-target-lens").hidden,true);
   assert.equal(lab.element("workbench-flip-point").hidden,true);
+  assert.equal(lab.element("workbench-decision-field").hidden,true);
+});
+
+test("decision field distinguishes a one-target tie from all-target tie rows", () => {
+  const {PRESETS,parseView,evaluate,geometry,nearestEquality}=require("../decision-field.js");
+  const b=PRESETS.b;
+  assert.deepEqual(geometry(b.fixed).equalLines,[18,48,58]);
+  assert.equal(nearestEquality(geometry(b.fixed).equalLines,68),58);
+  assert.equal(evaluate(b.fixed,68,52).winner,"Mean");
+  assert.equal(evaluate(b.fixed,68,51).winner,"Equal");
+  assert.equal(evaluate(b.fixed,68,50).winner,"Median");
+  for(const target of [0,25,52,100]) assert.equal(evaluate(b.fixed,58,target).winner,"Equal");
+  assert.equal(evaluate(b.fixed,78,52).winner,"Equal");
+  assert.equal(evaluate(b.fixed,78,0).winner,"Median");
+  assert.deepEqual(geometry(PRESETS.a.fixed).equalLines,[47,49.5,52]);
+  assert.deepEqual(geometry(PRESETS.c.fixed).equalLines,[37.5,100]);
+  const shared=parseView("?fixed=40%2C42%2C50%2C60&fifth=68&target=51.000000001");
+  assert.equal(shared.target,51.000000001);
+  assert.equal(parseView("?fixed=40%2C42%2C50%2C60&fifth=101&target=52"),false);
+  assert.equal(parseView("?fixed=40%2C42%2C50%2C60&fifth=68&target=52&target=53"),false);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","decision-field.html"),"utf8"),/src="decision-field\.js\?v=/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="decision-field\.html"/);
 });
 
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {

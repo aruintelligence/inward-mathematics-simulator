@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071720">
+  <title>Decision Field | Mean, Median, and the Moving Boundary</title>
+  <meta name="description" content="Explore the exact mean-versus-median winner across two changing dimensions: target and fifth reading. Drag an exact decision field, discover whole-row ties, and share a view.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/decision-field.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The whole decision, in one field | Inward Mathematics™">
+  <meta property="og:description" content="Move the target and one reading together. Explore exact winning regions and lines where every target ties.">
+  <meta property="og:url" content="https://aruintelligence.github.io/inward-mathematics-simulator/decision-field.html">
+  <meta property="og:image" content="https://aruintelligence.github.io/inward-mathematics-simulator/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root { color-scheme:dark; --bg:#071720; --ink:#f0f5f2; --muted:#b4cbd0; --line:#426b74; --mint:#67efc8; --gold:#ffd090; --rose:#ffa2ae; --cyan:#a6e5ff; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; min-width:320px; color:var(--ink); background:radial-gradient(circle at 88% 0%,#1f615c 0,transparent 28%),radial-gradient(circle at 8% 26%,#3d314f 0,transparent 37%),var(--bg); font:17px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--mint); }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1200px,calc(100% - 32px)); margin:auto; }
+    .skip { position:absolute; top:-70px; left:16px; z-index:3; padding:9px 13px; border-radius:8px; background:var(--gold); color:#11242a; }
+    .skip:focus { top:10px; }
+    header { padding:25px 0; }
+    nav { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; }
+    nav strong { margin-right:auto; font-size:.83rem; letter-spacing:.07em; }
+    nav a { color:var(--ink); font-size:.9rem; text-decoration:none; }
+    nav a:hover { color:var(--mint); }
+    .eyebrow { margin:0 0 9px; color:var(--cyan); font-size:.74rem; font-weight:800; letter-spacing:.19em; text-transform:uppercase; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr); gap:30px; align-items:center; padding:40px 0 33px; }
+    h1 { margin:0; font-size:clamp(2.8rem,6.3vw,5.65rem); line-height:1.02; letter-spacing:-.06em; }
+    h1 em { color:var(--cyan); font-style:normal; }
+    .lead { max-width:650px; color:#d1e1e1; font-size:1.13rem; }
+    .hero-actions,.share-actions { display:flex; flex-wrap:wrap; gap:9px; margin:21px 0 0; }
+    .button,button.action { display:inline-flex; align-items:center; justify-content:center; min-height:45px; padding:10px 16px; border:1px solid var(--cyan); border-radius:10px; background:var(--cyan); color:#10262b; font-weight:800; text-decoration:none; }
+    .button.secondary,button.action.secondary { border-color:#588088; background:#193d47; color:var(--ink); }
+    .button:hover,button.action:hover { filter:brightness(1.12); }
+    .winner-card { position:relative; overflow:hidden; border:1px solid #77b5b2; border-radius:24px; padding:29px; background:radial-gradient(circle at 76% 11%,#207773,#15434e 48%,#1d2a41 100%); box-shadow:0 25px 68px #0007; }
+    .winner-card::before,.winner-card::after { content:""; position:absolute; width:380px; height:380px; border:1px solid #abffee4f; border-radius:50%; top:-167px; right:-115px; pointer-events:none; }
+    .winner-card::after { width:245px; height:245px; top:-98px; right:-47px; }
+    .winner-card .eyebrow,.winner-card h2 { position:relative; z-index:1; }
+    .winner-card h2 { margin:20px 0 11px; font-size:clamp(2.6rem,5vw,4.5rem); line-height:1.02; letter-spacing:-.065em; }
+    .winner-card[data-winner="Mean"] h2 { color:var(--gold); }
+    .winner-card[data-winner="Median"] h2 { color:var(--mint); }
+    .winner-card[data-winner="Equal"] h2 { color:var(--cyan); }
+    .winner-card p:last-child { margin:0; color:#d9e8e8; }
+    .studio { padding:clamp(18px,3.8vw,32px); border:1px solid #5e9495; border-radius:24px; background:linear-gradient(145deg,#143c45,#122c3b 58%,#272b3d); box-shadow:0 26px 70px #0005; }
+    .studio-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:start; gap:10px 20px; }
+    h2 { margin:0; font-size:clamp(1.7rem,3.4vw,2.6rem); line-height:1.15; letter-spacing:-.035em; }
+    .intro { max-width:780px; margin:10px 0 0; color:var(--muted); }
+    .case-label { padding:5px 10px; border:1px solid #719399; border-radius:99px; color:#d9eaf0; font-size:.78rem; white-space:nowrap; }
+    .readings { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; margin:25px 0 17px; padding:0; list-style:none; }
+    .readings li { padding:10px 5px; border:1px solid #5d8290; border-radius:11px; background:#0b2531; text-align:center; font:800 clamp(1.1rem,3vw,1.55rem) ui-monospace,SFMono-Regular,monospace; }
+    .readings li::before { content:"FIXED"; display:block; margin-bottom:2px; color:var(--muted); font:700 .62rem system-ui,sans-serif; letter-spacing:.11em; }
+    .readings li.moving { border-color:var(--rose); background:#503847; color:#ffdde0; }
+    .readings li.moving::before { content:"MOVING"; color:#ffd4db; }
+    .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 24px; }
+    .control { display:grid; grid-template-columns:minmax(0,1fr) 128px; gap:8px 11px; align-items:end; }
+    .control .range-label { grid-column:1 / -1; font-weight:750; }
+    .control .range-wrap { min-width:0; }
+    .control input[type="range"] { display:block; width:100%; min-height:44px; margin:0; cursor:pointer; accent-color:var(--rose); }
+    .control.target input[type="range"] { accent-color:var(--cyan); }
+    .control input[type="text"] { width:100%; min-height:44px; padding:8px 10px; border:1px solid #85a7ac; border-radius:8px; background:#09232e; color:var(--ink); }
+    .range-scale { display:flex; justify-content:space-between; color:var(--muted); font-size:.75rem; }
+    #input-error { min-height:1.5em; margin:3px 0 8px; color:var(--rose); font-weight:700; }
+    .field-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(235px,.7fr); gap:17px; align-items:start; }
+    .map-shell { padding:11px 11px 0; border:1px solid #537b85; border-radius:18px; background:#0a2430; }
+    .map-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px 14px; align-items:baseline; padding:0 7px; }
+    .map-head strong { font-size:1rem; }
+    .map-head small { color:var(--muted); }
+    svg { display:block; width:100%; height:auto; cursor:crosshair; touch-action:none; }
+    .field-region.mean { fill:#845935; }
+    .field-region.median { fill:#146357; }
+    .grid-line { stroke:#b0d9d5; stroke-opacity:.22; stroke-width:1; }
+    .plot-border { fill:none; stroke:#9bbbbe; stroke-width:1.5; }
+    .frontier { fill:none; stroke:#f6f4df; stroke-width:3; stroke-linejoin:round; }
+    .equal-line { stroke:var(--cyan); stroke-width:2.8; stroke-dasharray:8 7; }
+    .crosshair { stroke:var(--rose); stroke-width:2; stroke-dasharray:5 5; }
+    svg text { fill:#c7dadd; font:13px system-ui,sans-serif; }
+    svg .axis-title { fill:#e7f2f1; font-weight:800; font-size:14px; }
+    .map-legend { display:flex; flex-wrap:wrap; gap:7px 16px; margin:0 12px 14px; color:#d2e2e2; font-size:.79rem; }
+    .map-legend b { display:inline-block; width:14px; height:9px; margin-right:5px; border-radius:2px; background:#845935; }
+    .map-legend .median-key { background:#146357; }
+    .map-legend .frontier-key { height:3px; background:#f6f4df; vertical-align:middle; }
+    .map-legend .equal-key { height:3px; background:var(--cyan); vertical-align:middle; }
+    .side { display:grid; gap:12px; }
+    .tile { padding:19px; border:1px solid #4d7380; border-radius:16px; background:#0b2533; }
+    .tile .eyebrow { margin-bottom:8px; }
+    .tile h3 { margin:0 0 8px; font-size:1.23rem; line-height:1.23; }
+    .tile p { margin:8px 0 0; color:var(--muted); font-size:.91rem; }
+    .tile strong.number { color:var(--cyan); font:800 2.55rem/1 ui-monospace,SFMono-Regular,monospace; }
+    .tile code { color:#e7f5f4; overflow-wrap:anywhere; }
+    .tile button { width:100%; margin-top:15px; text-align:center; }
+    .tile button:disabled { opacity:.55; cursor:default; }
+    .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:15px 0 0; }
+    .stat { padding:14px 16px; border:1px solid #527984; border-radius:12px; background:#0b2533; }
+    .stat span { display:block; color:var(--muted); font-size:.8rem; }
+    .stat strong { display:block; font:800 clamp(1.1rem,2.4vw,1.45rem) ui-monospace,SFMono-Regular,monospace; }
+    .stat.mean strong { color:var(--gold); }
+    .stat.median strong { color:var(--mint); }
+    .formula { margin:21px 0 0; padding-top:18px; border-top:1px solid var(--line); color:#cbdcdd; font-size:.92rem; }
+    .formula code { color:var(--ink); white-space:normal; }
+    .under { display:grid; grid-template-columns:1.05fr .95fr; gap:19px; margin:24px 0 42px; }
+    .panel { padding:25px; border:1px solid var(--line); border-radius:20px; background:#132e3b; }
+    .panel p { color:var(--muted); }
+    .presets { display:grid; gap:9px; margin-top:15px; }
+    .preset { padding:12px 14px; border:1px solid #577987; border-radius:11px; background:#0b2532; color:var(--ink); text-align:left; }
+    .preset:hover { border-color:var(--cyan); background:#20434a; }
+    .preset[aria-pressed="true"] { border-color:var(--cyan); box-shadow:inset 0 0 0 1px var(--cyan); }
+    .preset strong,.preset span { display:block; }
+    .preset span { color:var(--muted); font-size:.82rem; }
+    #share-status { min-height:1.5em; color:var(--mint); font-size:.9rem; }
+    .note { font-size:.85rem; }
+    footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; }
+    @media(max-width:950px) { .field-layout { grid-template-columns:1fr; } .side { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:800px) { .hero,.under { grid-template-columns:1fr; } .hero { padding-top:25px; } .winner-card { max-width:650px; } }
+    @media(max-width:600px) { .controls,.side { grid-template-columns:1fr; } .readings { gap:5px; } .readings li { font-size:1rem; padding:9px 2px; } .readings li::before { font-size:.5rem; } .stat { padding:11px; } .stat strong { font-size:1rem; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#studio">Skip to decision field</a>
+  <div class="wrap">
+    <header><nav aria-label="Main navigation"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">The lab</a><a href="flip-point.html">Flip Point</a><a href="target-lens.html">Target Lens</a><a href="guide.html">Lesson</a></nav></header>
+    <main>
+      <div class="hero">
+        <div><p class="eyebrow">Experiment 05 / Decision Field</p><h1>See the <em>whole</em><br>decision.</h1><p class="lead">What happens when the reference and one reading can both move? A single map reveals every region where the mean or median is closer, every midpoint tie, and the surprising lines where all targets tie.</p><div class="hero-actions"><a class="button" href="#studio">Explore the field ↓</a><a class="button secondary" href="flip-point.html">Move one reading ↗</a></div></div>
+        <aside class="winner-card" id="winner-card" data-winner="Mean" aria-label="Current result"><p class="eyebrow">At the crosshair</p><h2 id="winner">Mean is closer.</h2><p id="winner-detail">Mean 52 (error 0) · median 50 (error 2).</p></aside>
+      </div>
+      <section class="studio" id="studio" aria-labelledby="studio-title">
+        <div class="studio-head"><div><p class="eyebrow">One exact map / two moving axes</p><h2 id="studio-title">Drag to discover the boundary.</h2><p class="intro">Target runs left to right; fifth reading runs bottom to top. Set either value precisely below or drag the crosshair. The colored regions come from the equations, not a sampled image.</p></div><span class="case-label" id="case-label">B / four target-specific reversals</span></div>
+        <ol class="readings" id="fixed-readings" aria-label="Four fixed readings and a moving fifth"><li>40</li><li>42</li><li>50</li><li>60</li><li class="moving"><span id="fifth-display">68</span></li></ol>
+        <div class="controls">
+          <div class="control target"><label class="range-label" for="target-range">Target <span id="target-display">52</span></label><div class="range-wrap"><input id="target-range" type="range" min="0" max="100" step="0.1" value="52"><div class="range-scale"><span>0</span><span>100</span></div></div><label for="target-input">Exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off" value="52" aria-describedby="input-error"></label></div>
+          <div class="control"><label class="range-label" for="fifth-range">Fifth reading <span id="moving-value-label">68</span></label><div class="range-wrap"><input id="fifth-range" type="range" min="0" max="100" step="0.1" value="68"><div class="range-scale"><span>0</span><span>100</span></div></div><label for="fifth-input">Exact fifth<input id="fifth-input" type="text" inputmode="decimal" autocomplete="off" value="68" aria-describedby="input-error"></label></div>
+        </div>
+        <p id="input-error" role="alert"></p>
+        <div class="field-layout">
+          <div class="map-shell"><div class="map-head"><strong>Closer estimate for every target and fifth reading</strong><small>Drag anywhere inside the field</small></div>
+            <svg id="decision-field" viewBox="0 0 760 540" role="img" aria-label="Exact decision field with target on the horizontal axis and fifth reading on the vertical axis">
+              <rect x="62" y="45" width="650" height="445" fill="#123c45"/>
+              <g id="regions"></g>
+              <g aria-hidden="true"><line class="grid-line" x1="224.5" x2="224.5" y1="45" y2="490"/><line class="grid-line" x1="387" x2="387" y1="45" y2="490"/><line class="grid-line" x1="549.5" x2="549.5" y1="45" y2="490"/><line class="grid-line" x1="62" x2="712" y1="156.25" y2="156.25"/><line class="grid-line" x1="62" x2="712" y1="267.5" y2="267.5"/><line class="grid-line" x1="62" x2="712" y1="378.75" y2="378.75"/></g>
+              <path id="frontier" class="frontier" d=""/><g id="equal-lines"></g>
+              <rect class="plot-border" x="62" y="45" width="650" height="445"/>
+              <line class="crosshair" id="crosshair-x" x1="400" x2="400" y1="45" y2="490"/><line class="crosshair" id="crosshair-y" x1="62" x2="712" y1="187" y2="187"/>
+              <circle id="cursor-dot" cx="400" cy="187" r="10" fill="#ffa2ae" stroke="#132635" stroke-width="4"/>
+              <text x="54" y="515">0</text><text x="211" y="515">25</text><text x="374" y="515">50</text><text x="536" y="515">75</text><text x="696" y="515">100</text>
+              <text x="25" y="494">0</text><text x="16" y="383">25</text><text x="16" y="272">50</text><text x="16" y="161">75</text><text x="8" y="50">100</text>
+              <text class="axis-title" x="340" y="537">TARGET →</text><text class="axis-title" x="63" y="28">↑ FIFTH READING</text>
+            </svg>
+            <div class="map-legend"><span><b></b>Mean closer</span><span><b class="median-key"></b>Median closer</span><span><b class="frontier-key"></b>Midpoint tie</span><span><b class="equal-key"></b>All-target tie</span></div>
+          </div>
+          <div class="side"><div class="tile"><p class="eyebrow">The white frontier</p><h3>One target ties here.</h3><p>At the current fifth reading, the estimates are equally far from target <strong id="tie-target">51</strong>. It is exactly their midpoint.</p><button class="action secondary" id="snap-frontier" type="button">Set target to this tie</button></div>
+            <div class="tile"><p class="eyebrow">The dashed horizontal lines</p><strong class="number" id="equality-count">3</strong><h3>Readings tie for every target.</h3><p>When mean and median are the same number, changing the target cannot separate them. Fifth readings: <strong id="equality-list">18 · 48 · 58</strong>.</p><button class="action secondary" id="snap-equality" type="button">Jump to all-target tie at 58</button></div></div>
+        </div>
+        <p id="cursor-label" role="status">Target 52 · fifth 68 · Mean closer</p>
+        <div class="stats"><div class="stat mean"><span>Mean / absolute error</span><strong id="mean-readout">52 / 0</strong></div><div class="stat median"><span>Median / absolute error</span><strong id="median-readout">50 / 2</strong></div></div>
+        <p class="formula"><strong>Exact geometry:</strong> <code id="rule-mean">mean = (40 + 42 + 50 + 60 + moving reading) ÷ 5</code>; <code id="rule-median">median = clamp(moving reading, 42, 50)</code>. Where these estimates differ, the tie target is their midpoint. Where they match, the entire target row ties.</p>
+      </section>
+      <div class="under">
+        <section class="panel" aria-labelledby="cases-title"><p class="eyebrow">Change the shape</p><h2 id="cases-title">Three fields, three stories.</h2><div class="presets">
+          <button class="preset" type="button" data-case="a" aria-pressed="false"><strong>A / One high reading</strong><span>48, 49, 50, 51 + moving 85 · target 50</span></button>
+          <button class="preset" type="button" data-case="b" aria-pressed="true"><strong>B / Four reversals on the target 52 slice</strong><span>40, 42, 50, 60 + moving 68 · target 52</span></button>
+          <button class="preset" type="button" data-case="c" aria-pressed="false"><strong>C / Tie at the edge</strong><span>0, 0, 50, 100 + moving 100 · target 50</span></button>
+        </div><p>For a single axis and exact turning points, use <a href="target-lens.html">Target Lens</a> or <a href="flip-point.html">Flip Point</a>. This field combines both questions.</p></section>
+        <section class="panel" aria-labelledby="share-title"><p class="eyebrow">Carry the map</p><h2 id="share-title">Share an exact view.</h2><p>The link preserves four fixed readings and the current target and fifth reading. The recipient can drag around the same exact field.</p><div class="share-actions"><button class="action" id="copy-view" type="button">Copy exact view</button><a class="button secondary" id="open-view" href="decision-field.html?fixed=40%2C42%2C50%2C60&amp;fifth=68&amp;target=52">Open exact view ↗</a></div><p id="share-status" role="status"></p><p class="note">All six numbers appear in the URL. Use invented or public values. The target is a chosen reference, not independently measured truth. The field is computed locally in your browser.</p></section>
+      </div>
+    </main>
+    <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
+  </div>
+  <script src="decision-field.js?v=20261012-initial"></script>
+</body>
+</html>
