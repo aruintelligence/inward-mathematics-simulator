@@ -352,7 +352,7 @@
   $("next").addEventListener("click",()=>{
     if(puzzle.practice) {
       const nextSeed=puzzle.practice===999999?1:puzzle.practice+1;
-      runFrontier=nextSeed;
+      if(puzzle.practice===runFrontier) runFrontier=nextSeed;
       load(practicePuzzle(nextSeed),null);return;
     }
     load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length);
