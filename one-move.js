@@ -18,6 +18,9 @@
       return {date,day:localDay(date)};
     });
   }
+  function nextOpenDaily(today,currentDay,bestForDay) {
+    return recentDays(today).reverse().find(entry=>entry.day!==currentDay&&bestForDay(entry.day)===null)?.day??null;
+  }
   function validDay(day) {
     if(!/^20\d\d-\d\d-\d\d$/.test(day??"")) return false;
     const parsed=new Date(day+"T00:00:00Z");
@@ -159,7 +162,7 @@
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
   const dailyChallengeCardFilename=day=>"inward-math-daily-challenge-"+day+".png";
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,nextOpenDaily,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -602,7 +605,10 @@
     });
     $("attempt-count").textContent="Attempts this puzzle: "+attempts+(best===null?"":" · Best strict flip: "+fmt(best/10000));
     $("next").hidden=true;
-    $("next").textContent=puzzle.practice?"Next practice case ↗":puzzle.date||round===null?"Try round 1 ↗":"Next puzzle ↗";
+    const followingDay=puzzle.date?nextOpenDaily(new Date(),puzzle.date,dailyBest):null;
+    $("next").textContent=puzzle.practice?"Next practice case ↗":followingDay
+      ?"Next daily · "+new Date(followingDay+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})+" ↗"
+      :puzzle.date||round===null?"Play the three-round course ↗":"Next puzzle ↗";
     $("play-again").hidden=true;
     if($("duel")) {$("duel").hidden=true;$("duel-status").textContent="";}
     if($("verdict-shift")) $("verdict-shift").hidden=true;
@@ -618,7 +624,8 @@
   function persistDraft() {if(puzzle.date) saveDailyDraft(puzzle.date,selected,proposed);}
   function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();persistDraft();}
   function load(next,number) {
-    puzzle=next;round=number;selected=2;proposed=puzzle.values[selected];attempts=0;best=null;hintLevel=0;
+    const draft=next.date?dailyDraft(next.date):null;
+    puzzle=next;round=number;selected=draft?.index??2;proposed=draft?.value??puzzle.values[selected];attempts=0;best=null;hintLevel=0;
     $("share-status").textContent="";$("link-error").textContent="";render();
     $("stage-title").scrollIntoView({block:"start"});
   }
@@ -678,6 +685,10 @@
       const nextSeed=puzzle.practice===999999?1:puzzle.practice+1;
       if(puzzle.practice===runFrontier) runFrontier=nextSeed;
       load(practicePuzzle(nextSeed),null);return;
+    }
+    if(puzzle.date) {
+      const day=nextOpenDaily(new Date(),puzzle.date,dailyBest);
+      if(day) {load(dailyPuzzle(day),null);return;}
     }
     load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length);
   });
