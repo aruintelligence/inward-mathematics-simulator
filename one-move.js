@@ -307,7 +307,7 @@
       if(!$("run-resume").hidden) $("run-resume").textContent="Return to case "+String(runFrontier).padStart(3,"0")+" ↗";
     }
   }
-  function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
+  function setAddress() {try{window.history.replaceState(null,"",sourceUrl()+(window.location.hash||""));}catch(_){/* Downloaded pages still play. */}}
   function updateHints() {
     const button=$("hint-button");
     if(!button) return; // Cached prior pages still initialize with the new script.
