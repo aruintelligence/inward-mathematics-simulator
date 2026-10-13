@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=23" defer/);
+  assert.match(page,/src="one-move\.js\?v=24" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -689,6 +689,8 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.deepEqual(first.puzzle,dailyPuzzle(first.day));
   assert.equal(first.winner,"Median");
   assert.equal(first.estimate,67);
+  assert.equal(first.mean,65.2);
+  assert.equal(first.median,67);
   assert.equal(first.href,"one-move.html?daily=2026-10-12#stage");
   assert.deepEqual(parsePuzzle("?daily=2026-10-12&pick=2").puzzle,first.puzzle);
   assert.equal(initialReading("?daily=2026-10-12&pick=2",first.puzzle),1);
@@ -708,12 +710,19 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const choices=Array.from({length:5},()=>({attributes:{},handlers:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(name,handler){this.handlers[name]=handler;}}));
   const home={dataset:{},querySelectorAll:selector=>selector==="[data-preview-reading]"?readings:choices};
   const elements=new Map([["home-daily-preview",home],["stage",null]]);
-  const makeNode=tagName=>({tagName,textContent:"",href:"",className:"",dataset:{},attributes:{},children:[],
+  const makeNode=tagName=>({tagName,textContent:"",href:"",className:"",dataset:{},style:{},attributes:{},children:[],
     setAttribute(name,value){this.attributes[name]=value;},
     append(...children){this.children.push(...children);},
     replaceChildren(...children){this.children=children;}});
   const trail=makeNode("div");
   elements.set("home-daily-trail",trail);
+  const map=makeNode("div"),mapReadings=makeNode("div");
+  elements.set("home-daily-map",map);
+  elements.set("home-daily-map-readings",mapReadings);
+  for(const name of ["target","mean","median"]) {
+    elements.set("home-daily-map-"+name,makeNode("span"));
+    elements.set("home-daily-map-"+name+"-value",makeNode("strong"));
+  }
   elements.set("home-daily-trail-summary",{textContent:""});
   for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
@@ -738,6 +747,13 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-date").dateTime,first.day);
   assert.equal(elements.get("home-daily-progress").hidden,true);
   assert.equal(elements.get("home-daily-draft").hidden,true);
+  assert.equal(mapReadings.children.length,5);
+  assert.deepEqual(mapReadings.children.map(marker=>marker.style.left),["40%","67%","92%","43%","84%"]);
+  assert.equal(elements.get("home-daily-map-target").style.left,"80%");
+  assert.equal(elements.get("home-daily-map-mean").style.left,"65.2%");
+  assert.equal(elements.get("home-daily-map-median").style.left,"67%");
+  assert.equal(elements.get("home-daily-map-mean-value").textContent,"65.2");
+  assert.match(map.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Mean 65\.2\. Median 67\./);
   assert.equal(trail.children.length,7);
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-12#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
@@ -766,6 +782,9 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-draft").textContent,"Draft on this device · Reading 2 → 64.7499");
   choices[1].handlers.click();
   assert.equal(choices[1].attributes["aria-pressed"],"true");
+  assert.equal(mapReadings.children[1].dataset.selected,"true");
+  assert.equal(mapReadings.children[0].dataset.selected,"false");
+  assert.match(map.attributes["aria-label"],/Reading 2 selected\./);
   assert.equal(choices[0].attributes["aria-pressed"],"false");
   assert.equal(choices[1].attributes["aria-label"],"Reading 2, 67. Choose this reading to move.");
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-12&pick=2#stage");
@@ -781,6 +800,11 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-draft").textContent,"");
   assert.equal(elements.get("home-daily-share-status").textContent,"");
   assert.equal(choices[1].attributes["aria-pressed"],"false");
+  assert.equal(mapReadings.children[1].style.left,"41%");
+  assert.equal(mapReadings.children[1].dataset.selected,"false");
+  assert.equal(elements.get("home-daily-map-target").style.left,"31%");
+  assert.equal(elements.get("home-daily-map-mean").style.left,"36.6%");
+  assert.equal(elements.get("home-daily-map-median").style.left,"41%");
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-13#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
   assert.equal(trail.children[1].dataset.state,"complete");
@@ -806,11 +830,13 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-preview"/);
   assert.match(html,/id="home-daily-progress" role="status" hidden/);
   assert.match(html,/id="home-daily-draft" role="status" hidden/);
+  assert.match(html,/id="home-daily-map" role="img" aria-label="Starting arrangement/);
+  assert.match(html,/id="home-daily-map-readings"/);
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=23" defer/);
+  assert.match(html,/src="one-move\.js\?v=24" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
