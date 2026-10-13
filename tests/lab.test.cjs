@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=12" defer/);
+  assert.match(page,/src="one-move\.js\?v=13" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -725,6 +725,22 @@ test("practice run records one best result per case and upgrades exact wins", ()
   assert.match(html,/id="practice-run" hidden/);
   assert.match(html,/id="run-track" aria-label="Recent practice cases"/);
   assert.match(html,/id="run-resume" type="button" hidden/);
+});
+
+test("post-flip route atlas ranks all five readings and distinguishes unreachable routes", () => {
+  const {routeAtlas,ROUNDS}=require("../one-move.js");
+  const atlas=routeAtlas(ROUNDS[2],2);
+  assert.equal(atlas.viable,4);
+  assert.deepEqual(atlas.routes.map(route=>route.index),[3,4,0,1,2]);
+  assert.equal(atlas.routes[0].best,true);
+  assert.equal(atlas.routes[0].to,62.2499);
+  assert.equal(atlas.routes[4].chosen,true);
+  assert.equal(atlas.routes[4].distance,null);
+  assert.equal(atlas.routes[4].width,0);
+  assert.equal(atlas.routes[3].width,100);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="route-atlas" hidden/);
+  assert.match(html,/id="route-list" role="list"/);
 });
 
 test("the seven-day trail crosses months and leap days in local calendar order", () => {
@@ -818,7 +834,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift","mechanism","practice-run","run-resume"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift","mechanism","practice-run","run-resume","route-atlas"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},

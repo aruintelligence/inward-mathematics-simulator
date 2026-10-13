@@ -130,7 +130,15 @@
     if(!prior) return [...entries,{seed,moveUnits,optimal}];
     return entries.map(entry=>entry.seed===seed?{seed,moveUnits:Math.min(prior.moveUnits,moveUnits),optimal:prior.optimal||optimal}:entry);
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice};
+  function routeAtlas(puzzle,chosenIndex) {
+    const {levers,ranked}=core.rankLevers(puzzle.values,puzzle.target);
+    const longest=Math.max(1,...ranked.map(lever=>lever.flip.distance));
+    return {viable:ranked.length,routes:[...ranked,...levers.filter(lever=>!lever.flip)].map((lever,position)=>({
+      index:lever.index,from:lever.value,to:lever.flip?.value??null,distance:lever.flip?.distance??null,
+      width:lever.flip?lever.flip.distance/longest*100:0,best:position===0&&!!lever.flip,chosen:lever.index===chosenIndex
+    }))};
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -256,6 +264,23 @@
       }
     }
   }
+  function showRouteAtlas(judged) {
+    if(!$("route-atlas")) return;
+    $("route-atlas").hidden=!judged.flipped;
+    if(!judged.flipped) return;
+    const atlas=routeAtlas(puzzle,judged.index),list=$("route-list");
+    $("route-summary").textContent=atlas.viable+" of 5 readings have a strict reversal in 0–100. Shorter bars require less movement.";
+    list.replaceChildren();
+    for(const route of atlas.routes) {
+      const row=document.createElement("div"),label=document.createElement("strong"),track=document.createElement("span"),bar=document.createElement("i"),amount=document.createElement("b"),detail=document.createElement("small");
+      row.className="route-row";row.setAttribute("role","listitem");row.dataset.best=String(route.best);row.dataset.chosen=String(route.chosen);
+      label.textContent="Reading "+(route.index+1)+(route.chosen?" · yours":"");
+      track.className="route-track";bar.style.width=route.width.toFixed(2)+"%";track.append(bar);
+      amount.textContent=route.distance===null?"No flip":fmt(route.distance);
+      detail.textContent=route.to===null?"No strict reversal within 0–100":fmt(route.from)+" → "+fmt(route.to)+(route.best?" · shortest overall":"");
+      row.append(label,track,amount,detail);list.append(row);
+    }
+  }
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
     $("selected-old").textContent=fmt(puzzle.values[selected]);
@@ -291,6 +316,7 @@
     if($("duel")) {$("duel").hidden=true;$("duel-status").textContent="";}
     if($("verdict-shift")) $("verdict-shift").hidden=true;
     if($("mechanism")) $("mechanism").hidden=true;
+    if($("route-atlas")) $("route-atlas").hidden=true;
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -327,6 +353,7 @@
       :"The "+result.winner.toLowerCase()+" is still closer. Try a different value or reading.";
     showVerdictShift(judged);
     showMoveMechanism(judged);
+    showRouteAtlas(judged);
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
