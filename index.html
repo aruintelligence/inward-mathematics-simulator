@@ -248,6 +248,9 @@
     .future-results strong { display:block; color:var(--gold); font:750 1.18rem ui-monospace,SFMono-Regular,monospace; }
     .future-results .alternative strong { color:#d9b8ff; }
     .future-lens .future-summary { margin:12px 0 0; color:#e8e2f5; }
+    .future-apply { margin-top:13px; padding:10px 14px; border:1px solid #d9b8ff; border-radius:9px; color:#f0ddff; background:#3c3158; font-weight:750; cursor:pointer; }
+    .future-apply:hover:not(:disabled) { filter:brightness(1.15); }
+    .future-apply:disabled { opacity:.55; cursor:default; }
     .controls { display:grid; gap:16px; }
     .control { display:grid; gap:5px; color:#dbe8e9; font-size:.93rem; }
     .control .label-row { display:flex; justify-content:space-between; gap:10px; }
@@ -411,7 +414,7 @@
         </div>
         <p id="event" class="status" role="status">Paused at step 0.</p>
         <details class="step-lens" id="step-lens"><summary>See one step ahead ↗</summary><div class="step-lens-body"><p>From the current state, add the pull term to velocity and multiply by 0.92. Opening this view does not advance the model. A faint ring marks the next position while paused.</p><div class="step-flow"><div><span>Pull term · x, y</span><strong id="step-preview-pull">—</strong></div><div><span>Damped velocity · x, y</span><strong id="step-preview-velocity">—</strong></div><div><span>Next position · x, y</span><strong id="step-preview-position">—</strong></div></div><p class="step-outcome" id="step-preview-outcome"></p></div></details>
-        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. This comparison does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label><input id="future-horizon" type="range" min="1" max="60" step="1" value="60"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p></div></details>
+        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label><input id="future-horizon" type="range" min="1" max="60" step="1" value="60"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p><button class="future-apply" id="future-apply" type="button">Use alternative α in live run</button></div></details>
         <div class="formula"><strong>Model:</strong> <code>v ← 0.92(v + 0.008α(target − position)); position ← position + v</code>. A shock adds one seeded impulse to velocity. “Settled” means distance &lt; 4 and speed &lt; 0.5 for 45 consecutive steps.</div>
       </section>
 
@@ -891,6 +894,7 @@
       const current=futurePath(currentAlpha),alternate=futurePath(alternateAlpha),last=current.length-1;
       $("future-alpha-value").textContent=alternateAlpha.toFixed(1);
       $("future-horizon-value").textContent=String(horizon);
+      $("future-apply").disabled=currentAlpha===alternateAlpha;
       $("future-current-caption").textContent="Current α "+currentAlpha.toFixed(1)+" · update "+horizon;
       $("future-alternate-caption").textContent="Alternative α "+alternateAlpha.toFixed(1)+" · update "+horizon;
       $("future-current-distance").textContent=current[horizon].toFixed(2);
@@ -954,6 +958,14 @@
     $("future-lens").addEventListener("toggle",renderFuture);
     $("future-alpha").addEventListener("input",renderFuture);
     $("future-horizon").addEventListener("input",renderFuture);
+    $("future-apply").addEventListener("click",()=>{
+      const alpha=Number($("future-alpha").value);
+      if(alpha===Number($("alpha").value)) return;
+      $("alpha").value=String(alpha);
+      simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:alpha});
+      $("event").textContent="Applied alternative α "+alpha.toFixed(1)+" at step "+simulation.step+". "+(paused?"Use Step once or Run to continue.":"The live run continues.");
+      render();
+    });
     $("reset").addEventListener("click",()=>{activeScene=null;reset();});
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
