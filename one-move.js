@@ -136,7 +136,7 @@
 
   const $=id=>document.getElementById(id);
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[];
+  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null;
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -188,13 +188,23 @@
     const prior=runEntries.filter(entry=>entry.seed!==puzzle.practice).slice(-4);
     const current=runEntries.find(entry=>entry.seed===puzzle.practice);
     for(const entry of [...prior,current??{seed:puzzle.practice,moveUnits:null,optimal:false}]) {
-      const tile=document.createElement("div"),number=document.createElement("strong"),status=document.createElement("span");
+      const replay=entry.seed!==puzzle.practice;
+      const tile=document.createElement(replay?"button":"div"),number=document.createElement("strong"),status=document.createElement("span");
       tile.className="run-tile";
+      if(replay) {
+        tile.type="button";
+        tile.setAttribute("aria-label","Replay practice case "+entry.seed+". Best move "+fmt(entry.moveUnits/10000)+".");
+        tile.addEventListener("click",()=>load(practicePuzzle(entry.seed),null));
+      }
       tile.dataset.state=entry.moveUnits===null?"current":entry.optimal?"exact":"flipped";
       if(entry.seed===puzzle.practice) tile.setAttribute("aria-current","step");
       number.textContent="#"+String(entry.seed).padStart(3,"0");
       status.textContent=entry.moveUnits===null?"In play":entry.optimal?"Exact · "+fmt(entry.moveUnits/10000):"Flip · "+fmt(entry.moveUnits/10000);
       tile.append(number,status);track.append(tile);
+    }
+    if($("run-resume")) {
+      $("run-resume").hidden=runFrontier===null||runFrontier===puzzle.practice;
+      if(!$("run-resume").hidden) $("run-resume").textContent="Return to case "+String(runFrontier).padStart(3,"0")+" ↗";
     }
   }
   function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
@@ -302,6 +312,7 @@
   });
   $("proposed").addEventListener("blur",event=>{if(valid(event.target.value)===null) event.target.value=fmt(proposed);});
   $("hint-button")?.addEventListener("click",()=>{hintLevel=Math.min(2,hintLevel+1);updateHints();});
+  $("run-resume")?.addEventListener("click",()=>{if(runFrontier!==null) load(practicePuzzle(runFrontier),null);});
   $("submit").addEventListener("click",()=>{
     const judged=scoreAttempt(puzzle,selected,$("proposed").value);
     if(judged.error){$("input-error").textContent=judged.error;return;}
@@ -339,7 +350,11 @@
     $("attempt-count").textContent="Attempts this puzzle: "+attempts+(best===null?"":" · Best strict flip: "+fmt(best/10000));
   });
   $("next").addEventListener("click",()=>{
-    if(puzzle.practice) {load(practicePuzzle(puzzle.practice===999999?1:puzzle.practice+1),null);return;}
+    if(puzzle.practice) {
+      const nextSeed=puzzle.practice===999999?1:puzzle.practice+1;
+      runFrontier=nextSeed;
+      load(practicePuzzle(nextSeed),null);return;
+    }
     load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length);
   });
   $("play-again").addEventListener("click",()=>{$("result").hidden=true;$("proposed").focus();});
