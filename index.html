@@ -102,11 +102,15 @@
     .daily-map-marker.reading[data-selected="true"] { z-index:2; border-color:#fff4d9; background:var(--gold); box-shadow:0 0 0 5px #ffcb7866; }
     .daily-map-marker.target { width:11px; height:11px; border:0; border-radius:2px; background:var(--gold); transform:translate(-50%,-50%) rotate(45deg); }
     .daily-map-marker.median { border-radius:3px; background:var(--mint); }
+    .daily-map-reference { position:absolute; top:3px; bottom:3px; width:2px; background:var(--gold); opacity:.85; transform:translateX(-50%); }
+    .daily-map-distance { position:absolute; top:9px; height:7px; border:1px solid var(--cyan); border-radius:9px; background:#73cde866; }
+    .daily-map-row.median .daily-map-distance { border-color:var(--mint); background:#5af0c655; }
     .daily-map-row.target .daily-map-value { color:var(--gold); }
     .daily-map-row.mean .daily-map-value { color:var(--cyan); }
     .daily-map-row.median .daily-map-value { color:var(--mint); }
     .daily-map-axis { color:#b5cbd0; font:650 .66rem ui-monospace,SFMono-Regular,monospace; }
     .daily-map-axis div { grid-column:2; display:flex; justify-content:space-between; }
+    .daily-map-errors { margin:8px 0 0; color:#c1d8d9; font-size:.75rem; font-variant-numeric:tabular-nums; }
     .daily-preview-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; margin-top:17px; }
     .daily-preview-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:46px; border-radius:10px; font-weight:800; text-decoration:none; }
     .daily-preview-actions .daily-link { padding:9px 17px; background:var(--gold); color:#192735; }
@@ -279,9 +283,10 @@
         <div aria-hidden="true">
           <div class="daily-map-row"><span class="daily-map-label">Five readings</span><div class="daily-map-track" id="home-daily-map-readings"></div><span class="daily-map-value">5 dots</span></div>
           <div class="daily-map-row target"><span class="daily-map-label">Chosen target</span><div class="daily-map-track"><span class="daily-map-marker target" id="home-daily-map-target"></span></div><strong class="daily-map-value" id="home-daily-map-target-value">—</strong></div>
-          <div class="daily-map-row mean"><span class="daily-map-label">Mean</span><div class="daily-map-track"><span class="daily-map-marker" id="home-daily-map-mean"></span></div><strong class="daily-map-value" id="home-daily-map-mean-value">—</strong></div>
-          <div class="daily-map-row median"><span class="daily-map-label">Median</span><div class="daily-map-track"><span class="daily-map-marker median" id="home-daily-map-median"></span></div><strong class="daily-map-value" id="home-daily-map-median-value">—</strong></div>
+          <div class="daily-map-row mean"><span class="daily-map-label">Mean</span><div class="daily-map-track"><span class="daily-map-reference" id="home-daily-map-mean-target"></span><span class="daily-map-distance" id="home-daily-map-mean-distance"></span><span class="daily-map-marker" id="home-daily-map-mean"></span></div><strong class="daily-map-value" id="home-daily-map-mean-value">—</strong></div>
+          <div class="daily-map-row median"><span class="daily-map-label">Median</span><div class="daily-map-track"><span class="daily-map-reference" id="home-daily-map-median-target"></span><span class="daily-map-distance" id="home-daily-map-median-distance"></span><span class="daily-map-marker median" id="home-daily-map-median"></span></div><strong class="daily-map-value" id="home-daily-map-median-value">—</strong></div>
           <div class="daily-map-axis"><div><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div></div>
+          <p class="daily-map-errors" id="home-daily-map-errors">Shorter band = closer to target</p>
         </div>
       </div>
       <p class="daily-preview-progress" id="home-daily-progress" role="status" hidden></p><p class="daily-preview-draft" id="home-daily-draft" role="status" hidden></p><div class="daily-preview-actions"><a class="daily-link" id="home-daily-link" href="one-move.html?daily=today#stage">Play today's puzzle ↗</a><button class="share-link" id="home-daily-share" type="button">Share this puzzle ↗</button><a class="course-link" href="one-move.html">Play the three-round course ↗</a><span id="home-daily-share-status" role="status"></span></div><nav class="daily-home-trail" aria-label="Recent Daily Flip editions"><div class="daily-home-trail-head"><strong>Last seven editions</strong><span id="home-daily-trail-summary">Progress stays on this device</span></div><div class="daily-home-days" id="home-daily-trail"></div></nav></section>
@@ -892,6 +897,6 @@
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
   <script src="flip-levers.js?v=3" defer></script>
-  <script src="one-move.js?v=24" defer></script>
+  <script src="one-move.js?v=25" defer></script>
 </body>
 </html>

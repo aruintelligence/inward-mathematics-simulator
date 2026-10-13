@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=24" defer/);
+  assert.match(page,/src="one-move\.js\?v=25" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -722,7 +722,12 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   for(const name of ["target","mean","median"]) {
     elements.set("home-daily-map-"+name,makeNode("span"));
     elements.set("home-daily-map-"+name+"-value",makeNode("strong"));
+    if(name!=="target") {
+      elements.set("home-daily-map-"+name+"-target",makeNode("span"));
+      elements.set("home-daily-map-"+name+"-distance",makeNode("span"));
+    }
   }
+  elements.set("home-daily-map-errors",makeNode("p"));
   elements.set("home-daily-trail-summary",{textContent:""});
   for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
@@ -753,7 +758,12 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-map-mean").style.left,"65.2%");
   assert.equal(elements.get("home-daily-map-median").style.left,"67%");
   assert.equal(elements.get("home-daily-map-mean-value").textContent,"65.2");
-  assert.match(map.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Mean 65\.2\. Median 67\./);
+  assert.equal(elements.get("home-daily-map-mean-target").style.left,"80%");
+  assert.equal(elements.get("home-daily-map-mean-distance").style.left,"65.2%");
+  assert.equal(elements.get("home-daily-map-mean-distance").style.width,"14.8%");
+  assert.equal(elements.get("home-daily-map-median-distance").style.width,"13%");
+  assert.equal(elements.get("home-daily-map-errors").textContent,"Shorter band = closer to target · Mean error 14.8 · Median error 13");
+  assert.match(map.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Mean 65\.2, error 14\.8\. Median 67, error 13\./);
   assert.equal(trail.children.length,7);
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-12#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
@@ -805,6 +815,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-map-target").style.left,"31%");
   assert.equal(elements.get("home-daily-map-mean").style.left,"36.6%");
   assert.equal(elements.get("home-daily-map-median").style.left,"41%");
+  assert.equal(elements.get("home-daily-map-mean-distance").style.left,"31%");
+  assert.equal(elements.get("home-daily-map-mean-distance").style.width,"5.6%");
+  assert.equal(elements.get("home-daily-map-median-distance").style.width,"10%");
+  assert.match(elements.get("home-daily-map-errors").textContent,/Mean error 5\.6 · Median error 10/);
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-13#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
   assert.equal(trail.children[1].dataset.state,"complete");
@@ -832,11 +846,12 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-draft" role="status" hidden/);
   assert.match(html,/id="home-daily-map" role="img" aria-label="Starting arrangement/);
   assert.match(html,/id="home-daily-map-readings"/);
+  assert.match(html,/id="home-daily-map-mean-distance"/);
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=24" defer/);
+  assert.match(html,/src="one-move\.js\?v=25" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
