@@ -61,14 +61,32 @@
     .data-art i { display:block; width:15px; height:22px; border-radius:5px 5px 0 0; background:var(--cyan); }
     .data-art i:nth-child(2) { height:34px; }.data-art i:nth-child(3) { height:42px; background:var(--mint); }.data-art i:nth-child(4) { height:31px; }.data-art i:nth-child(5) { height:60px; background:var(--rose); }
     .path-after { margin:14px 2px 0; color:var(--muted); font-size:.9rem; }
-    .puzzle-invite { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px 26px; margin-top:14px; padding:20px 23px; border:1px solid #9a8393; border-radius:17px; background:radial-gradient(circle at 4% 50%,#49384e,#183742 58%,#12323c); box-shadow:0 15px 38px #0004; }
-    .puzzle-invite .eyebrow { margin:0 0 4px; color:var(--rose); }
-    .puzzle-invite strong { display:block; font-size:clamp(1.25rem,2.5vw,1.75rem); line-height:1.15; letter-spacing:-.03em; }
-    .puzzle-invite p { margin:5px 0 0; color:#d5e4e2; font-size:.91rem; }
-    .puzzle-invite a { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:9px 15px; border:1px solid var(--rose); border-radius:10px; background:var(--rose); color:#192735; font-weight:800; text-decoration:none; }
-    .puzzle-actions { display:flex; gap:9px; flex-wrap:wrap; }
-    .puzzle-invite .daily-link { border-color:var(--gold); background:var(--gold); }
-    .puzzle-invite a:hover { filter:brightness(1.12); }
+    .daily-preview { position:relative; overflow:hidden; margin-top:14px; padding:clamp(18px,3vw,29px); border:1px solid #8f8b8a; border-radius:22px; background:radial-gradient(circle at 95% 0%,#614b4b 0,transparent 36%),linear-gradient(125deg,#21354a,#143843 65%,#19343d); box-shadow:0 20px 45px #0005; }
+    .daily-preview::before { content:""; position:absolute; width:310px; height:310px; right:-118px; top:-168px; border:1px solid #ffcb7855; border-radius:50%; pointer-events:none; }
+    .daily-preview > * { position:relative; }
+    .daily-preview-head { display:flex; align-items:start; justify-content:space-between; flex-wrap:wrap; gap:9px 20px; }
+    .daily-preview .eyebrow { margin:0 0 5px; color:var(--gold); }
+    .daily-preview h3 { margin:0; font-size:clamp(1.45rem,2.8vw,2.1rem); line-height:1.12; letter-spacing:-.035em; }
+    .daily-preview time { color:#ffdeb1; font-size:.85rem; font-weight:750; font-variant-numeric:tabular-nums; }
+    .daily-preview-intro { max-width:760px; margin:9px 0 18px; color:#d7e6e6; font-size:.92rem; }
+    .daily-preview-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(230px,.85fr); gap:13px; }
+    .daily-preview-readings,.daily-preview-result { min-width:0; padding:15px; border:1px solid #719097; border-radius:15px; background:#091b2bcc; }
+    .daily-preview-label { display:block; margin-bottom:11px; color:#b5cbd0; font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .daily-preview-list { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin:0; padding:0; list-style:none; }
+    .daily-preview-list li { min-width:0; padding:9px 5px 8px; border:1px solid #628b91; border-radius:10px; background:linear-gradient(#244554,#122c3a); text-align:center; font-variant-numeric:tabular-nums; }
+    .daily-preview-list small { display:block; color:#b1cbd0; font-size:.66rem; font-weight:700; letter-spacing:.1em; }
+    .daily-preview-list strong { display:block; color:#f0fbf7; font:800 clamp(1.05rem,2vw,1.65rem)/1.35 ui-monospace,SFMono-Regular,monospace; }
+    .daily-preview-result { display:flex; align-items:center; gap:15px; }
+    .daily-preview-target { flex:0 0 auto; padding-right:15px; border-right:1px solid #66848d; }
+    .daily-preview-target .daily-preview-label { margin-bottom:2px; }
+    .daily-preview-target strong { color:var(--gold); font:800 clamp(1.8rem,3vw,2.7rem)/1.1 ui-monospace,SFMono-Regular,monospace; }
+    .daily-preview-winner { color:var(--mint); font-size:clamp(1rem,1.55vw,1.22rem); font-weight:800; line-height:1.22; }
+    .daily-preview[data-winner="mean"] .daily-preview-winner { color:var(--gold); }
+    .daily-preview-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; margin-top:17px; }
+    .daily-preview-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:46px; border-radius:10px; font-weight:800; text-decoration:none; }
+    .daily-preview-actions .daily-link { padding:9px 17px; background:var(--gold); color:#192735; }
+    .daily-preview-actions .course-link { color:#dff6f3; text-decoration:underline; text-underline-offset:4px; }
+    .daily-preview-actions a:hover { filter:brightness(1.12); }
     .hero-instrument { grid-column:2; grid-row:1 / 3; position:relative; isolation:isolate; overflow:hidden; border:1px solid #49827d; border-radius:24px; padding:24px; background:radial-gradient(circle at 50% 40%,#1a675a 0,#123a44 31%,#0b2132 66%); box-shadow:0 25px 75px #0008, inset 0 0 90px #73cde815; }
     .hero-instrument::before { content:""; position:absolute; inset:15px; border:1px solid #8af5d744; border-radius:50%; aspect-ratio:1; max-width:290px; max-height:290px; margin:auto; pointer-events:none; }
     .hero-instrument::after { content:""; position:absolute; width:240px; height:240px; left:50%; top:38%; translate:-50% -50%; border:1px dashed #ffcb7860; border-radius:50%; pointer-events:none; animation:orbit 28s linear infinite; }
@@ -174,9 +192,10 @@
     footer a { color:var(--cyan); }
     @media(max-width:850px) { .grid,.hero-layout { grid-template-columns:1fr; } .hero-heading { grid-column:1; grid-row:1; } .hero-instrument { grid-column:1; grid-row:2; width:100%; max-width:680px; margin-top:8px; } .hero-copy { grid-column:1; grid-row:3; margin-top:16px; } }
     @media(max-width:850px) { .path-grid { grid-template-columns:1fr; } .path-card { min-height:190px; } .pathways-head { align-items:start; flex-direction:column; } }
+    @media(max-width:700px) { .daily-preview-grid { grid-template-columns:1fr; } }
     @media(max-width:700px) { .scene-grid,.workbench-form { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
     @media(max-width:600px) { .sweep-metrics,.cohort-metrics { grid-template-columns:1fr; } }
-    @media(max-width:480px) { header { padding-top:30px; } .hero-instrument { padding:16px; } .hero-reading { min-height:150px; } .hero-next { align-items:stretch; flex-direction:column; } .hero-next button,.hero-next a { justify-content:center; width:100%; text-align:center; } .hero-next a { padding:8px; border:1px solid #547c7c; border-radius:8px; background:#143439; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
+    @media(max-width:480px) { header { padding-top:30px; } .hero-instrument { padding:16px; } .hero-reading { min-height:150px; } .hero-next { align-items:stretch; flex-direction:column; } .hero-next button,.hero-next a { justify-content:center; width:100%; text-align:center; } .hero-next a { padding:8px; border:1px solid #547c7c; border-radius:8px; background:#143439; } .daily-preview-list { gap:5px; } .daily-preview-list li { padding-inline:2px; } .daily-preview-result { justify-content:space-between; } .daily-preview-actions .daily-link { width:100%; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
     @media(prefers-reduced-motion:reduce) { .hero-instrument::after { animation:none; } .scene-card,.path-card { transition:none; } }
   </style>
 </head>
@@ -214,7 +233,7 @@
         <a class="path-card" href="decision-field.html"><span class="path-kicker">02 / explore</span><span class="path-art" aria-hidden="true"><span class="field-art"></span></span><strong>See the whole decision.</strong><span class="path-desc">Drag across the exact map. Find where one target ties and where every target ties.</span><em>Open the Decision Field ↗</em></a>
         <a class="path-card analyze" href="#workbench-title"><span class="path-kicker">03 / analyze</span><span class="path-art" aria-hidden="true"><span class="data-art"><i></i><i></i><i></i><i></i><i></i></span></span><strong>Bring your own numbers.</strong><span class="path-desc">Paste readings, compare both estimates, and see what changes when one reading is removed.</span><em>Open the workbench ↓</em></a>
       </div>
-      <div class="puzzle-invite"><div><p class="eyebrow">New / play the math</p><strong>One Move. Can you flip the verdict?</strong><p>Choose one reading, change it, and see how close you came to the smallest possible reversal.</p></div><div class="puzzle-actions"><a class="daily-link" href="one-move.html?daily=today">Play today's puzzle ↗</a><a href="one-move.html">Play the three-round course ↗</a></div></div>
+      <section class="daily-preview" id="home-daily-preview" aria-labelledby="home-daily-title"><div class="daily-preview-head"><div><p class="eyebrow">One Move / today's exact puzzle</p><h3 id="home-daily-title">Five readings. One reversal.</h3></div><time id="home-daily-date">Today on your device</time></div><p class="daily-preview-intro">Change one reading to make the other estimate closer to the fixed target. Can you find the smallest strict flip?</p><div class="daily-preview-grid"><div class="daily-preview-readings"><span class="daily-preview-label">Five readings · original order</span><ol class="daily-preview-list" aria-label="Five readings in their original order"><li><small>01</small><strong data-preview-reading>—</strong></li><li><small>02</small><strong data-preview-reading>—</strong></li><li><small>03</small><strong data-preview-reading>—</strong></li><li><small>04</small><strong data-preview-reading>—</strong></li><li><small>05</small><strong data-preview-reading>—</strong></li></ol></div><div class="daily-preview-result"><div class="daily-preview-target"><span class="daily-preview-label">Fixed target</span><strong id="home-daily-target">—</strong></div><div><span class="daily-preview-label">Closer right now</span><strong class="daily-preview-winner" id="home-daily-winner">Open to reveal</strong></div></div></div><div class="daily-preview-actions"><a class="daily-link" id="home-daily-link" href="one-move.html?daily=today#stage">Play today's puzzle ↗</a><a class="course-link" href="one-move.html">Play the three-round course ↗</a></div></section>
       <p class="path-after">Want a lesson? <a href="guide.html">Read the five-minute guide</a> or <a href="worksheet.html">print the worksheet</a>. Try <a href="shape-the-data.html">Shape the Data</a>, <a href="flip-levers.html">Flip Levers</a>, <a href="flip-point.html">Flip Point</a>, <a href="target-lens.html">Target Lens</a>, and the <a href="atlas.html">Outcome Atlas</a>.</p>
     </section>
     <section id="start" class="journey" aria-labelledby="start-title">
@@ -821,5 +840,7 @@
     requestAnimationFrame(frame);
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
+  <script src="flip-levers.js?v=3" defer></script>
+  <script src="one-move.js?v=15" defer></script>
 </body>
 </html>
