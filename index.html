@@ -512,6 +512,7 @@
             <div class="trace-results"><div><span>Position · x, y</span><strong id="trace-position">—</strong></div><div><span>Distance to target</span><strong id="trace-distance">—</strong></div></div>
             <p class="trace-event" id="trace-event"></p>
             <p class="trace-summary" id="trace-summary"></p>
+            <button class="trace-jump" id="trace-closest" type="button">Jump to closest approach ↗</button>
             <button class="trace-jump" id="trace-jump" type="button">Jump to next shock ↗</button>
             <button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button>
           </div>
@@ -1067,6 +1068,7 @@
       const atStep=shocks.filter(step=>step===selected).length;
       $("trace-event").textContent=atStep?atStep+" shock "+(atStep===1?"impulse was":"impulses were")+" added at this step. Position changes on the next update.":"No shock was added at this step.";
       $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock "+(shocks.length===1?"event":"events")+" in this window. This view stays frozen until you refresh it.";
+      $("trace-closest").disabled=points.length<2;
       $("trace-jump").disabled=!shocks.length;
       const ctx=traceX,left=51,right=568,top=19,bottom=194;
       const max=Math.max(4,...points.map(p=>p.distance))*1.04;
@@ -1268,6 +1270,11 @@
     $("step-lens").addEventListener("toggle",render);
     $("trace-lens").addEventListener("toggle",()=>{if($("trace-lens").open) captureTrace();});
     $("trace-step").addEventListener("input",renderTrace);
+    $("trace-closest").addEventListener("click",()=>{
+      if(!traceCapture || traceCapture.points.length<2) return;
+      const closest=traceCapture.points.reduce((best,p)=>p.distance<best.distance?p:best);
+      $("trace-step").value=String(closest.step);renderTrace();
+    });
     $("trace-jump").addEventListener("click",()=>{
       if(!traceCapture?.shocks.length) return;
       const steps=[...new Set(traceCapture.shocks)],selected=Number($("trace-step").value);
