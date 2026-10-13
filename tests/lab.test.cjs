@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=30" defer/);
+  assert.match(page,/src="one-move\.js\?v=31" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -755,13 +755,15 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const saved=new Map();
   const window={location:{href:"https://example.test/"},localStorage:{getItem:key=>saved.get(key)??null},addEventListener:(name,handler)=>events[name]=handler};
   let copied=null,sent=null;
+  const timers=new Map();let nextTimer=0;
   const navigator={clipboard:{async writeText(value){copied=value;}},
     canShare:data=>Array.isArray(data.files)&&data.files[0]?.type==="image/png",
     async share(data){sent=data;}};
   class CardFile {constructor(parts,name,options){this.parts=parts;this.name=name;this.type=options.type;}}
   class CardURL extends URL {static createObjectURL(){return "blob:daily-card";}static revokeObjectURL(){}}
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8"),
-    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,navigator,File:CardFile,Date:LocalDate,URL:CardURL,URLSearchParams,setTimeout:fn=>fn()},{timeout:2000});
+    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,navigator,File:CardFile,Date:LocalDate,URL:CardURL,URLSearchParams,
+      setTimeout:(fn,ms)=>{const id=++nextTimer;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)},{timeout:2000});
   assert.deepEqual(readings.map(item=>item.textContent),["40","67","92","43","84"]);
   assert.equal(elements.get("home-daily-target").textContent,"80");
   assert.equal(elements.get("home-daily-winner").textContent,"Median 67 is closer");
@@ -840,7 +842,9 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-12&pick=2#stage");
   assert.equal(elements.get("home-daily-link").textContent,"Try reading 2 ↗");
   elements.get("home-daily-share-status").textContent="Puzzle invitation copied.";
-  day=13;events.focus();
+  const [midnightId,midnightTimer]=[...timers].find(([,timer])=>timer.ms>1000000);
+  assert.ok(midnightTimer.ms>11*60*60*1000&&midnightTimer.ms<13*60*60*1000);
+  day=13;timers.delete(midnightId);midnightTimer.fn();
   assert.equal(elements.get("home-daily-date").dateTime,"2026-10-13");
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13#stage");
   assert.equal(elements.get("home-daily-link").textContent,"Play today's puzzle ↗");
@@ -902,7 +906,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=30" defer/);
+  assert.match(html,/src="one-move\.js\?v=31" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
