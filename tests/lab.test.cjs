@@ -912,7 +912,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=35" defer/);
+  assert.match(page,/src="one-move\.js\?v=36" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -1187,7 +1187,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=35" defer/);
+  assert.match(html,/src="one-move\.js\?v=36" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -1263,7 +1263,7 @@ test("result PNG names identify the edition without embedding puzzle values", ()
 });
 
 test("the seven-day trail crosses months and leap days in local calendar order", () => {
-  const {recentDays,nextOpenDaily,trailState}=require("../one-move.js");
+  const {recentDays,nextOpenDaily,trailState,datedEdition}=require("../one-move.js");
   assert.deepEqual(recentDays(new Date(2028,2,2,12)).map(entry=>entry.day),[
     "2028-02-25","2028-02-26","2028-02-27","2028-02-28","2028-02-29","2028-03-01","2028-03-02"]);
   assert.deepEqual(recentDays(new Date(2027,0,2,12)).map(entry=>entry.day),[
@@ -1276,8 +1276,17 @@ test("the seven-day trail crosses months and leap days in local calendar order",
   assert.equal(trailState("2026-10-12",22501).state,"exact");
   assert.equal(trailState("2026-10-12",32501).state,"complete");
   assert.match(trailState("2026-10-12",32501).aria,/shorter move exists/);
+  const archived=datedEdition("2026-10-12",new Date(2026,9,13,12),()=>22501);
+  assert.equal(archived.href,"one-move.html?daily=2026-10-12#stage");
+  assert.match(archived.progress,/Exact minimum on this device: 2\.2501/);
+  assert.equal(datedEdition("2028-02-29",new Date(2028,2,2,12),()=>null).day,"2028-02-29");
+  assert.equal(datedEdition("2028-02-30",new Date(2028,2,2,12),()=>null),null);
+  assert.equal(datedEdition("2026-10-14",new Date(2026,9,13,12),()=>null),null,"future daily puzzles stay out of the date explorer");
+  assert.equal(datedEdition("1999-12-31",new Date(2026,9,13,12),()=>null),null);
   const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(html,/id="daily-trail" aria-label="Recent Daily Flip editions"/);
+  assert.match(html,/id="date-explorer-input" type="date"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="one-move\.html#date-explorer"/);
 });
 
 test("progressive hints teach the estimators and point to a viable direction without the value", () => {
