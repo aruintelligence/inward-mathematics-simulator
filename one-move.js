@@ -132,8 +132,7 @@
     $("next").hidden=true;
     $("next").textContent=puzzle.date||round===null?"Try round 1 ↗":"Next puzzle ↗";
     $("play-again").hidden=true;
-    $("duel").hidden=true;
-    $("duel-status").textContent="";
+    if($("duel")) {$("duel").hidden=true;$("duel-status").textContent="";}
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -168,12 +167,14 @@
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
-    $("duel").hidden=!flipped;
+    if($("duel")) $("duel").hidden=!flipped;
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
       if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);updateDailyStatus();}
-      $("duel-score").textContent=fmt(best/10000);
-      $("duel-edition").textContent=puzzle.date?"Daily Flip / "+puzzle.date:round===null?"One Move / shared puzzle":"One Move / round "+(round+1);
+      if($("duel")) {
+        $("duel-score").textContent=fmt(best/10000);
+        $("duel-edition").textContent=puzzle.date?"Daily Flip / "+puzzle.date:round===null?"One Move / shared puzzle":"One Move / round "+(round+1);
+      }
       $("personal-move").textContent=fmt(moveUnits/10000);
       $("minimum-move").textContent=fmt(minimumUnits/10000);
       $("move-comparison").textContent=judged.optimal?"Exact minimum. You found the shortest strict flip!"
@@ -186,7 +187,7 @@
   });
   $("next").addEventListener("click",()=>load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length));
   $("play-again").addEventListener("click",()=>{$("result").hidden=true;$("proposed").focus();});
-  $("duel-share").addEventListener("click",async()=>{
+  $("duel-share")?.addEventListener("click",async()=>{
     const url=new URL(sourceUrl(),window.location.href).href;
     const title=puzzle.date?"Daily Flip / "+puzzle.date:"One Move challenge";
     const invitation=duelInvitation(puzzle,best,url);

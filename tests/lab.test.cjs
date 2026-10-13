@@ -697,6 +697,32 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
   assert.match(html,/id="duel-share" type="button">Challenge a friend/);
 });
 
+test("a cached pre-duel page still initializes and scores with the new script", () => {
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share"]);
+  function element(id) {
+    if(legacy.has(id)) return null;
+    if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
+      addEventListener(name,callback){this.handlers[name]=callback;},
+      setAttribute(){},scrollIntoView(){},focus(){}});
+    return elements.get(id);
+  }
+  const readings=Array.from({length:5},()=>({handlers:{},addEventListener(name,callback){this.handlers[name]=callback;},
+    setAttribute(){},querySelector(){return {textContent:"",style:{}};}}));
+  const document={getElementById:element,querySelectorAll(selector){return selector===".reading"?readings:[];}};
+  const window={location:{search:"?daily=2026-10-12",href:"https://example.test/one-move.html?daily=2026-10-12"},
+    history:{replaceState(){}},localStorage:{getItem(){return null;},setItem(){}}};
+  const script=fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8");
+  vm.runInNewContext(script,{module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,
+    navigator:{clipboard:{writeText:async()=>{}}},URL,URLSearchParams},{timeout:2000});
+  assert.match(element("mission").textContent,/Make the mean strictly closer/);
+  readings[1].handlers.click();
+  element("proposed").value="64.7499";
+  element("submit").handlers.click();
+  assert.equal(element("result").hidden,false);
+  assert.equal(element("result-title").textContent,"You flipped it.");
+  assert.match(element("move-comparison").textContent,/Exact minimum/);
+});
+
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
   const {PRESETS,parseView,evaluate,solve,nearestReversal}=require("../flip-point.js");
   const a=solve(PRESETS.a.fixed,PRESETS.a.target);
