@@ -368,6 +368,14 @@
         status.textContent="Challenge PNG downloaded.";
       },"image/png");
     });
+    $("home-daily-card-copy")?.addEventListener("click",async()=>{
+      const preview=dailyPreview(new Date()),status=$("home-daily-card-status");
+      if(!preview) {status.textContent="Today's puzzle is unavailable.";return;}
+      try {
+        await navigator.clipboard.writeText(new URL(preview.href,window.location.href).href);
+        status.textContent="Dated puzzle link copied.";
+      } catch(_) {status.textContent="Copy unavailable. Open the dated puzzle and copy its address.";}
+    });
     cardShare?.addEventListener("click",async()=>{
       const preview=dailyPreview(new Date()),status=$("home-daily-card-status");
       if(!preview) {status.textContent="Today's puzzle is unavailable.";return;}
@@ -627,6 +635,7 @@
     const draft=next.date?dailyDraft(next.date):null;
     puzzle=next;round=number;selected=draft?.index??2;proposed=draft?.value??puzzle.values[selected];attempts=0;best=null;hintLevel=0;
     $("share-status").textContent="";$("link-error").textContent="";render();
+    $("stage-title").focus({preventScroll:true});
     $("stage-title").scrollIntoView({block:"start"});
   }
   choiceButtons.forEach((button,index)=>button.addEventListener("click",()=>choose(index)));
