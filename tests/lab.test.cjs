@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=25" defer/);
+  assert.match(page,/src="one-move\.js\?v=26" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -716,6 +716,14 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
     replaceChildren(...children){this.children=children;}});
   const trail=makeNode("div");
   elements.set("home-daily-trail",trail);
+  const cardLabels=[],card=makeNode("canvas"),cardKit={open:false,handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
+  card.getContext=()=>({fillRect(){},strokeRect(){},fillText(value){cardLabels.push(value);}});
+  card.toBlob=callback=>callback({});
+  elements.set("home-daily-card",card);
+  elements.set("home-daily-card-kit",cardKit);
+  elements.set("home-daily-card-status",{textContent:""});
+  const cardDownload={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
+  elements.set("home-daily-card-download",cardDownload);
   const map=makeNode("div"),mapReadings=makeNode("div");
   elements.set("home-daily-map",map);
   elements.set("home-daily-map-readings",mapReadings);
@@ -736,14 +744,17 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const share={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
   elements.set("home-daily-share",share);
   const events={};
-  const document={getElementById:id=>elements.get(id)??null,createElement:makeNode,
-    addEventListener:(name,handler)=>events[name]=handler,hidden:false};
+  let downloaded=null;
+  const document={getElementById:id=>elements.get(id)??null,createElement:tag=>{
+      const node=makeNode(tag);node.click=()=>{downloaded={href:node.href,filename:node.download};};node.remove=()=>{};return node;},
+    body:{append(){}},addEventListener:(name,handler)=>events[name]=handler,hidden:false};
   const saved=new Map();
   const window={location:{href:"https://example.test/"},localStorage:{getItem:key=>saved.get(key)??null},addEventListener:(name,handler)=>events[name]=handler};
   let copied=null,sent=null;
   const navigator={clipboard:{async writeText(value){copied=value;}}};
+  class CardURL extends URL {static createObjectURL(){return "blob:daily-card";}static revokeObjectURL(){}}
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8"),
-    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,navigator,Date:LocalDate,URL,URLSearchParams},{timeout:2000});
+    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,navigator,Date:LocalDate,URL:CardURL,URLSearchParams,setTimeout:fn=>fn()},{timeout:2000});
   assert.deepEqual(readings.map(item=>item.textContent),["40","67","92","43","84"]);
   assert.equal(elements.get("home-daily-target").textContent,"80");
   assert.equal(elements.get("home-daily-winner").textContent,"Median 67 is closer");
@@ -764,6 +775,15 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-map-median-distance").style.width,"13%");
   assert.equal(elements.get("home-daily-map-errors").textContent,"Shorter band = closer to target · Mean error 14.8 · Median error 13");
   assert.match(map.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Mean 65\.2, error 14\.8\. Median 67, error 13\./);
+  cardKit.open=true;cardKit.handlers.toggle({target:cardKit});
+  assert.ok(cardLabels.includes("DAILY FLIP / 2026-10-12"));
+  assert.ok(cardLabels.includes("READING 05"));
+  assert.ok(cardLabels.includes("80"));
+  assert.doesNotMatch(cardLabels.join(" "),/MEDIAN|MEAN|WINNER|64\.7499|EXACT MINIMUM/);
+  assert.match(card.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Find a one-reading reversal\. Answer hidden\./);
+  cardDownload.handlers.click();
+  assert.deepEqual(downloaded,{href:"blob:daily-card",filename:"inward-math-daily-challenge-2026-10-12.png"});
+  assert.equal(elements.get("home-daily-card-status").textContent,"Challenge PNG downloaded.");
   assert.equal(trail.children.length,7);
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-12#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
@@ -815,6 +835,8 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-map-target").style.left,"31%");
   assert.equal(elements.get("home-daily-map-mean").style.left,"36.6%");
   assert.equal(elements.get("home-daily-map-median").style.left,"41%");
+  assert.ok(cardLabels.includes("DAILY FLIP / 2026-10-13"));
+  assert.match(card.attributes["aria-label"],/Readings 53, 41, 44, 32, 13\. Target 31\./);
   assert.equal(elements.get("home-daily-map-mean-distance").style.left,"31%");
   assert.equal(elements.get("home-daily-map-mean-distance").style.width,"5.6%");
   assert.equal(elements.get("home-daily-map-median-distance").style.width,"10%");
@@ -847,11 +869,13 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-map" role="img" aria-label="Starting arrangement/);
   assert.match(html,/id="home-daily-map-readings"/);
   assert.match(html,/id="home-daily-map-mean-distance"/);
+  assert.match(html,/id="home-daily-card-kit"/);
+  assert.match(html,/id="home-daily-card-download"/);
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=25" defer/);
+  assert.match(html,/src="one-move\.js\?v=26" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {

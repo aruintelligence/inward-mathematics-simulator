@@ -158,7 +158,8 @@
     return "inward-math-one-move-"+(puzzle.date?"daily-"+puzzle.date:puzzle.practice?"case-"+puzzle.practice:
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
+  const dailyChallengeCardFilename=day=>"inward-math-daily-challenge-"+day+".png";
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -197,6 +198,37 @@
     const readings=[...home.querySelectorAll("[data-preview-reading]")];
     const choices=[...home.querySelectorAll("[data-preview-pick]")];
     let selectedReading=null;
+    function drawDailyCard(preview) {
+      const canvas=$("home-daily-card"),status=$("home-daily-card-status");
+      if(!canvas) return false;
+      const ctx=canvas.getContext("2d");
+      if(!ctx) {status.textContent="Image preview is unavailable in this browser.";return false;}
+      const {day,puzzle}=preview;
+      const block=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
+      const label=(value,x,y,size,color,weight="700")=>{ctx.fillStyle=color;ctx.font=weight+" "+size+"px system-ui, sans-serif";ctx.fillText(value,x,y);};
+      block(0,0,1200,630,"#071c2b");block(24,24,1152,582,"#122e3d");block(24,24,1152,9,"#ffcb78");
+      label("ĀRU / INWARD MATHEMATICS",68,83,22,"#70f0c9","800");
+      ctx.textAlign="right";label("DAILY FLIP / "+day,1130,83,20,"#ffcb78","800");ctx.textAlign="left";
+      label("CAN YOU FLIP THE VERDICT?",68,158,46,"#f3f7f4","800");
+      label("Move one reading. Make the other estimate closer.",68,205,25,"#c8e3e2");
+      puzzle.values.forEach((value,index)=>{
+        const x=68+214*index;
+        block(x,246,198,138,"#092331");
+        ctx.strokeStyle="#658f97";ctx.lineWidth=2;ctx.strokeRect(x+1,247,196,136);
+        label("READING 0"+(index+1),x+18,281,16,"#a8c9ce","800");
+        label(fmt(value),x+18,354,54,"#f3f7f4","800");
+      });
+      block(68,411,1062,104,"#4a4037");block(68,411,7,104,"#ffcb78");
+      label("CHOSEN TARGET",92,450,18,"#ffcb78","800");
+      label(fmt(puzzle.target),92,496,43,"#f3f7f4","800");
+      label("One number changes the answer.",360,478,27,"#ffe5b8","800");
+      label("aruintelligence.github.io/inward-mathematics-simulator",68,554,18,"#c3dcda");
+      label("DETERMINISTIC WHAT-IF PUZZLE · ANSWER HIDDEN",68,583,16,"#a8c9ce","800");
+      canvas.setAttribute("aria-label","Daily Flip challenge card for "+day+". Readings "+puzzle.values.map(fmt).join(", ")+
+        ". Target "+fmt(puzzle.target)+". Find a one-reading reversal. Answer hidden.");
+      status.textContent="";
+      return true;
+    }
     function renderDailyPreview() {
       const now=new Date(),preview=dailyPreview(now);
       if(!preview) return;
@@ -281,6 +313,7 @@
         $("home-daily-trail-summary").textContent=completed+" of 7 flipped on this device";
       }
       home.dataset.winner=winner.toLowerCase();
+      if($("home-daily-card-kit")?.open) drawDailyCard(preview);
     }
     renderDailyPreview();
     choices.forEach((button,index)=>button.addEventListener("click",()=>{
@@ -291,6 +324,25 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden) renderDailyPreview();});
     window.addEventListener("focus",renderDailyPreview);
     window.addEventListener("pageshow",renderDailyPreview);
+    $("home-daily-card-kit")?.addEventListener("toggle",event=>{
+      if(event.target.open) {
+        const preview=dailyPreview(new Date());
+        if(preview) drawDailyCard(preview);
+      }
+    });
+    $("home-daily-card-download")?.addEventListener("click",()=>{
+      const preview=dailyPreview(new Date()),canvas=$("home-daily-card"),status=$("home-daily-card-status");
+      if(!preview||!drawDailyCard(preview)) return;
+      if(typeof canvas.toBlob!=="function") {status.textContent="PNG download is unavailable in this browser.";return;}
+      canvas.toBlob(blob=>{
+        if(!blob) {status.textContent="Could not create the PNG. Try another browser.";return;}
+        const url=URL.createObjectURL(blob),link=document.createElement("a");
+        link.href=url;link.download=dailyChallengeCardFilename(preview.day);
+        document.body.append(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        status.textContent="Challenge PNG downloaded.";
+      },"image/png");
+    });
     const share=$("home-daily-share");
     if(share) share.addEventListener("click",async()=>{
       renderDailyPreview();

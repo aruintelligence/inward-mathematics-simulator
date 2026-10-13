@@ -111,6 +111,14 @@
     .daily-map-axis { color:#b5cbd0; font:650 .66rem ui-monospace,SFMono-Regular,monospace; }
     .daily-map-axis div { grid-column:2; display:flex; justify-content:space-between; }
     .daily-map-errors { margin:8px 0 0; color:#c1d8d9; font-size:.75rem; font-variant-numeric:tabular-nums; }
+    .daily-card-kit { margin-top:15px; padding:12px 16px; border:1px solid #8fa9a6; border-radius:12px; background:#0a2532; }
+    .daily-card-kit summary { width:max-content; max-width:100%; color:var(--mint); cursor:pointer; font-size:.85rem; font-weight:800; }
+    .daily-card-kit summary:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .daily-card-kit p { margin:9px 0; max-width:750px; color:#c3d9dc; font-size:.8rem; }
+    .daily-card-kit canvas { display:block; width:100%; max-width:800px; height:auto; margin:12px 0; border:1px solid #719399; border-radius:10px; }
+    .daily-card-kit button { min-height:44px; padding:9px 15px; border:1px solid var(--gold); border-radius:9px; background:var(--gold); color:#172938; font-weight:800; }
+    .daily-card-kit button:hover { filter:brightness(1.1); }
+    #home-daily-card-status { margin-left:10px; color:var(--mint); font-size:.8rem; }
     .daily-preview-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; margin-top:17px; }
     .daily-preview-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:46px; border-radius:10px; font-weight:800; text-decoration:none; }
     .daily-preview-actions .daily-link { padding:9px 17px; background:var(--gold); color:#192735; }
@@ -289,7 +297,9 @@
           <p class="daily-map-errors" id="home-daily-map-errors">Shorter band = closer to target</p>
         </div>
       </div>
-      <p class="daily-preview-progress" id="home-daily-progress" role="status" hidden></p><p class="daily-preview-draft" id="home-daily-draft" role="status" hidden></p><div class="daily-preview-actions"><a class="daily-link" id="home-daily-link" href="one-move.html?daily=today#stage">Play today's puzzle ↗</a><button class="share-link" id="home-daily-share" type="button">Share this puzzle ↗</button><a class="course-link" href="one-move.html">Play the three-round course ↗</a><span id="home-daily-share-status" role="status"></span></div><nav class="daily-home-trail" aria-label="Recent Daily Flip editions"><div class="daily-home-trail-head"><strong>Last seven editions</strong><span id="home-daily-trail-summary">Progress stays on this device</span></div><div class="daily-home-days" id="home-daily-trail"></div></nav></section>
+      <p class="daily-preview-progress" id="home-daily-progress" role="status" hidden></p><p class="daily-preview-draft" id="home-daily-draft" role="status" hidden></p><div class="daily-preview-actions"><a class="daily-link" id="home-daily-link" href="one-move.html?daily=today#stage">Play today's puzzle ↗</a><button class="share-link" id="home-daily-share" type="button">Share this puzzle ↗</button><a class="course-link" href="one-move.html">Play the three-round course ↗</a><span id="home-daily-share-status" role="status"></span></div>
+      <details class="daily-card-kit" id="home-daily-card-kit"><summary>Make a challenge image ↗</summary><p>Download a 1200 × 630 PNG with today's five readings and target. It hides the closer estimate and the winning move. The image is made in this browser; the link above remains a blind invitation without the inputs.</p><canvas id="home-daily-card" width="1200" height="630" role="img" aria-label="Daily challenge image preview">Today's readings and target appear above.</canvas><button id="home-daily-card-download" type="button">Download challenge PNG ↓</button><span id="home-daily-card-status" role="status"></span></details>
+      <nav class="daily-home-trail" aria-label="Recent Daily Flip editions"><div class="daily-home-trail-head"><strong>Last seven editions</strong><span id="home-daily-trail-summary">Progress stays on this device</span></div><div class="daily-home-days" id="home-daily-trail"></div></nav></section>
       <p class="path-after">Want a lesson? <a href="guide.html">Read the five-minute guide</a> or <a href="worksheet.html">print the worksheet</a>. Try <a href="shape-the-data.html">Shape the Data</a>, <a href="flip-levers.html">Flip Levers</a>, <a href="flip-point.html">Flip Point</a>, <a href="target-lens.html">Target Lens</a>, and the <a href="atlas.html">Outcome Atlas</a>.</p>
     </section>
     <section id="start" class="journey" aria-labelledby="start-title">
@@ -897,6 +907,6 @@
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
   <script src="flip-levers.js?v=3" defer></script>
-  <script src="one-move.js?v=25" defer></script>
+  <script src="one-move.js?v=26" defer></script>
 </body>
 </html>
