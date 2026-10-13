@@ -283,6 +283,7 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.equal(lab.element("trace-distance").textContent,atTwo.distance.toFixed(2));
   assert.match(lab.element("trace-event").textContent,/1 shock impulse was added/);
   assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
+  assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
   const before=snapshot(lab);
   input(lab.element("trace-step"),1);
   assert.deepEqual(snapshot(lab),before);
@@ -290,6 +291,7 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.equal(lab.element("trace-step").max,"3","the captured path stays frozen");
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"4");
+  assert.match(lab.element("trace-map").attributes["aria-label"],/steps 0 to 4/);
   for(let i=4;i<155;i++) lab.window.InwardMathLab.step();
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"155");
