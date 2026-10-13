@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=29" defer/);
+  assert.match(page,/src="one-move\.js\?v=30" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -724,6 +724,8 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   elements.set("home-daily-card-status",{textContent:""});
   const cardDownload={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
   elements.set("home-daily-card-download",cardDownload);
+  const cardCopy={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
+  elements.set("home-daily-card-copy",cardCopy);
   const cardShare={hidden:true,disabled:true,handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
   elements.set("home-daily-card-share",cardShare);
   const map=makeNode("div"),mapReadings=makeNode("div");
@@ -867,6 +869,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
   choices[3].handlers.click();
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13&pick=4#stage");
+  await cardCopy.handlers.click();
+  assert.equal(copied,"https://example.test/one-move.html?daily=2026-10-13#stage");
+  assert.equal(elements.get("home-daily-card-status").textContent,"Dated puzzle link copied.");
+  copied=null;
   await share.handlers.click();
   assert.match(copied,/one-move\.html\?daily=2026-10-13#stage/);
   assert.doesNotMatch(copied,/pick=/);
@@ -891,11 +897,12 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-card-kit"/);
   assert.match(html,/id="home-daily-card-share" type="button" hidden disabled/);
   assert.match(html,/id="home-daily-card-download"/);
+  assert.match(html,/id="home-daily-card-copy"/);
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=29" defer/);
+  assert.match(html,/src="one-move\.js\?v=30" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -1070,7 +1077,7 @@ test("a cached pre-duel page still initializes and scores with the new script", 
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
       addEventListener(name,callback){this.handlers[name]=callback;},
-      setAttribute(){},scrollIntoView(){},focus(){}});
+      setAttribute(){},scrollIntoView(){},focus(){this.focused=true;}});
     return elements.get(id);
   }
   const readings=Array.from({length:5},()=>({handlers:{},addEventListener(name,callback){this.handlers[name]=callback;},
@@ -1114,6 +1121,8 @@ test("a cached pre-duel page still initializes and scores with the new script", 
   assert.equal(element("selected-reading").textContent,"5");
   assert.equal(element("proposed").value,"15");
   assert.equal(address,"one-move.html?daily=2026-10-13#stage");
+  assert.equal(element("stage-title").focused,true);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8"),/id="stage-title" tabindex="-1"/);
 });
 
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
