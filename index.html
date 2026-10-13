@@ -1073,8 +1073,9 @@
       if(pullChanges.length) events.push("Pull α set to "+pullChanges.at(-1).value.toFixed(1)+" at this step"+(pullChanges.length>1?" after "+pullChanges.length+" changes":"")+". The next update uses it.");
       $("trace-event").textContent=events.join(" ")||"No shock or pull change was recorded at this step.";
       $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock "+(shocks.length===1?"event":"events")+" and "+changes.length+" pull "+(changes.length===1?"change":"changes")+" in this window. This view stays frozen until you refresh it.";
-      $("trace-closest").disabled=points.length<2;
-      $("trace-jump").disabled=!shocks.length;
+      const closest=points.reduce((best,p)=>p.distance<best.distance?p:best);
+      $("trace-closest").disabled=points.length<2||closest.step===selected;
+      $("trace-jump").disabled=!shocks.length||(new Set(shocks).size===1&&shocks[0]===selected);
       const ctx=traceX,left=51,right=568,top=19,bottom=194;
       const max=Math.max(4,...points.map(p=>p.distance))*1.04;
       const x=step=>first===last?(left+right)/2:left+(step-first)/(last-first)*(right-left),y=value=>bottom-value/max*(bottom-top);
