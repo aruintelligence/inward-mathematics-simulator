@@ -294,6 +294,7 @@
     .trace-refresh:hover { filter:brightness(1.14); }
     .trace-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
     .trace-actions .trace-refresh { margin-top:0; }
+    .trace-captured-link:not([hidden]) { display:inline-block; margin-top:10px; color:#9fe6f1; font-size:.82rem; font-weight:750; text-underline-offset:3px; }
     .trace-export-status { margin-top:7px; color:#9fe6f1; font-size:.78rem; }
     .trace-visual canvas { margin:0 0 8px; background:#0a1e2f; }
     .trace-plot-title { margin:0 0 8px; color:#d1e4e9; font-size:.78rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
@@ -510,7 +511,7 @@
     <details class="step-lens trace-stage" id="trace-lens">
       <summary><span><span class="trace-kicker">Experiment 01 · observed path</span>Trace the path behind you ↗</span></summary>
       <div class="step-lens-body">
-        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose and lavender marks show where shocks and pull changes occurred. Opening or refreshing this view does not change the live model.</p>
+        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose and lavender marks show where shocks and pull changes occurred. Copy a link to open a selected step paused in this view. Opening or refreshing this view does not change the live model.</p>
         <div class="trace-layout">
           <div class="trace-inputs">
             <label class="trace-control" for="trace-step"><span>Inspect captured step</span><output id="trace-step-value">0</output></label>
@@ -521,7 +522,8 @@
             <button class="trace-jump" id="trace-closest" type="button">Jump to closest approach ↗</button>
             <button class="trace-jump" id="trace-jump" type="button">Jump to next shock ↗</button>
             <button class="trace-jump" id="trace-next-pull" type="button">Jump to next pull change ↗</button>
-            <div class="trace-actions"><button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button><button class="trace-refresh" id="trace-export" type="button">Download path CSV</button></div>
+            <div class="trace-actions"><button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button><button class="trace-refresh" id="trace-export" type="button">Download path CSV</button><button class="trace-refresh" id="trace-copy" type="button">Copy link to selected step</button></div>
+            <a class="trace-captured-link" id="trace-link" href="#" hidden>Open selected step link ↗</a>
             <p class="trace-export-status" id="trace-export-status" role="status"></p>
           </div>
           <div class="trace-visual">
@@ -821,7 +823,7 @@
       simulation = {
         seed, step:0, position:{x:120,y:215}, velocity:{x:0,y:0},
         trail:[{x:120,y:215}], stableSteps:0, shocks:[],
-        initialAlpha:Number($("alpha").value), parameterChanges:[]
+        initialAlpha:Number($("alpha").value), initialShockStrength:Number($("shock-strength").value), parameterChanges:[]
       };
       paused = true; accumulator = 0; $("run").textContent = "Run";
       $("event").textContent = reducedMotion ? "Paused for reduced motion. Use Step once or Run." : "Paused at step 0.";
@@ -1059,7 +1061,9 @@
     }
     function captureTrace() {
       const last=simulation.step,first=last-simulation.trail.length+1;
-      traceCapture={seed:simulation.seed,first,last,
+      let replay=null;
+      try { replay=replayPayload(); } catch { /* The path remains inspectable when the run is too long for a link. */ }
+      traceCapture={seed:simulation.seed,first,last,replay,initialShockStrength:simulation.initialShockStrength,
         points:simulation.trail.map((position,i)=>({step:first+i,position:{...position},distance:Math.hypot(target.x-position.x,target.y-position.y)})),
         shocks:simulation.shocks.filter(shock=>shock.step>=first&&shock.step<=last).map(shock=>shock.step),
         changes:simulation.parameterChanges.filter(change=>change.parameter==="alpha"&&change.step>=first&&change.step<=last).map(change=>({step:change.step,value:change.value}))};
@@ -1085,6 +1089,8 @@
       const {first,last,points,shocks,changes,seed}=traceCapture;
       const selected=Math.max(first,Math.min(last,Number($("trace-step").value))),point=points[selected-first];
       $("trace-step-value").textContent=String(selected);
+      $("trace-link").hidden=true;
+      $("trace-export-status").textContent="";
       $("trace-position").textContent=point.position.x.toFixed(2)+", "+point.position.y.toFixed(2);
       $("trace-distance").textContent=point.distance.toFixed(2);
       const atStep=shocks.filter(step=>step===selected).length;
@@ -1253,10 +1259,17 @@
         p:simulation.parameterChanges.map(change=>[change.step,change.parameter==="alpha"?"a":"k",change.value]),
         q:simulation.shocks.map(shock=>[shock.step,shock.selectedStrength])};
     }
-    function replayUrl() {
-      const url=window.location.href.split(/[?#]/)[0]+"?run="+encodeURIComponent(JSON.stringify(replayPayload()))+"#rc-title";
+    function replayUrl(data=replayPayload(),suffix="#rc-title") {
+      const url=window.location.href.split(/[?#]/)[0]+"?run="+encodeURIComponent(JSON.stringify(data))+suffix;
       if(url.length>6000) throw new Error("Run exceeds replay-link limits");
       return url;
+    }
+    function traceReplayUrl(step) {
+      const {replay,initialShockStrength}=traceCapture;
+      if(!replay) throw new Error("Run exceeds replay-link limits");
+      const p=replay.p.filter(change=>change[0]<=step),q=replay.q.filter(shock=>shock[0]<=step);
+      const k=p.filter(change=>change[1]==="k").at(-1)?.[2]??initialShockStrength;
+      return replayUrl({...replay,n:step,k,p,q},"&inspect=trace#trace-lens");
     }
     function parseReplay(raw) {
       if(!raw || raw.length>3000) throw new Error("Invalid replay link");
@@ -1278,10 +1291,10 @@
     }
     function restoreReplay() {
       const raw=new URLSearchParams(window.location.search).get("run");
-      if(raw===null) return;
+      if(raw===null) return false;
       let data;
       try { data=parseReplay(raw); }
-      catch { $("event").textContent="Invalid replay link; a fresh example is shown."; return; }
+      catch { $("event").textContent="Invalid replay link; a fresh example is shown."; return false; }
       $("seed").value=String(data.s);$("alpha").value=String(data.a);$("outlier").value=String(data.f);$("shock-strength").value=String(data.k);
       activeScene=null;reset();
       let nextChange=0,nextShock=0;
@@ -1297,6 +1310,7 @@
       $("shock-strength").value=String(data.k);
       render();
       $("event").textContent="Replayed "+data.n+" "+(data.n===1?"step":"steps")+" and "+data.q.length+" "+(data.q.length===1?"shock":"shocks")+" from this link. Paused for inspection.";
+      return true;
     }
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
     $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
@@ -1321,6 +1335,16 @@
     });
     $("trace-refresh").addEventListener("click",captureTrace);
     $("trace-export").addEventListener("click",exportTrace);
+    $("trace-copy").addEventListener("click",async()=>{
+      if(!traceCapture) return;
+      const step=Number($("trace-step").value);
+      let link;
+      try { link=traceReplayUrl(step); }
+      catch { $("trace-link").hidden=true;$("trace-export-status").textContent="This captured run is too long for a link. Download its path CSV instead.";return; }
+      $("trace-link").href=link;$("trace-link").textContent="Open captured step "+step+" ↗";$("trace-link").hidden=false;
+      try { await navigator.clipboard.writeText(link);$("trace-export-status").textContent="Link to captured step "+step+" copied. It opens paused with the trace in view."; }
+      catch { $("trace-export-status").textContent="Open the captured step link here to copy it from the address bar."; }
+    });
     $("future-lens").addEventListener("toggle",renderFuture);
     $("future-alpha").addEventListener("input",renderFuture);
     $("future-horizon").addEventListener("input",renderFuture);
@@ -1416,7 +1440,10 @@
     }
     reset();
     renderWorkbench();
-    restoreReplay();
+    if(restoreReplay() && sharedQuery.get("inspect")==="trace" && window.location.hash==="#trace-lens") {
+      $("trace-lens").open=true;
+      captureTrace();
+    }
     if(sharedDatasetError) $("workbench-error").textContent=sharedDatasetError;
     requestAnimationFrame(frame);
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
