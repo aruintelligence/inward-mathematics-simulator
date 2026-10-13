@@ -129,6 +129,27 @@ test("distance falls under the damped pull and no shock is invented", () => {
   assert.equal(after.coherenceProxy,Math.exp(-after.distance/120));
 });
 
+test("one-step forecast matches the next exact state after a parameter change and shock", () => {
+  const lab=loadLab(),lens=lab.element("step-lens");
+  lens.open=true;lens.handlers.toggle();
+  const predicted=()=>lab.element("step-preview-position").textContent.split(", ").map(Number);
+  const first=predicted();
+  assert.equal(snapshot(lab).step,0,"opening the forecast must not advance the model");
+  assert.match(lab.element("step-preview-outcome").textContent,/After step 1: distance .*closer by/);
+  click(lab.element("step"));
+  assert.ok(Math.abs(snapshot(lab).position.x-first[0])<0.00005);
+  assert.ok(Math.abs(snapshot(lab).position.y-first[1])<0.00005);
+  input(lab.element("alpha"),2.4);
+  click(lab.element("shock"));
+  const afterShock=predicted(),before=snapshot(lab);
+  assert.equal(before.step,1);
+  assert.equal(before.shocks.length,1);
+  click(lab.element("step"));
+  assert.ok(Math.abs(snapshot(lab).position.x-afterShock[0])<0.00005);
+  assert.ok(Math.abs(snapshot(lab).position.y-afterShock[1])<0.00005);
+  assert.match(lab.element("step-preview-outcome").textContent,/After step 3:/);
+});
+
 test("observer comparison uses the same four values under outlier changes", () => {
   const lab=loadLab();
   input(lab.element("outlier"),50);
