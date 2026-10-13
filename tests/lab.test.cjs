@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=33" defer/);
+  assert.match(page,/src="one-move\.js\?v=34" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -922,7 +922,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=33" defer/);
+  assert.match(html,/src="one-move\.js\?v=34" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -1107,12 +1107,14 @@ test("a cached pre-duel page still initializes and scores with the new script", 
   const readings=Array.from({length:5},()=>({handlers:{},addEventListener(name,callback){this.handlers[name]=callback;},
     setAttribute(){},querySelector(){return {textContent:"",style:{}};}}));
   const document={getElementById:element,querySelectorAll(selector){return selector===".reading"?readings:[];}};
-  let address="";
+  let address="",pushed=[];
+  const historyEvents={};
   const saved=new Map(),key="inward-math-draft-v1-2026-10-12";
   class TestDate extends Date {constructor(...args){super(...(args.length?args:[2026,9,13,12]));}}
   saved.set(key,JSON.stringify({index:3,value:40}));
   const window={location:{search:"?daily=2026-10-12&pick=2",hash:"#stage",href:"https://example.test/one-move.html?daily=2026-10-12&pick=2#stage"},
-    history:{replaceState(_state,_title,url){address=url;}},localStorage:{getItem:key=>saved.get(key)??null,
+    addEventListener(name,handler){historyEvents[name]=handler;},
+    history:{replaceState(_state,_title,url){address=url;},pushState(_state,_title,url){address=url;pushed.push(url);}},localStorage:{getItem:key=>saved.get(key)??null,
       setItem(key,value){saved.set(key,value);},removeItem(key){saved.delete(key);}}};
   const script=fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8");
   vm.runInNewContext(script,{module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,Date:TestDate,
@@ -1145,7 +1147,21 @@ test("a cached pre-duel page still initializes and scores with the new script", 
   assert.equal(element("selected-reading").textContent,"5");
   assert.equal(element("proposed").value,"15");
   assert.equal(address,"one-move.html?daily=2026-10-13#stage");
+  assert.deepEqual(pushed,["one-move.html?daily=2026-10-13#stage"]);
   assert.equal(element("stage-title").focused,true);
+  element("stage-title").focused=false;
+  window.location.search="?daily=2026-10-12";
+  historyEvents.popstate();
+  assert.equal(element("round-name").textContent,"Daily edition / 2026-10-12");
+  assert.equal(element("selected-reading").textContent,"3");
+  assert.equal(element("stage-title").focused,true);
+  assert.equal(address,"one-move.html?daily=2026-10-13#stage","Back must not replace its history entry");
+  window.location.search="?daily=2026-10-13";
+  historyEvents.popstate();
+  assert.equal(element("round-name").textContent,"Daily edition / 2026-10-13");
+  assert.equal(element("selected-reading").textContent,"5");
+  assert.equal(element("proposed").value,"15");
+  assert.deepEqual(pushed,["one-move.html?daily=2026-10-13#stage"],"Forward must not push another entry");
   assert.match(fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8"),/id="stage-title" tabindex="-1"/);
 });
 

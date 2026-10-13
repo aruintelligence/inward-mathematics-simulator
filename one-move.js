@@ -503,7 +503,11 @@
       if(!$("run-resume").hidden) $("run-resume").textContent="Return to case "+String(runFrontier).padStart(3,"0")+" ↗";
     }
   }
-  function setAddress() {try{window.history.replaceState(null,"",sourceUrl()+(window.location.hash||""));}catch(_){/* Downloaded pages still play. */}}
+  function setAddress(mode) {
+    if(!mode) return;
+    try {window.history[mode==="push"?"pushState":"replaceState"](null,"",sourceUrl()+(window.location.hash||""));}
+    catch(_) { /* Downloaded pages still play. */ }
+  }
   function updateHints() {
     const button=$("hint-button");
     if(!button) return; // Cached prior pages still initialize with the new script.
@@ -615,7 +619,7 @@
     $("input-error").textContent="";
     choiceButtons.forEach((button,index)=>button.setAttribute("aria-pressed",String(index===selected)));
   }
-  function render() {
+  function render(historyMode="replace") {
     const stats=core.evaluate(puzzle.values,puzzle.target),opposite=stats.winner==="Mean"?"median":"mean";
     $("round-name").textContent=puzzle.date?"Daily edition / "+puzzle.date:puzzle.practice?"Practice case / "+String(puzzle.practice).padStart(3,"0"):round===null?"Shared puzzle":"Round "+(round+1)+" / 3";
     $("round-title").textContent=puzzle.title;
@@ -646,14 +650,14 @@
     $("share-link").href=sourceUrl();
     updateDailyStatus();
     updatePracticeRun();
-    setAddress();updateProposal();updateHints();
+    setAddress(historyMode);updateProposal();updateHints();
   }
   function persistDraft() {if(puzzle.date) saveDailyDraft(puzzle.date,selected,proposed);}
   function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();persistDraft();}
-  function load(next,number) {
+  function load(next,number,historyMode="push") {
     const draft=next.date?dailyDraft(next.date):null;
     puzzle=next;round=number;selected=draft?.index??2;proposed=draft?.value??puzzle.values[selected];attempts=0;best=null;hintLevel=0;
-    $("share-status").textContent="";$("link-error").textContent="";render();
+    $("share-status").textContent="";$("link-error").textContent="";render(historyMode);
     $("stage-title").focus({preventScroll:true});
     $("stage-title").scrollIntoView({block:"start"});
   }
@@ -719,6 +723,11 @@
       if(day) {load(dailyPuzzle(day),null);return;}
     }
     load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length);
+  });
+  window.addEventListener?.("popstate",()=>{
+    const restored=parsePuzzle(window.location.search);
+    load(restored.puzzle,restored.round,null);
+    $("link-error").textContent=restored.error;
   });
   $("play-again").addEventListener("click",()=>{$("result").hidden=true;$("proposed").focus();});
   $("download-move-card")?.addEventListener("click",()=>{
