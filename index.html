@@ -1108,10 +1108,10 @@
       points.forEach((p,i)=>i?ctx.lineTo(mx(p.position),my(p.position)):ctx.moveTo(mx(p.position),my(p.position)));ctx.stroke();
       ctx.fillStyle="#5af0c6";ctx.beginPath();ctx.arc(mx(target),my(target),8,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle="#5af0c6";ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx(target),my(target),15,0,Math.PI*2);ctx.stroke();
-      ctx.strokeStyle="#ff8f9d";ctx.lineWidth=3;
-      for(const step of new Set(shocks)) {const p=points[step-first]?.position;if(p) ctx.strokeRect(mx(p)-6,my(p)-6,12,12);}
       const chosen=points[selected-first].position;
       ctx.shadowColor="#73cde8";ctx.shadowBlur=13;ctx.fillStyle="#73cde8";ctx.beginPath();ctx.arc(mx(chosen),my(chosen),8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.strokeStyle="#ff8f9d";ctx.lineWidth=3;
+      for(const step of new Set(shocks)) {const p=points[step-first]?.position;if(p) ctx.strokeRect(mx(p)-11,my(p)-11,22,22);}
       ctx.fillStyle="#d4e5eb";ctx.font="700 12px system-ui";ctx.fillText("CAPTURED STEPS "+first+"–"+last,20,27);
       ctx.textAlign="right";ctx.fillStyle="#73cde8";ctx.fillText("SELECTED "+selected,580,27);ctx.textAlign="left";
       traceMap.setAttribute("aria-label","Captured positions for seed "+seed+", steps "+first+" to "+last+". At selected step "+selected+", position "+chosen.x.toFixed(2)+", "+chosen.y.toFixed(2)+", distance "+points[selected-first].distance.toFixed(2)+". The fixed target is at 455, 160. Rose squares mark shock positions.");
