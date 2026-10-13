@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=6" defer/);
+  assert.match(page,/src="one-move\.js\?v=7" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -692,6 +692,23 @@ test("the seven-day trail crosses months and leap days in local calendar order",
   assert.match(html,/id="daily-trail" aria-label="Recent Daily Flip editions"/);
 });
 
+test("progressive hints teach the estimators and point to a viable direction without the value", () => {
+  const {hintFor,ROUNDS,dailyPuzzle}=require("../one-move.js");
+  const {rankLevers}=require("../flip-levers.js");
+  const examples=[...ROUNDS,dailyPuzzle("2026-10-12"),dailyPuzzle("2026-10-13")];
+  for(const puzzle of examples) {
+    const insight=hintFor(puzzle,1),route=rankLevers(puzzle.values,puzzle.target).ranked[0];
+    const nudge=hintFor(puzzle,2),direction=route.flip.value<route.value?"down":"up";
+    assert.match(insight,/mean uses all five readings.*median is the middle/i);
+    assert.match(nudge,new RegExp("Reading "+(route.index+1)+"\\. Move it "+direction));
+    assert.equal(nudge.includes(String(route.flip.value)),false);
+    assert.equal(hintFor(puzzle,0),"");
+  }
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="hint-button"[^>]+aria-controls="hint-panel"/);
+  assert.match(html,/id="hint-panel" hidden aria-live="polite"/);
+});
+
 test("blind duel invitation shares a score and reproducible puzzle without the answer", () => {
   const {dailyPuzzle,duelInvitation,ROUNDS}=require("../one-move.js");
   const puzzle=dailyPuzzle("2026-10-12"),url="https://example.test/one-move.html?daily=2026-10-12";
@@ -708,7 +725,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
