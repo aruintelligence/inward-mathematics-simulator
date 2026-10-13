@@ -254,6 +254,9 @@
     .future-key { display:flex; flex-wrap:wrap; gap:5px 17px; color:#d5e1e4; font-size:.77rem; }
     .future-key i { display:inline-block; width:18px; height:3px; margin:0 6px 3px 0; background:var(--gold); }
     .future-key .alternative i { background:#d9b8ff; }
+    .future-ribbon-title { margin:17px 0 5px; color:#dce6ef; font-size:.76rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .future-lens canvas.future-ribbon { margin:0 0 5px; border:0; border-radius:6px; background:#0d2235; }
+    .future-tally { margin:0; color:#cbdce5; font-size:.78rem; }
     .future-results { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
     .future-results div { padding:10px 12px; border:1px solid #5e6685; border-radius:9px; background:#0d2235; }
     .future-results span { display:block; color:#c7d8df; font-size:.74rem; }
@@ -539,6 +542,9 @@
           <div class="future-visual">
             <canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas>
             <div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div>
+            <h3 class="future-ribbon-title">Which path is nearer at each update?</h3>
+            <canvas id="future-ribbon" class="future-ribbon" width="600" height="48" role="img" aria-label="Closer path at each of 60 updates; counts follow">The closer-path counts follow.</canvas>
+            <p class="future-tally" id="future-tally"></p>
             <div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div>
           </div>
         </div>
@@ -1144,6 +1150,15 @@
       const changes=leadChanges(current,alternate);
       $("future-leads").textContent=changes.length?"Closer path switches by update "+changes.join(", ")+" on this sampled 60-update path.":"No lead change in these 60 sampled updates.";
       $("future-next-lead").disabled=!changes.length;
+      const nearer=Array.from({length:60},(_,i)=>{const delta=current[i+1]-alternate[i+1];return Math.abs(delta)<0.005?0:delta<0?-1:1;});
+      const currentCount=nearer.filter(v=>v===-1).length,alternateCount=nearer.filter(v=>v===1).length,tieCount=60-currentCount-alternateCount;
+      $("future-tally").textContent="Across 60 sampled updates: current nearer at "+currentCount+", alternative at "+alternateCount+", nearly equal at "+tieCount+". Each bar is one update.";
+      const ribbon=$("future-ribbon"),rx=ribbon.getContext("2d"),barX=i=>49+i*519/60;
+      rx.clearRect(0,0,600,48);
+      nearer.forEach((which,i)=>{rx.fillStyle=which<0?"#ffcb78":which>0?"#d9b8ff":"#9baab9";rx.fillRect(barX(i)+.5,10,519/60-1,18);});
+      rx.strokeStyle="#73cde8";rx.lineWidth=2;rx.strokeRect(barX(horizon-1),8,519/60,22);
+      rx.fillStyle="#b8ced9";rx.font="11px system-ui";rx.fillText("1",49,41);rx.fillText("30",299,41);rx.fillText("60",554,41);
+      ribbon.setAttribute("aria-label","Closer path for each of 60 sampled future updates, from left to right. Current pull is nearer at "+currentCount+" updates, alternative pull at "+alternateCount+", nearly equal at "+tieCount+". Selected update "+horizon+" is outlined. The distance chart and lead-change list give the sequence.");
       const canvas=$("future-chart"),ctx=canvas.getContext("2d"),left=49,right=568,top=19,bottom=194;
       const max=Math.max(4,...current,...alternate)*1.04,x=i=>left+i/last*(right-left),y=value=>bottom-value/max*(bottom-top);
       ctx.clearRect(0,0,600,240);ctx.strokeStyle="#38566b";ctx.lineWidth=1;ctx.fillStyle="#bdd0d8";ctx.font="12px system-ui";
