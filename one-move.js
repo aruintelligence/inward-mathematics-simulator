@@ -21,6 +21,15 @@
   function nextOpenDaily(today,currentDay,bestForDay) {
     return recentDays(today).reverse().find(entry=>entry.day!==currentDay&&bestForDay(entry.day)===null)?.day??null;
   }
+  function trailState(day,best) {
+    if(best===null) return {state:"open",label:"Open",aria:"Unsolved on this device.",exact:false,minimum:null};
+    const puzzle=dailyPuzzle(day);
+    const route=puzzle&&core.rankLevers(puzzle.values,puzzle.target).ranked[0];
+    const minimum=route?units(route.flip.distance):null,exact=best===minimum;
+    return {state:exact?"exact":"complete",label:exact?"Exact · "+fmt(best/10000):"Best "+fmt(best/10000),
+      aria:exact?"Exact minimum on this device: "+fmt(best/10000)+".":
+        "Best move on this device: "+fmt(best/10000)+"."+(minimum!==null&&best>minimum?" A shorter move exists.":""),exact,minimum};
+  }
   function validDay(day) {
     if(!/^20\d\d-\d\d-\d\d$/.test(day??"")) return false;
     const parsed=new Date(day+"T00:00:00Z");
@@ -162,7 +171,7 @@
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
   const dailyChallengeCardFilename=day=>"inward-math-daily-challenge-"+day+".png";
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,nextOpenDaily,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,nextOpenDaily,trailState,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -309,9 +318,7 @@
       }
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
       const draft=dailyDraft(day),draftNote=$("home-daily-draft");
-      const shortest=best===null?null:core.rankLevers(puzzle.values,puzzle.target).ranked[0]?.flip.distance;
-      const shortestUnits=shortest===null||shortest===undefined?null:units(shortest);
-      const exact=best!==null&&best===shortestUnits;
+      const {exact,minimum:shortestUnits}=trailState(day,best);
       link.href=selectedReading===null?href:href.replace("#stage","&pick="+(selectedReading+1)+"#stage");
       link.textContent=selectedReading!==null?"Try reading "+(selectedReading+1)+" ↗":draft?"Resume your move ↗":best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
       if(draftNote) {
@@ -325,22 +332,23 @@
       const trail=$("home-daily-trail");
       if(trail) {
         trail.replaceChildren();
-        let completed=0;
+        let completed=0,exactCount=0;
         for(const entry of recentDays(now).reverse()) {
-          const saved=dailyBest(entry.day),tile=document.createElement("a");
+          const saved=dailyBest(entry.day),status=trailState(entry.day,saved),tile=document.createElement("a");
           if(saved!==null) completed++;
+          if(status.exact) exactCount++;
           tile.className="daily-home-day";
-          tile.dataset.state=saved===null?"open":"complete";
+          tile.dataset.state=status.state;
           tile.href="one-move.html?daily="+entry.day+"#stage";
           if(entry.day===day) tile.setAttribute("aria-current","date");
-          tile.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+(saved===null?"Unsolved on this device.":"Best move on this device: "+fmt(saved/10000)+"."));
-          const weekday=document.createElement("span"),number=document.createElement("strong"),status=document.createElement("span");
+          tile.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+status.aria);
+          const weekday=document.createElement("span"),number=document.createElement("strong"),state=document.createElement("span");
           weekday.className="trail-weekday";weekday.textContent=entry.date.toLocaleDateString(undefined,{weekday:"short"});
           number.textContent=entry.date.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-          status.className="trail-state";status.textContent=saved===null?"Open":"Best "+fmt(saved/10000);
-          tile.append(weekday,number,status);trail.append(tile);
+          state.className="trail-state";state.textContent=status.label;
+          tile.append(weekday,number,state);trail.append(tile);
         }
-        $("home-daily-trail-summary").textContent=completed+" of 7 flipped on this device";
+        $("home-daily-trail-summary").textContent=completed+" of 7 flipped · "+exactCount+" exact on this device";
       }
       home.dataset.winner=winner.toLowerCase();
       if($("home-daily-card-kit")?.open) drawDailyCard(preview);
@@ -444,22 +452,23 @@
     if(!trail) return; // Older cached HTML remains playable during a deployment.
     const now=new Date(),today=localDay(now),days=recentDays(now);
     trail.replaceChildren();
-    let completed=0;
+    let completed=0,exactCount=0;
     for(const entry of days) {
-      const best=dailyBest(entry.day),link=document.createElement("a");
+      const best=dailyBest(entry.day),state=trailState(entry.day,best),link=document.createElement("a");
       if(best!==null) completed++;
+      if(state.exact) exactCount++;
       link.className="trail-day";
-      link.dataset.state=best===null?"open":"complete";
+      link.dataset.state=state.state;
       link.href="one-move.html?daily="+entry.day+"#stage";
       if(entry.day===today) link.setAttribute("aria-current","date");
       const weekday=document.createElement("span"),number=document.createElement("strong"),status=document.createElement("span");
       weekday.className="trail-weekday";weekday.textContent=entry.date.toLocaleDateString(undefined,{weekday:"short"});
       number.textContent=entry.date.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-      status.className="trail-state";status.textContent=best===null?entry.day===today?"Today · open":"Open edition":"Best "+fmt(best/10000);
-      link.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+(best===null?"Unsolved on this device.":"Best move on this device: "+fmt(best/10000)+"."));
+      status.className="trail-state";status.textContent=best===null?entry.day===today?"Today · open":"Open edition":state.label;
+      link.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+state.aria);
       link.append(weekday,number,status);trail.append(link);
     }
-    $("trail-summary").textContent=completed+" of 7 editions flipped on this device.";
+    $("trail-summary").textContent=completed+" of 7 editions flipped · "+exactCount+" exact on this device.";
   }
   function updatePracticeRun() {
     if(!$("practice-run")) return;

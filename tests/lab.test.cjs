@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=31" defer/);
+  assert.match(page,/src="one-move\.js\?v=32" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -810,23 +810,27 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-12#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
   assert.equal(trail.children[6].href,"one-move.html?daily=2026-10-06#stage");
-  assert.equal(elements.get("home-daily-trail-summary").textContent,"0 of 7 flipped on this device");
-  saved.set("inward-math-daily-v1-2026-10-10","100001");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"0 of 7 flipped · 0 exact on this device");
+  saved.set("inward-math-daily-v1-2026-10-10","110000");
   events.pageshow();
   assert.equal(trail.children[2].dataset.state,"complete");
-  assert.equal(trail.children[2].children[2].textContent,"Best 10.0001");
-  assert.equal(trail.children[2].attributes["aria-label"],"Open 2026-10-10 Daily Flip. Best move on this device: 10.0001.");
-  assert.equal(elements.get("home-daily-trail-summary").textContent,"1 of 7 flipped on this device");
+  assert.equal(trail.children[2].children[2].textContent,"Best 11");
+  assert.equal(trail.children[2].attributes["aria-label"],"Open 2026-10-10 Daily Flip. Best move on this device: 11. A shorter move exists.");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"1 of 7 flipped · 0 exact on this device");
   saved.set("inward-math-daily-v1-2026-10-12","50001");
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Beat your best ↗");
   assert.equal(elements.get("home-daily-progress").hidden,false);
   assert.equal(elements.get("home-daily-progress").textContent,"Flipped on this device · best move 5.0001");
-  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped on this device");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped · 0 exact on this device");
   saved.set("inward-math-daily-v1-2026-10-12","22501");
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Replay today's puzzle ↗");
   assert.equal(elements.get("home-daily-progress").textContent,"Exact minimum on this device · move 2.2501");
+  assert.equal(trail.children[0].dataset.state,"exact");
+  assert.equal(trail.children[0].children[2].textContent,"Exact · 2.2501");
+  assert.equal(trail.children[0].attributes["aria-label"],"Open 2026-10-12 Daily Flip. Exact minimum on this device: 2.2501.");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped · 1 exact on this device");
   saved.set("inward-math-draft-v1-2026-10-12",JSON.stringify({index:1,value:64.7499}));
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Resume your move ↗");
@@ -868,8 +872,8 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(elements.get("home-daily-map-errors").textContent,/Mean error 5\.6 · Median error 10/);
   assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-13#stage");
   assert.equal(trail.children[0].attributes["aria-current"],"date");
-  assert.equal(trail.children[1].dataset.state,"complete");
-  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped on this device");
+  assert.equal(trail.children[1].dataset.state,"exact");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped · 1 exact on this device");
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
   choices[3].handlers.click();
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13&pick=4#stage");
@@ -906,7 +910,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=31" defer/);
+  assert.match(html,/src="one-move\.js\?v=32" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -982,7 +986,7 @@ test("result PNG names identify the edition without embedding puzzle values", ()
 });
 
 test("the seven-day trail crosses months and leap days in local calendar order", () => {
-  const {recentDays,nextOpenDaily}=require("../one-move.js");
+  const {recentDays,nextOpenDaily,trailState}=require("../one-move.js");
   assert.deepEqual(recentDays(new Date(2028,2,2,12)).map(entry=>entry.day),[
     "2028-02-25","2028-02-26","2028-02-27","2028-02-28","2028-02-29","2028-03-01","2028-03-02"]);
   assert.deepEqual(recentDays(new Date(2027,0,2,12)).map(entry=>entry.day),[
@@ -991,6 +995,10 @@ test("the seven-day trail crosses months and leap days in local calendar order",
   const best=day=>completed.has(day)?10000:null;
   assert.equal(nextOpenDaily(today,"2028-02-28",best),"2028-02-27");
   assert.equal(nextOpenDaily(today,"2028-02-28",()=>10000),null);
+  assert.equal(trailState("2026-10-12",null).state,"open");
+  assert.equal(trailState("2026-10-12",22501).state,"exact");
+  assert.equal(trailState("2026-10-12",32501).state,"complete");
+  assert.match(trailState("2026-10-12",32501).aria,/shorter move exists/);
   const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(html,/id="daily-trail" aria-label="Recent Daily Flip editions"/);
 });
