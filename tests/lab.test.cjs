@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=26" defer/);
+  assert.match(page,/src="one-move\.js\?v=27" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -777,6 +777,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(map.attributes["aria-label"],/Readings 40, 67, 92, 43, 84\. Target 80\. Mean 65\.2, error 14\.8\. Median 67, error 13\./);
   cardKit.open=true;cardKit.handlers.toggle({target:cardKit});
   assert.ok(cardLabels.includes("DAILY FLIP / 2026-10-12"));
+  assert.ok(cardLabels.includes("aruintelligence.github.io/inward-mathematics-simulator/one-move.html?daily=2026-10-12"));
   assert.ok(cardLabels.includes("READING 05"));
   assert.ok(cardLabels.includes("80"));
   assert.doesNotMatch(cardLabels.join(" "),/MEDIAN|MEAN|WINNER|64\.7499|EXACT MINIMUM/);
@@ -875,7 +876,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=26" defer/);
+  assert.match(html,/src="one-move\.js\?v=27" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {

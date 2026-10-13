@@ -222,7 +222,7 @@
       label("CHOSEN TARGET",92,450,18,"#ffcb78","800");
       label(fmt(puzzle.target),92,496,43,"#f3f7f4","800");
       label("One number changes the answer.",360,478,27,"#ffe5b8","800");
-      label("aruintelligence.github.io/inward-mathematics-simulator",68,554,18,"#c3dcda");
+      label("aruintelligence.github.io/inward-mathematics-simulator/one-move.html?daily="+day,68,554,18,"#c3dcda");
       label("DETERMINISTIC WHAT-IF PUZZLE · ANSWER HIDDEN",68,583,16,"#a8c9ce","800");
       canvas.setAttribute("aria-label","Daily Flip challenge card for "+day+". Readings "+puzzle.values.map(fmt).join(", ")+
         ". Target "+fmt(puzzle.target)+". Find a one-reading reversal. Answer hidden.");
