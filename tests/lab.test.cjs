@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=3" defer/);
+  assert.match(page,/src="one-move\.js\?v=4" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -680,6 +680,21 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
   assert.match(html,/href="one-move\.html\?daily=today"/);
   assert.match(html,/href="one-move\.html\?round=1#stage">Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
+});
+
+test("blind duel invitation shares a score and reproducible puzzle without the answer", () => {
+  const {dailyPuzzle,duelInvitation,ROUNDS}=require("../one-move.js");
+  const puzzle=dailyPuzzle("2026-10-12"),url="https://example.test/one-move.html?daily=2026-10-12";
+  const text=duelInvitation(puzzle,32501,url);
+  assert.match(text,/Daily Flip \/ 2026-10-12/);
+  assert.match(text,/move of 3\.2501/);
+  assert.match(text,/Can you beat my move\?/);
+  assert.ok(text.endsWith(url));
+  assert.doesNotMatch(text,/40|67|92|43|84|target|reading|64\.7499/i);
+  assert.match(duelInvitation(ROUNDS[0],16667,"https://example.test/round=1"),/One Move · I flipped the verdict with a move of 1\.6667/);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="duel" hidden/);
+  assert.match(html,/id="duel-share" type="button">Challenge a friend/);
 });
 
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
