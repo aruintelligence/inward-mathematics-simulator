@@ -304,6 +304,8 @@
     .trace-key .change-key i { background:#d9b8ff; }
     .trace-key .selected-key i { background:#73cde8; }
     .trace-key .target-key i { background:var(--mint); }
+    .trace-map-key .shock-key i { width:12px; height:12px; border:2px solid var(--rose); border-radius:2px; background:transparent; }
+    .trace-map-key .change-key i { width:15px; height:15px; border:2px dashed #d9b8ff; border-radius:50%; background:transparent; }
     .controls { display:grid; gap:16px; }
     .control { display:grid; gap:5px; color:#dbe8e9; font-size:.93rem; }
     .control .label-row { display:flex; justify-content:space-between; gap:10px; }
@@ -508,7 +510,7 @@
     <details class="step-lens trace-stage" id="trace-lens">
       <summary><span><span class="trace-kicker">Experiment 01 · observed path</span>Trace the path behind you ↗</span></summary>
       <div class="step-lens-body">
-        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose and lavender marks show shock and pull-change timing. Opening or refreshing this view does not change the live model.</p>
+        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose and lavender marks show where shocks and pull changes occurred. Opening or refreshing this view does not change the live model.</p>
         <div class="trace-layout">
           <div class="trace-inputs">
             <label class="trace-control" for="trace-step"><span>Inspect captured step</span><output id="trace-step-value">0</output></label>
@@ -528,7 +530,7 @@
             <div class="trace-key"><span><i></i>observed distance</span><span class="shock-key"><i></i>shock step</span><span class="change-key"><i></i>pull α change</span></div>
             <h3 class="trace-plot-title trace-map-title">Where the point traveled</h3>
             <canvas id="trace-map" width="600" height="300" role="img" aria-label="Captured positions in the toy field; selected values follow">The captured position values follow.</canvas>
-            <div class="trace-key"><span><i></i>observed path</span><span class="selected-key"><i></i>selected step</span><span class="target-key"><i></i>fixed target</span><span class="shock-key"><i></i>shock position</span></div>
+            <div class="trace-key trace-map-key"><span><i></i>observed path</span><span class="selected-key"><i></i>selected step</span><span class="target-key"><i></i>fixed target</span><span class="shock-key"><i></i>shock position</span><span class="change-key"><i></i>pull-change position</span></div>
           </div>
         </div>
       </div>
@@ -1116,7 +1118,7 @@
       drawTraceMap();
     }
     function drawTraceMap() {
-      const {first,last,points,shocks,seed}=traceCapture,selected=Math.max(first,Math.min(last,Number($("trace-step").value)));
+      const {first,last,points,shocks,changes,seed}=traceCapture,selected=Math.max(first,Math.min(last,Number($("trace-step").value)));
       const positions=[...points.map(p=>p.position),target],minX=Math.min(0,...positions.map(p=>p.x)),maxX=Math.max(600,...positions.map(p=>p.x));
       const minY=Math.min(0,...positions.map(p=>p.y)),maxY=Math.max(340,...positions.map(p=>p.y));
       const scale=Math.min(536/(maxX-minX),252/(maxY-minY));
@@ -1131,11 +1133,15 @@
       ctx.strokeStyle="#5af0c6";ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx(target),my(target),15,0,Math.PI*2);ctx.stroke();
       const chosen=points[selected-first].position;
       ctx.shadowColor="#73cde8";ctx.shadowBlur=13;ctx.fillStyle="#73cde8";ctx.beginPath();ctx.arc(mx(chosen),my(chosen),8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      const shockSteps=new Set(shocks),pullSteps=new Set(changes.map(change=>change.step));
+      ctx.strokeStyle="#d9b8ff";ctx.lineWidth=2.5;ctx.setLineDash([4,4]);
+      for(const step of pullSteps) {const p=points[step-first]?.position;if(p) {ctx.beginPath();ctx.arc(mx(p),my(p),19,0,Math.PI*2);ctx.stroke();}}
+      ctx.setLineDash([]);
       ctx.strokeStyle="#ff8f9d";ctx.lineWidth=3;
-      for(const step of new Set(shocks)) {const p=points[step-first]?.position;if(p) ctx.strokeRect(mx(p)-11,my(p)-11,22,22);}
+      for(const step of shockSteps) {const p=points[step-first]?.position;if(p) ctx.strokeRect(mx(p)-11,my(p)-11,22,22);}
       ctx.fillStyle="#d4e5eb";ctx.font="700 12px system-ui";ctx.fillText("CAPTURED STEPS "+first+"–"+last,20,27);
       ctx.textAlign="right";ctx.fillStyle="#73cde8";ctx.fillText("SELECTED "+selected,580,27);ctx.textAlign="left";
-      traceMap.setAttribute("aria-label","Captured positions for seed "+seed+", steps "+first+" to "+last+". At selected step "+selected+", position "+chosen.x.toFixed(2)+", "+chosen.y.toFixed(2)+", distance "+points[selected-first].distance.toFixed(2)+". The fixed target is at 455, 160. Rose squares mark shock positions.");
+      traceMap.setAttribute("aria-label","Captured positions for seed "+seed+", steps "+first+" to "+last+". At selected step "+selected+", position "+chosen.x.toFixed(2)+", "+chosen.y.toFixed(2)+", distance "+points[selected-first].distance.toFixed(2)+". The fixed target is at 455, 160. Rose squares mark "+shockSteps.size+" shock "+(shockSteps.size===1?"position":"positions")+"; lavender rings mark "+pullSteps.size+" pull-change "+(pullSteps.size===1?"position":"positions")+".");
     }
     function drawWitness(stats) {
       wgx.clearRect(0,0,600,340);
