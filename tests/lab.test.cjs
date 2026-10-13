@@ -293,11 +293,14 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
   assert.match(lab.element("trace-chart").attributes["aria-label"],/1 pull change at this step/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
+  assert.equal(lab.element("trace-jump").disabled,true,"the only shock is already selected");
   const before=snapshot(lab);
   input(lab.element("trace-step"),3);
   click(lab.element("trace-closest"));
   assert.equal(lab.element("trace-step").value,"2","closest approach selects the minimum in the frozen capture");
+  assert.equal(lab.element("trace-closest").disabled,true,"the closest captured point is already selected");
   input(lab.element("trace-step"),1);
+  assert.equal(lab.element("trace-jump").disabled,false);
   click(lab.element("trace-jump"));
   assert.equal(lab.element("trace-step").value,"2");
   assert.deepEqual(snapshot(lab),before);
