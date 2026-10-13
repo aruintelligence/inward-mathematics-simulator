@@ -43,6 +43,11 @@
     const generated=generatedValues(day);
     return generated?{...generated,date:day,title:"The daily flip",cue:"A fresh generated arrangement for "+day+". Everyone opening this date gets the same puzzle."}:null;
   }
+  function dailyPreview(today=new Date()) {
+    const day=localDay(today),puzzle=dailyPuzzle(day);
+    return puzzle?{day,puzzle,winner:core.evaluate(puzzle.values,puzzle.target).winner,
+      href:"one-move.html?daily="+day+"#stage"}:null;
+  }
   function practicePuzzle(seed) {
     if(!Number.isInteger(seed)||seed<1||seed>999999) return null;
     const generated=generatedValues("practice:"+seed);
@@ -142,11 +147,34 @@
     return "inward-math-one-move-"+(puzzle.date?"daily-"+puzzle.date:puzzle.practice?"case-"+puzzle.practice:
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
+  const home=$("home-daily-preview");
+  if(home&&!$("stage")) {
+    const readings=[...home.querySelectorAll("[data-preview-reading]")];
+    function renderDailyPreview() {
+      const preview=dailyPreview(new Date());
+      if(!preview) return;
+      const {day,puzzle,winner,href}=preview;
+      const date=$("home-daily-date");
+      date.dateTime=day;
+      date.textContent=new Date(Number(day.slice(0,4)),Number(day.slice(5,7))-1,Number(day.slice(8,10)),12)
+        .toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+      readings.forEach((item,index)=>{item.textContent=fmt(puzzle.values[index]);});
+      $("home-daily-target").textContent=fmt(puzzle.target);
+      $("home-daily-winner").textContent=winner+" is closer";
+      $("home-daily-link").href=href;
+      home.dataset.winner=winner.toLowerCase();
+    }
+    renderDailyPreview();
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden) renderDailyPreview();});
+    window.addEventListener("focus",renderDailyPreview);
+    return;
+  }
+  if(!$("stage")) return;
   let {puzzle,round,error}=parsePuzzle(window.location.search);
   let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
   const choiceButtons=[...document.querySelectorAll(".reading")];
