@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=15" defer/);
+  assert.match(page,/src="one-move\.js\?v=16" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -688,6 +688,7 @@ test("homepage previews the exact local daily puzzle and refreshes its dated lin
   assert.equal(first.day,"2026-10-12");
   assert.deepEqual(first.puzzle,dailyPuzzle(first.day));
   assert.equal(first.winner,"Median");
+  assert.equal(first.estimate,67);
   assert.equal(first.href,"one-move.html?daily=2026-10-12#stage");
 
   let day=12;
@@ -706,7 +707,7 @@ test("homepage previews the exact local daily puzzle and refreshes its dated lin
     {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,Date:LocalDate,URLSearchParams},{timeout:2000});
   assert.deepEqual(readings.map(item=>item.textContent),["40","67","92","43","84"]);
   assert.equal(elements.get("home-daily-target").textContent,"80");
-  assert.equal(elements.get("home-daily-winner").textContent,"Median is closer");
+  assert.equal(elements.get("home-daily-winner").textContent,"Median 67 is closer");
   assert.equal(elements.get("home-daily-link").href,first.href);
   assert.equal(elements.get("home-daily-date").dateTime,first.day);
   day=13;events.focus();
@@ -716,7 +717,7 @@ test("homepage previews the exact local daily puzzle and refreshes its dated lin
   const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
   assert.match(html,/id="home-daily-preview"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=15" defer/);
+  assert.match(html,/src="one-move\.js\?v=16" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
