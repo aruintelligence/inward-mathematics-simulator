@@ -45,8 +45,11 @@
   }
   function dailyPreview(today=new Date()) {
     const day=localDay(today),puzzle=dailyPuzzle(day);
-    return puzzle?{day,puzzle,winner:core.evaluate(puzzle.values,puzzle.target).winner,
-      href:"one-move.html?daily="+day+"#stage"}:null;
+    if(!puzzle) return null;
+    const current=core.evaluate(puzzle.values,puzzle.target);
+    return {day,puzzle,winner:current.winner,
+      estimate:current.winner==="Mean"?current.mean:current.winner==="Median"?current.median:null,
+      href:"one-move.html?daily="+day+"#stage"};
   }
   function practicePuzzle(seed) {
     if(!Number.isInteger(seed)||seed<1||seed>999999) return null;
@@ -158,14 +161,14 @@
     function renderDailyPreview() {
       const preview=dailyPreview(new Date());
       if(!preview) return;
-      const {day,puzzle,winner,href}=preview;
+      const {day,puzzle,winner,estimate,href}=preview;
       const date=$("home-daily-date");
       date.dateTime=day;
       date.textContent=new Date(Number(day.slice(0,4)),Number(day.slice(5,7))-1,Number(day.slice(8,10)),12)
         .toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
       readings.forEach((item,index)=>{item.textContent=fmt(puzzle.values[index]);});
       $("home-daily-target").textContent=fmt(puzzle.target);
-      $("home-daily-winner").textContent=winner+" is closer";
+      $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
       $("home-daily-link").href=href;
       home.dataset.winner=winner.toLowerCase();
     }
