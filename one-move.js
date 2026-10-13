@@ -208,7 +208,12 @@
     } catch(_) {fileSharing=false;}
     if(cardShare) cardShare.hidden=!fileSharing;
     let cardBlob=null,cardBlobDay=null,cardSerial=0;
-    let selectedReading=null;
+    let selectedReading=null,dayTimer=null;
+    function scheduleNextDay(now) {
+      if(dayTimer!==null) clearTimeout(dayTimer);
+      const midnight=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0,50);
+      dayTimer=setTimeout(()=>{dayTimer=null;renderDailyPreview();},Math.max(1000,midnight-now));
+    }
     function drawDailyCard(preview) {
       const canvas=$("home-daily-card"),status=$("home-daily-card-status");
       if(!canvas) return false;
@@ -339,6 +344,7 @@
       }
       home.dataset.winner=winner.toLowerCase();
       if($("home-daily-card-kit")?.open) drawDailyCard(preview);
+      scheduleNextDay(now);
     }
     renderDailyPreview();
     choices.forEach((button,index)=>button.addEventListener("click",()=>{
