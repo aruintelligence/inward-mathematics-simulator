@@ -319,6 +319,10 @@
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
       const draft=dailyDraft(day),draftNote=$("home-daily-draft");
       const {exact,minimum:shortestUnits}=trailState(day,best);
+      const heroDate=$("hero-daily-date"),heroStatus=$("hero-daily-status"),heroLink=$("hero-daily-link");
+      if(heroDate) {heroDate.dateTime=day;heroDate.textContent=new Date(Number(day.slice(0,4)),Number(day.slice(5,7))-1,Number(day.slice(8,10)),12).toLocaleDateString(undefined,{month:"short",day:"numeric"});}
+      if(heroStatus) heroStatus.textContent=draft?"Unfinished move saved":best===null?"Fresh puzzle ready":exact?"Exact move saved":"Shorter move still possible";
+      if(heroLink) heroLink.setAttribute("aria-label","Explore Daily Flip for "+day+". "+(heroStatus?.textContent??"Today's puzzle is ready")+".");
       link.href=selectedReading===null?href:href.replace("#stage","&pick="+(selectedReading+1)+"#stage");
       link.textContent=selectedReading!==null?"Try reading "+(selectedReading+1)+" ↗":draft?"Resume your move ↗":best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
       if(draftNote) {
