@@ -181,7 +181,7 @@
     const choices=[...home.querySelectorAll("[data-preview-pick]")];
     let selectedReading=null;
     function renderDailyPreview() {
-      const preview=dailyPreview(new Date());
+      const now=new Date(),preview=dailyPreview(now);
       if(!preview) return;
       const {day,puzzle,winner,estimate,href}=preview;
       if(home.dataset.day&&home.dataset.day!==day) {
@@ -209,6 +209,26 @@
       if(progress) {
         progress.hidden=best===null;
         progress.textContent=best===null?"":exact?"Exact minimum on this device · move "+fmt(best/10000):"Flipped on this device · best move "+fmt(best/10000);
+      }
+      const trail=$("home-daily-trail");
+      if(trail) {
+        trail.replaceChildren();
+        let completed=0;
+        for(const entry of recentDays(now).reverse()) {
+          const saved=dailyBest(entry.day),tile=document.createElement("a");
+          if(saved!==null) completed++;
+          tile.className="daily-home-day";
+          tile.dataset.state=saved===null?"open":"complete";
+          tile.href="one-move.html?daily="+entry.day+"#stage";
+          if(entry.day===day) tile.setAttribute("aria-current","date");
+          tile.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+(saved===null?"Unsolved on this device.":"Best move on this device: "+fmt(saved/10000)+"."));
+          const weekday=document.createElement("span"),number=document.createElement("strong"),status=document.createElement("span");
+          weekday.className="trail-weekday";weekday.textContent=entry.date.toLocaleDateString(undefined,{weekday:"short"});
+          number.textContent=entry.date.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+          status.className="trail-state";status.textContent=saved===null?"Open":"Best "+fmt(saved/10000);
+          tile.append(weekday,number,status);trail.append(tile);
+        }
+        $("home-daily-trail-summary").textContent=completed+" of 7 flipped on this device";
       }
       home.dataset.winner=winner.toLowerCase();
     }
