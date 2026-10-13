@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=7" defer/);
+  assert.match(page,/src="one-move\.js\?v=8" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -709,6 +709,29 @@ test("progressive hints teach the estimators and point to a viable direction wit
   assert.match(html,/id="hint-panel" hidden aria-live="polite"/);
 });
 
+test("committed verdict shift explains a both-worse reversal, a tie, and an unchanged guess", () => {
+  const {verdictShift,scoreAttempt,dailyPuzzle,ROUNDS}=require("../one-move.js");
+  const puzzle=dailyPuzzle("2026-10-12");
+  const shifted=verdictShift(puzzle,scoreAttempt(puzzle,1,"64.7499"));
+  assert.equal(shifted.before.winner,"Median");
+  assert.equal(shifted.after.winner,"Mean");
+  assert.ok(shifted.after.meanError>shifted.before.meanError);
+  assert.ok(shifted.after.medianError>shifted.before.medianError);
+  assert.match(shifted.insight,/^Both errors grew\. The mean is closer by /);
+  assert.equal(shifted.scale,Math.max(1,shifted.before.meanError,shifted.before.medianError,shifted.after.meanError,shifted.after.medianError));
+  const tied=verdictShift(ROUNDS[0],scoreAttempt(ROUNDS[0],4,"58"));
+  assert.equal(tied.after.winner,"Equal");
+  assert.match(tied.insight,/tie, not a strict reversal/);
+  const unchanged=verdictShift(ROUNDS[0],scoreAttempt(ROUNDS[0],2,"50"));
+  assert.match(unchanged.insight,/^Neither error moved\./);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="verdict-shift" hidden/);
+  for(const phase of ["before","after"]) for(const kind of ["mean","median"]) {
+    assert.match(html,new RegExp('id="'+phase+'-'+kind+'-bar"'));
+    assert.match(html,new RegExp('id="'+phase+'-'+kind+'-error"'));
+  }
+});
+
 test("blind duel invitation shares a score and reproducible puzzle without the answer", () => {
   const {dailyPuzzle,duelInvitation,ROUNDS}=require("../one-move.js");
   const puzzle=dailyPuzzle("2026-10-12"),url="https://example.test/one-move.html?daily=2026-10-12";
@@ -725,7 +748,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
