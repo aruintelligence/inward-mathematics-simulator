@@ -77,13 +77,20 @@
     const edition=puzzle.date?"Daily Flip / "+puzzle.date:"One Move";
     return edition+" · I flipped the verdict with a move of "+fmt(moveUnits/10000)+". Can you beat my move?\n\n"+url;
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays};
+  function hintFor(puzzle,level) {
+    if(level===1) return "The mean uses all five readings; the median is the middle after sorting. A strict flip only asks which error is smaller. Neither estimate has to improve.";
+    if(level!==2) return "";
+    const route=core.rankLevers(puzzle.values,puzzle.target).ranked[0];
+    if(!route) return "This arrangement has no strict single-reading reversal in 0–100.";
+    return "One shortest route starts with Reading "+(route.index+1)+". Move it "+(route.flip.value<route.value?"down":"up")+". The exact crossing is still yours to find.";
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays,hintFor};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null;
+  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0;
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -126,6 +133,19 @@
     $("trail-summary").textContent=completed+" of 7 editions flipped on this device.";
   }
   function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
+  function updateHints() {
+    const button=$("hint-button");
+    if(!button) return; // Cached prior pages still initialize with the new script.
+    $("hint-panel").hidden=hintLevel===0;
+    $("hint-one").hidden=hintLevel<1;
+    $("hint-two").hidden=hintLevel<2;
+    if(hintLevel>=1) $("hint-one").textContent=hintFor(puzzle,1);
+    if(hintLevel>=2) $("hint-two").textContent=hintFor(puzzle,2);
+    $("hint-progress").textContent=hintLevel+" / 2 nudges";
+    button.textContent=hintLevel===0?"Reveal a nudge ↗":hintLevel===1?"Reveal one more ↗":"Both nudges revealed";
+    button.disabled=hintLevel===2;
+    button.setAttribute("aria-expanded",String(hintLevel>0));
+  }
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
     $("selected-old").textContent=fmt(puzzle.values[selected]);
@@ -162,11 +182,11 @@
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
-    setAddress();updateProposal();
+    setAddress();updateProposal();updateHints();
   }
   function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();}
   function load(next,number) {
-    puzzle=next;round=number;selected=2;proposed=puzzle.values[selected];attempts=0;best=null;
+    puzzle=next;round=number;selected=2;proposed=puzzle.values[selected];attempts=0;best=null;hintLevel=0;
     $("share-status").textContent="";$("link-error").textContent="";render();
     $("stage-title").scrollIntoView({block:"start"});
   }
@@ -178,6 +198,7 @@
     else $("input-error").textContent="Enter 0–100 with at most four decimal places.";
   });
   $("proposed").addEventListener("blur",event=>{if(valid(event.target.value)===null) event.target.value=fmt(proposed);});
+  $("hint-button")?.addEventListener("click",()=>{hintLevel=Math.min(2,hintLevel+1);updateHints();});
   $("submit").addEventListener("click",()=>{
     const judged=scoreAttempt(puzzle,selected,$("proposed").value);
     if(judged.error){$("input-error").textContent=judged.error;return;}
