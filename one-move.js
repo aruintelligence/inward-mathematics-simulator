@@ -158,6 +158,18 @@
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
+  function dailyBest(day) {
+    try {
+      const saved=Number(window.localStorage.getItem("inward-math-daily-v1-"+day));
+      return Number.isInteger(saved)&&saved>0&&saved<=1000000?saved:null;
+    } catch(_) {return null;}
+  }
+  function saveDailyBest(day,moveUnits) {
+    try {
+      const previous=dailyBest(day);
+      if(previous===null||moveUnits<previous) window.localStorage.setItem("inward-math-daily-v1-"+day,String(moveUnits));
+    } catch(_) { /* The puzzle works even when storage is unavailable. */ }
+  }
   const home=$("home-daily-preview");
   if(home&&!$("stage")) {
     const readings=[...home.querySelectorAll("[data-preview-reading]")];
@@ -165,6 +177,8 @@
       const preview=dailyPreview(new Date());
       if(!preview) return;
       const {day,puzzle,winner,estimate,href}=preview;
+      if(home.dataset.day&&home.dataset.day!==day) $("home-daily-share-status").textContent="";
+      home.dataset.day=day;
       const date=$("home-daily-date");
       date.dateTime=day;
       date.textContent=new Date(Number(day.slice(0,4)),Number(day.slice(5,7))-1,Number(day.slice(8,10)),12)
@@ -172,12 +186,19 @@
       readings.forEach((item,index)=>{item.textContent=fmt(puzzle.values[index]);});
       $("home-daily-target").textContent=fmt(puzzle.target);
       $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
-      $("home-daily-link").href=href;
+      const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
+      link.href=href;
+      link.textContent=best===null?"Play today's puzzle ↗":"Beat your best ↗";
+      if(progress) {
+        progress.hidden=best===null;
+        progress.textContent=best===null?"":"Flipped on this device · best move "+fmt(best/10000);
+      }
       home.dataset.winner=winner.toLowerCase();
     }
     renderDailyPreview();
     document.addEventListener("visibilitychange",()=>{if(!document.hidden) renderDailyPreview();});
     window.addEventListener("focus",renderDailyPreview);
+    window.addEventListener("pageshow",renderDailyPreview);
     const share=$("home-daily-share");
     if(share) share.addEventListener("click",async()=>{
       renderDailyPreview();
@@ -210,18 +231,6 @@
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
     :"one-move.html?round="+(round+1);
-  function dailyBest(day) {
-    try {
-      const saved=Number(window.localStorage.getItem("inward-math-daily-v1-"+day));
-      return Number.isInteger(saved)&&saved>0&&saved<=1000000?saved:null;
-    } catch(_) {return null;}
-  }
-  function saveDailyBest(day,moveUnits) {
-    try {
-      const previous=dailyBest(day);
-      if(previous===null||moveUnits<previous) window.localStorage.setItem("inward-math-daily-v1-"+day,String(moveUnits));
-    } catch(_) { /* The puzzle works even when storage is unavailable. */ }
-  }
   function updateDailyStatus() {
     const day=puzzle.date??localDay(new Date()),saved=dailyBest(day);
     $("daily-status").textContent=saved===null?"Edition "+day+" · complete a strict flip to keep your best move on this device."

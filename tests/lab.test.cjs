@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=17" defer/);
+  assert.match(page,/src="one-move\.js\?v=18" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -704,11 +704,13 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const elements=new Map([["home-daily-preview",home],["stage",null]]);
   for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
+  elements.set("home-daily-progress",{hidden:true,textContent:""});
   const share={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
   elements.set("home-daily-share",share);
   const events={};
   const document={getElementById:id=>elements.get(id)??null,addEventListener:(name,handler)=>events[name]=handler,hidden:false};
-  const window={location:{href:"https://example.test/"},addEventListener:(name,handler)=>events[name]=handler};
+  const saved=new Map();
+  const window={location:{href:"https://example.test/"},localStorage:{getItem:key=>saved.get(key)??null},addEventListener:(name,handler)=>events[name]=handler};
   let copied=null,sent=null;
   const navigator={clipboard:{async writeText(value){copied=value;}}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8"),
@@ -717,10 +719,22 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-target").textContent,"80");
   assert.equal(elements.get("home-daily-winner").textContent,"Median 67 is closer");
   assert.equal(elements.get("home-daily-link").href,first.href);
+  assert.equal(elements.get("home-daily-link").textContent,"Play today's puzzle ↗");
   assert.equal(elements.get("home-daily-date").dateTime,first.day);
+  assert.equal(elements.get("home-daily-progress").hidden,true);
+  saved.set("inward-math-daily-v1-2026-10-12","50001");
+  events.pageshow();
+  assert.equal(elements.get("home-daily-link").textContent,"Beat your best ↗");
+  assert.equal(elements.get("home-daily-progress").hidden,false);
+  assert.equal(elements.get("home-daily-progress").textContent,"Flipped on this device · best move 5.0001");
+  elements.get("home-daily-share-status").textContent="Puzzle invitation copied.";
   day=13;events.focus();
   assert.equal(elements.get("home-daily-date").dateTime,"2026-10-13");
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13#stage");
+  assert.equal(elements.get("home-daily-link").textContent,"Play today's puzzle ↗");
+  assert.equal(elements.get("home-daily-progress").hidden,true);
+  assert.equal(elements.get("home-daily-progress").textContent,"");
+  assert.equal(elements.get("home-daily-share-status").textContent,"");
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
   await share.handlers.click();
   assert.match(copied,/one-move\.html\?daily=2026-10-13#stage/);
@@ -737,9 +751,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-share-status").textContent,"Sharing canceled.");
   const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
   assert.match(html,/id="home-daily-preview"/);
+  assert.match(html,/id="home-daily-progress" role="status" hidden/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=17" defer/);
+  assert.match(html,/src="one-move\.js\?v=18" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
