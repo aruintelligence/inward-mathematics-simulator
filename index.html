@@ -518,6 +518,7 @@
             <p class="trace-summary" id="trace-summary"></p>
             <button class="trace-jump" id="trace-closest" type="button">Jump to closest approach ↗</button>
             <button class="trace-jump" id="trace-jump" type="button">Jump to next shock ↗</button>
+            <button class="trace-jump" id="trace-next-pull" type="button">Jump to next pull change ↗</button>
             <div class="trace-actions"><button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button><button class="trace-refresh" id="trace-export" type="button">Download path CSV</button></div>
             <p class="trace-export-status" id="trace-export-status" role="status"></p>
           </div>
@@ -1093,6 +1094,8 @@
       const closest=points.reduce((best,p)=>p.distance<best.distance?p:best);
       $("trace-closest").disabled=points.length<2||closest.step===selected;
       $("trace-jump").disabled=!shocks.length||(new Set(shocks).size===1&&shocks[0]===selected);
+      const pullSteps=new Set(changes.map(change=>change.step));
+      $("trace-next-pull").disabled=!pullSteps.size||(pullSteps.size===1&&pullSteps.has(selected));
       const ctx=traceX,left=51,right=568,top=19,bottom=194;
       const max=Math.max(4,...points.map(p=>p.distance))*1.04;
       const x=step=>first===last?(left+right)/2:left+(step-first)/(last-first)*(right-left),y=value=>bottom-value/max*(bottom-top);
@@ -1303,6 +1306,11 @@
     $("trace-jump").addEventListener("click",()=>{
       if(!traceCapture?.shocks.length) return;
       const steps=[...new Set(traceCapture.shocks)],selected=Number($("trace-step").value);
+      $("trace-step").value=String(steps.find(step=>step>selected)??steps[0]);renderTrace();
+    });
+    $("trace-next-pull").addEventListener("click",()=>{
+      if(!traceCapture?.changes.length) return;
+      const steps=[...new Set(traceCapture.changes.map(change=>change.step))],selected=Number($("trace-step").value);
       $("trace-step").value=String(steps.find(step=>step>selected)??steps[0]);renderTrace();
     });
     $("trace-refresh").addEventListener("click",captureTrace);

@@ -279,6 +279,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.equal(lab.element("trace-step").disabled,true);
   assert.equal(lab.element("trace-closest").disabled,true);
   assert.equal(lab.element("trace-jump").disabled,true);
+  assert.equal(lab.element("trace-next-pull").disabled,true);
   click(lab.element("step"));click(lab.element("step"));
   const atTwo=snapshot(lab);
   input(lab.element("alpha"),2.0);click(lab.element("shock"));click(lab.element("step"));
@@ -286,6 +287,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.equal(lab.element("trace-step").max,"3");
   assert.equal(lab.element("trace-closest").disabled,false);
   assert.equal(lab.element("trace-jump").disabled,false);
+  assert.equal(lab.element("trace-next-pull").disabled,false);
   input(lab.element("trace-step"),2);
   assert.equal(lab.element("trace-distance").textContent,atTwo.distance.toFixed(2));
   assert.match(lab.element("trace-event").textContent,/1 shock impulse was added/);
@@ -294,6 +296,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.match(lab.element("trace-chart").attributes["aria-label"],/1 pull change at this step/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
   assert.equal(lab.element("trace-jump").disabled,true,"the only shock is already selected");
+  assert.equal(lab.element("trace-next-pull").disabled,true,"the only pull change is already selected");
   click(lab.element("trace-export"));
   assert.equal(lab.download.blob.type,"text/csv");
   assert.equal(lab.download.filename,"inward-math-trace-seed-42-steps-0-3.csv");
@@ -329,10 +332,22 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.equal(lab.element("trace-step").value,"2","jump wraps to the first captured shock");
   click(lab.element("trace-jump"));
   assert.equal(lab.element("trace-step").value,"4");
+  input(lab.element("alpha"),2.5);
+  click(lab.element("trace-next-pull"));
+  assert.equal(lab.element("trace-step").value,"2","the frozen capture does not include the later change yet");
+  assert.equal(lab.element("trace-next-pull").disabled,true);
+  click(lab.element("trace-refresh"));
+  assert.equal(lab.element("trace-next-pull").disabled,false);
+  click(lab.element("trace-next-pull"));
+  assert.equal(lab.element("trace-step").value,"2","pull navigation wraps to the earliest captured change");
+  click(lab.element("trace-next-pull"));
+  assert.equal(lab.element("trace-step").value,"4");
+  assert.equal(lab.element("trace-next-pull").disabled,false,"other pull changes remain reachable");
   for(let i=4;i<155;i++) lab.window.InwardMathLab.step();
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"155");
   assert.equal(lab.element("trace-step").min,"6","only the most recent 150 positions are retained");
+  assert.equal(lab.element("trace-next-pull").disabled,true,"changes outside the retained window are excluded");
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {
