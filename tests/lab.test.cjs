@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=21" defer/);
+  assert.match(page,/src="one-move\.js\?v=22" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -708,13 +708,21 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const choices=Array.from({length:5},()=>({attributes:{},handlers:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(name,handler){this.handlers[name]=handler;}}));
   const home={dataset:{},querySelectorAll:selector=>selector==="[data-preview-reading]"?readings:choices};
   const elements=new Map([["home-daily-preview",home],["stage",null]]);
+  const makeNode=tagName=>({tagName,textContent:"",href:"",className:"",dataset:{},attributes:{},children:[],
+    setAttribute(name,value){this.attributes[name]=value;},
+    append(...children){this.children.push(...children);},
+    replaceChildren(...children){this.children=children;}});
+  const trail=makeNode("div");
+  elements.set("home-daily-trail",trail);
+  elements.set("home-daily-trail-summary",{textContent:""});
   for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
   elements.set("home-daily-progress",{hidden:true,textContent:""});
   const share={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
   elements.set("home-daily-share",share);
   const events={};
-  const document={getElementById:id=>elements.get(id)??null,addEventListener:(name,handler)=>events[name]=handler,hidden:false};
+  const document={getElementById:id=>elements.get(id)??null,createElement:makeNode,
+    addEventListener:(name,handler)=>events[name]=handler,hidden:false};
   const saved=new Map();
   const window={location:{href:"https://example.test/"},localStorage:{getItem:key=>saved.get(key)??null},addEventListener:(name,handler)=>events[name]=handler};
   let copied=null,sent=null;
@@ -728,11 +736,23 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-link").textContent,"Play today's puzzle ↗");
   assert.equal(elements.get("home-daily-date").dateTime,first.day);
   assert.equal(elements.get("home-daily-progress").hidden,true);
+  assert.equal(trail.children.length,7);
+  assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-12#stage");
+  assert.equal(trail.children[0].attributes["aria-current"],"date");
+  assert.equal(trail.children[6].href,"one-move.html?daily=2026-10-06#stage");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"0 of 7 flipped on this device");
+  saved.set("inward-math-daily-v1-2026-10-10","100001");
+  events.pageshow();
+  assert.equal(trail.children[2].dataset.state,"complete");
+  assert.equal(trail.children[2].children[2].textContent,"Best 10.0001");
+  assert.equal(trail.children[2].attributes["aria-label"],"Open 2026-10-10 Daily Flip. Best move on this device: 10.0001.");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"1 of 7 flipped on this device");
   saved.set("inward-math-daily-v1-2026-10-12","50001");
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Beat your best ↗");
   assert.equal(elements.get("home-daily-progress").hidden,false);
   assert.equal(elements.get("home-daily-progress").textContent,"Flipped on this device · best move 5.0001");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped on this device");
   saved.set("inward-math-daily-v1-2026-10-12","22501");
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Replay today's puzzle ↗");
@@ -752,6 +772,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-progress").textContent,"");
   assert.equal(elements.get("home-daily-share-status").textContent,"");
   assert.equal(choices[1].attributes["aria-pressed"],"false");
+  assert.equal(trail.children[0].href,"one-move.html?daily=2026-10-13#stage");
+  assert.equal(trail.children[0].attributes["aria-current"],"date");
+  assert.equal(trail.children[1].dataset.state,"complete");
+  assert.equal(elements.get("home-daily-trail-summary").textContent,"2 of 7 flipped on this device");
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
   choices[3].handlers.click();
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13&pick=4#stage");
@@ -774,8 +798,9 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-progress" role="status" hidden/);
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
+  assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=21" defer/);
+  assert.match(html,/src="one-move\.js\?v=22" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
