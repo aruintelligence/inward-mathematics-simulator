@@ -248,6 +248,9 @@
     .future-results strong { display:block; color:var(--gold); font:750 1.18rem ui-monospace,SFMono-Regular,monospace; }
     .future-results .alternative strong { color:#d9b8ff; }
     .future-lens .future-summary { margin:12px 0 0; color:#e8e2f5; }
+    .future-lens .future-leads { margin:12px 0 0; color:#cddbe2; font-size:.8rem; }
+    .future-next-lead { display:block; margin-top:8px; border:0; padding:2px 0; background:transparent; color:#e0c5ff; font-weight:750; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+    .future-next-lead:disabled { color:#9baab9; text-decoration:none; cursor:default; }
     .future-apply { margin-top:13px; padding:10px 14px; border:1px solid #d9b8ff; border-radius:9px; color:#f0ddff; background:#3c3158; font-weight:750; cursor:pointer; }
     .future-apply:hover:not(:disabled) { filter:brightness(1.15); }
     .future-apply:disabled { opacity:.55; cursor:default; }
@@ -414,7 +417,7 @@
         </div>
         <p id="event" class="status" role="status">Paused at step 0.</p>
         <details class="step-lens" id="step-lens"><summary>See one step ahead ↗</summary><div class="step-lens-body"><p>From the current state, add the pull term to velocity and multiply by 0.92. Opening this view does not advance the model. A faint ring marks the next position while paused.</p><div class="step-flow"><div><span>Pull term · x, y</span><strong id="step-preview-pull">—</strong></div><div><span>Damped velocity · x, y</span><strong id="step-preview-velocity">—</strong></div><div><span>Next position · x, y</span><strong id="step-preview-position">—</strong></div></div><p class="step-outcome" id="step-preview-outcome"></p></div></details>
-        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label><input id="future-horizon" type="range" min="1" max="60" step="1" value="60"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p><button class="future-apply" id="future-apply" type="button">Use alternative α in live run</button></div></details>
+        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label><input id="future-horizon" type="range" min="1" max="60" step="1" value="60"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p><p class="future-leads" id="future-leads"></p><button class="future-next-lead" id="future-next-lead" type="button">Jump to next lead change ↗</button><button class="future-apply" id="future-apply" type="button">Use alternative α in live run</button></div></details>
         <div class="formula"><strong>Model:</strong> <code>v ← 0.92(v + 0.008α(target − position)); position ← position + v</code>. A shock adds one seeded impulse to velocity. “Settled” means distance &lt; 4 and speed &lt; 0.5 for 45 consecutive steps.</div>
       </section>
 
@@ -711,6 +714,18 @@
       }
       return distances;
     }
+    function leadChanges(current,alternate) {
+      const changes=[];
+      let previous=0;
+      for(let i=1;i<current.length;i++) {
+        const difference=current[i]-alternate[i];
+        const nearer=Math.abs(difference)<0.005?0:Math.sign(difference);
+        if(!nearer) continue;
+        if(previous&&nearer!==previous) changes.push(i);
+        previous=nearer;
+      }
+      return changes;
+    }
     function stepModel() {
       const next=forecastStep();
       simulation.velocity=next.velocity;
@@ -903,6 +918,9 @@
       $("future-summary").textContent=currentAlpha===alternateAlpha?"The strengths match, so both paths coincide. Move the alternative slider to fork them."
         :difference<0.005?"At update "+horizon+", the paths are almost equally close. Their other updates can still differ."
         :(current[horizon]<alternate[horizon]?"Current":"Alternative")+" pull is "+difference.toFixed(2)+" units closer at update "+horizon+". Move the cursor to see how that comparison changes.";
+      const changes=leadChanges(current,alternate);
+      $("future-leads").textContent=changes.length?"Closer path switches by update "+changes.join(", ")+" on this sampled 60-update path.":"No lead change in these 60 sampled updates.";
+      $("future-next-lead").disabled=!changes.length;
       const canvas=$("future-chart"),ctx=canvas.getContext("2d"),left=49,right=568,top=19,bottom=194;
       const max=Math.max(4,...current,...alternate)*1.04,x=i=>left+i/last*(right-left),y=value=>bottom-value/max*(bottom-top);
       ctx.clearRect(0,0,600,240);ctx.strokeStyle="#38566b";ctx.lineWidth=1;ctx.fillStyle="#bdd0d8";ctx.font="12px system-ui";
@@ -958,6 +976,13 @@
     $("future-lens").addEventListener("toggle",renderFuture);
     $("future-alpha").addEventListener("input",renderFuture);
     $("future-horizon").addEventListener("input",renderFuture);
+    $("future-next-lead").addEventListener("click",()=>{
+      const changes=leadChanges(futurePath(Number($("alpha").value)),futurePath(Number($("future-alpha").value)));
+      if(!changes.length) return;
+      const horizon=Number($("future-horizon").value);
+      $("future-horizon").value=String(changes.find(update=>update>horizon)??changes[0]);
+      renderFuture();
+    });
     $("future-apply").addEventListener("click",()=>{
       const alpha=Number($("future-alpha").value);
       if(alpha===Number($("alpha").value)) return;
