@@ -168,8 +168,10 @@ test("future fork compares pull strengths without changing the current run", () 
   input(lab.element("future-alpha"),1.5);
   assert.equal(lab.element("future-current-distance").textContent,lab.element("future-alternate-distance").textContent);
   assert.match(lab.element("future-summary").textContent,/strengths match/);
+  assert.equal(lab.element("future-apply").disabled,true);
   input(lab.element("future-alpha"),0.5);
   assert.equal(lab.element("future-alpha-value").textContent,"0.5");
+  assert.equal(lab.element("future-apply").disabled,false);
   assert.equal(Number(lab.element("future-current-distance").textContent),current);
   assert.deepEqual(snapshot(lab).position,start.position);
   assert.deepEqual(snapshot(lab).velocity,start.velocity);
@@ -178,6 +180,19 @@ test("future fork compares pull strengths without changing the current run", () 
   assert.equal(snapshot(lab).shocks.length,1);
   assert.notEqual(Number(lab.element("future-current-distance").textContent),current);
   assert.match(lab.element("future-chart").attributes["aria-label"],/with no new shocks.*At update 60/);
+  const beforeApply=snapshot(lab);
+  click(lab.element("future-apply"));
+  const applied=snapshot(lab);
+  assert.equal(lab.element("alpha").value,"0.5");
+  assert.equal(lab.element("future-apply").disabled,true);
+  assert.deepEqual(applied.position,beforeApply.position);
+  assert.deepEqual(applied.velocity,beforeApply.velocity);
+  assert.equal(applied.parameterChanges.length,1);
+  assert.equal(applied.parameterChanges[0].value,0.5);
+  assert.match(lab.element("event").textContent,/Applied alternative α 0.5 at step 0/);
+  click(lab.element("step"));
+  assert.equal(snapshot(lab).step,1);
+  assert.notEqual(snapshot(lab).position.x,applied.position.x);
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {
