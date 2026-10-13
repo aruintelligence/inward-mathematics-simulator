@@ -9,7 +9,7 @@ function loadLab(search="") {
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
 
-  const initial = {"alpha":"1.5","future-alpha":"2.5","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
+  const initial = {"alpha":"1.5","future-alpha":"2.5","future-horizon":"60","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
   const elements = new Map();
   const download = {clicked:false,blob:null,filename:null};
   const share = {copied:null,scrolled:null};
@@ -157,8 +157,14 @@ test("future fork compares pull strengths without changing the current run", () 
   const alternative=Number(lab.element("future-alternate-distance").textContent);
   assert.ok(current>20&&current<25);
   assert.ok(alternative>4&&alternative<6);
-  assert.match(lab.element("future-summary").textContent,/Alternative pull ends .* closer after 60 updates/);
+  assert.match(lab.element("future-summary").textContent,/Alternative pull is .* closer at update 60/);
   assert.equal(snapshot(lab).step,0);
+  input(lab.element("future-horizon"),20);
+  assert.equal(lab.element("future-horizon-value").textContent,"20");
+  assert.equal(lab.element("future-current-caption").textContent,"Current α 1.5 · update 20");
+  assert.ok(Number(lab.element("future-current-distance").textContent)<Number(lab.element("future-alternate-distance").textContent));
+  assert.match(lab.element("future-summary").textContent,/Current pull is .* closer at update 20/);
+  input(lab.element("future-horizon"),60);
   input(lab.element("future-alpha"),1.5);
   assert.equal(lab.element("future-current-distance").textContent,lab.element("future-alternate-distance").textContent);
   assert.match(lab.element("future-summary").textContent,/strengths match/);
@@ -171,7 +177,7 @@ test("future fork compares pull strengths without changing the current run", () 
   assert.equal(snapshot(lab).step,0);
   assert.equal(snapshot(lab).shocks.length,1);
   assert.notEqual(Number(lab.element("future-current-distance").textContent),current);
-  assert.match(lab.element("future-chart").attributes["aria-label"],/with no new shocks/);
+  assert.match(lab.element("future-chart").attributes["aria-label"],/with no new shocks.*At update 60/);
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {
