@@ -277,12 +277,14 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   const lab=loadLab(),lens=lab.element("trace-lens");
   lens.open=true;lens.handlers.toggle();
   assert.equal(lab.element("trace-step").disabled,true);
+  assert.equal(lab.element("trace-closest").disabled,true);
   assert.equal(lab.element("trace-jump").disabled,true);
   click(lab.element("step"));click(lab.element("step"));
   const atTwo=snapshot(lab);
   click(lab.element("shock"));click(lab.element("step"));
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"3");
+  assert.equal(lab.element("trace-closest").disabled,false);
   assert.equal(lab.element("trace-jump").disabled,false);
   input(lab.element("trace-step"),2);
   assert.equal(lab.element("trace-distance").textContent,atTwo.distance.toFixed(2));
@@ -290,6 +292,9 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
   const before=snapshot(lab);
+  input(lab.element("trace-step"),3);
+  click(lab.element("trace-closest"));
+  assert.equal(lab.element("trace-step").value,"2","closest approach selects the minimum in the frozen capture");
   input(lab.element("trace-step"),1);
   click(lab.element("trace-jump"));
   assert.equal(lab.element("trace-step").value,"2");
