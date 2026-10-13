@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=9" defer/);
+  assert.match(page,/src="one-move\.js\?v=10" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -680,6 +680,33 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
   assert.match(html,/href="one-move\.html\?daily=today"/);
   assert.match(html,/href="one-move\.html\?round=1#stage">Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
+});
+
+test("numbered practice cases replay exactly and always have viable strict flips", () => {
+  const {practicePuzzle,parsePuzzle,scoreAttempt,dailyPuzzle,duelInvitation}=require("../one-move.js");
+  const {rankLevers}=require("../flip-levers.js");
+  assert.deepEqual(practicePuzzle(1),practicePuzzle(1));
+  assert.notDeepEqual(practicePuzzle(1).values,practicePuzzle(2).values);
+  assert.notDeepEqual(practicePuzzle(1).values,dailyPuzzle("2026-10-12").values);
+  assert.deepEqual(parsePuzzle("?practice=1").puzzle,practicePuzzle(1));
+  for(const invalid of ["0","01","1000000","abc","1&practice=2","1&daily=2026-10-12","1&round=2","1&values=1,2,3,4,5&target=50"]) {
+    assert.match(parsePuzzle("?practice="+invalid).error,/Round 1 is loaded/);
+  }
+  for(const seed of [1,2,3,10,42,99,100,999,1000,999999]) {
+    const puzzle=practicePuzzle(seed),ranked=rankLevers(puzzle.values,puzzle.target);
+    assert.equal(puzzle.practice,seed);
+    assert.equal(new Set(puzzle.values).size,5);
+    assert.ok(ranked.ranked.length>=3);
+    assert.ok(ranked.ranked[0].flip.distance>=.75&&ranked.ranked[0].flip.distance<=12);
+    const route=ranked.ranked[0];
+    assert.equal(scoreAttempt(puzzle,route.index,String(route.flip.value)).optimal,true);
+  }
+  const invitation=duelInvitation(practicePuzzle(42),12345,"https://example.test/one-move.html?practice=42");
+  assert.match(invitation,/Practice Flip \/ 42/);
+  assert.doesNotMatch(invitation,/reading|target|solution/i);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/href="one-move\.html\?practice=1#stage">Start practice/);
+  assert.match(html,/id="practice-title">The open run/);
 });
 
 test("the seven-day trail crosses months and leap days in local calendar order", () => {
