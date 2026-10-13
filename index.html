@@ -1269,7 +1269,7 @@
       }
       $("shock-strength").value=String(data.k);
       render();
-      $("event").textContent="Replayed "+data.n+" steps and "+data.q.length+" shocks from this link. Paused for inspection.";
+      $("event").textContent="Replayed "+data.n+" "+(data.n===1?"step":"steps")+" and "+data.q.length+" "+(data.q.length===1?"shock":"shocks")+" from this link. Paused for inspection.";
     }
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
     $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
