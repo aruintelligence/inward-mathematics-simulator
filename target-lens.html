@@ -147,9 +147,10 @@
         <ol class="readings" id="readings" aria-label="Five fixed readings"><li>48</li><li>49</li><li>50</li><li>51</li><li>85</li></ol>
         <div class="controls">
           <div class="range-control"><label for="target-range">Move the hypothetical target</label><input id="target-range" type="range" min="0" max="100" step="any" value="50" aria-describedby="target-help"><div class="scale" aria-hidden="true"><span>0</span><span>100</span></div></div>
-          <div><label for="target-input">Exact target</label><input id="target-input" type="number" min="0" max="100" step="any" value="50" inputmode="decimal"></div>
+          <div><label for="target-input">Exact target</label><input id="target-input" type="number" min="0" max="100" step="any" value="50" inputmode="decimal" aria-describedby="target-help"></div>
           <button class="action secondary" id="jump-tie" type="button">Jump to exact tie</button>
         </div>
+        <p class="note" id="target-help">Slide to explore; enter a value for a precise target. This is a hypothetical reference, not a measured truth.</p>
         <p id="input-error" role="alert"></p>
         <div class="map-heading"><strong>Decision map</strong><span id="map-summary">The median is closer below 53.3; the mean is closer above it.</span></div>
         <div class="decision" id="decision" aria-hidden="true"><div class="region median" id="left-region">Median closer</div><div class="region mean" id="right-region">Mean closer</div><div id="tie-line"></div><div id="target-line"></div></div>

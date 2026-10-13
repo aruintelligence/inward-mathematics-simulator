@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=34" defer/);
+  assert.match(page,/src="one-move\.js\?v=35" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -834,7 +834,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Replay today's puzzle ↗");
   assert.equal(elements.get("home-daily-progress").textContent,"Exact minimum on this device · move 2.2501");
-  assert.equal(elements.get("hero-daily-status").textContent,"Exact move saved");
+  assert.equal(elements.get("hero-daily-status").textContent,"Exact minimum saved");
   assert.equal(trail.children[0].dataset.state,"exact");
   assert.equal(trail.children[0].children[2].textContent,"Exact · 2.2501");
   assert.equal(trail.children[0].attributes["aria-label"],"Open 2026-10-12 Daily Flip. Exact minimum on this device: 2.2501.");
@@ -844,7 +844,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-link").textContent,"Resume your move ↗");
   assert.equal(elements.get("home-daily-draft").hidden,false);
   assert.equal(elements.get("home-daily-draft").textContent,"Draft on this device · Reading 2 → 64.7499");
-  assert.equal(elements.get("hero-daily-status").textContent,"Unfinished move saved");
+  assert.equal(elements.get("hero-daily-status").textContent,"Exact minimum saved");
   choices[1].handlers.click();
   assert.equal(choices[1].attributes["aria-pressed"],"true");
   assert.equal(mapReadings.children[1].dataset.selected,"true");
@@ -922,7 +922,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=34" defer/);
+  assert.match(html,/src="one-move\.js\?v=35" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
