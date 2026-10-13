@@ -47,7 +47,7 @@
     const day=localDay(today),puzzle=dailyPuzzle(day);
     if(!puzzle) return null;
     const current=core.evaluate(puzzle.values,puzzle.target);
-    return {day,puzzle,winner:current.winner,
+    return {day,puzzle,winner:current.winner,mean:current.mean,median:current.median,
       estimate:current.winner==="Mean"?current.mean:current.winner==="Median"?current.median:null,
       href:"one-move.html?daily="+day+"#stage"};
   }
@@ -200,7 +200,7 @@
     function renderDailyPreview() {
       const now=new Date(),preview=dailyPreview(now);
       if(!preview) return;
-      const {day,puzzle,winner,estimate,href}=preview;
+      const {day,puzzle,winner,mean,median,estimate,href}=preview;
       if(home.dataset.day&&home.dataset.day!==day) {
         selectedReading=null;
         $("home-daily-share-status").textContent="";
@@ -217,6 +217,25 @@
       });
       $("home-daily-target").textContent=fmt(puzzle.target);
       $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
+      const map=$("home-daily-map"),mapReadings=$("home-daily-map-readings");
+      if(map&&mapReadings) {
+        mapReadings.replaceChildren();
+        puzzle.values.forEach((value,index)=>{
+          const marker=document.createElement("span");
+          marker.className="daily-map-marker reading";
+          marker.style.left=value+"%";
+          marker.dataset.selected=String(selectedReading===index);
+          marker.title="Reading "+(index+1)+": "+fmt(value);
+          mapReadings.append(marker);
+        });
+        for(const [name,value] of [["target",puzzle.target],["mean",mean],["median",median]]) {
+          $("home-daily-map-"+name).style.left=value+"%";
+          $("home-daily-map-"+name+"-value").textContent=fmt(value);
+        }
+        map.setAttribute("aria-label","Starting arrangement on a 0 to 100 scale. Readings "+puzzle.values.map(fmt).join(", ")+
+          ". Target "+fmt(puzzle.target)+". Mean "+fmt(mean)+". Median "+fmt(median)+
+          (selectedReading===null?".":". Reading "+(selectedReading+1)+" selected."));
+      }
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
       const draft=dailyDraft(day),draftNote=$("home-daily-draft");
       const shortest=best===null?null:core.rankLevers(puzzle.values,puzzle.target).ranked[0]?.flip.distance;
