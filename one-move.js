@@ -11,7 +11,29 @@
   const errorFmt=value=>String(Number(value.toFixed(5)));
   const valid=raw=>/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/.test(String(raw))&&Number(raw)<=100?Number(raw):null;
   const units=value=>Math.round(value*10000);
-  function parsePuzzle(search) {
+  const localDay=date=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
+  function validDay(day) {
+    if(!/^20\d\d-\d\d-\d\d$/.test(day??"")) return false;
+    const parsed=new Date(day+"T00:00:00Z");
+    return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===day;
+  }
+  function dailyPuzzle(day) {
+    if(!validDay(day)) return null;
+    let seed=2166136261;
+    for(const character of day) {seed^=character.charCodeAt(0);seed=Math.imul(seed,16777619);}
+    seed>>>=0;
+    const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+    for(let attempt=0;attempt<500;attempt++) {
+      const values=Array.from({length:5},()=>8+Math.floor(roll()*85));
+      const target=20+Math.floor(roll()*61);
+      if(new Set(values).size!==5||Math.max(...values)-Math.min(...values)<25) continue;
+      const ranked=core.rankLevers(values,target),distance=ranked.ranked[0]?.flip.distance;
+      if(ranked.ranked.length<3||distance<.75||distance>12||Math.abs(ranked.current.meanError-ranked.current.medianError)<.4) continue;
+      return {values,target,date:day,title:"The daily flip",cue:"A fresh generated arrangement for "+day+". Everyone opening this date gets the same puzzle."};
+    }
+    return null;
+  }
+  function parsePuzzle(search,today=new Date()) {
     const params=new URLSearchParams(search),shared=core.parseView(search);
     if(shared===false) return {puzzle:ROUNDS[0],round:0,error:"That link has invalid readings or target. Round 1 is loaded."};
     if(shared) {
@@ -19,9 +41,17 @@
         return {puzzle:ROUNDS[0],round:0,error:"That arrangement has no strict single-reading reversal in 0–100. Round 1 is loaded."};
       return {puzzle:{...shared,title:"Your shared puzzle",cue:"Move one reading to give the other estimate the lead."},round:null,error:""};
     }
+    if(params.has("daily")) {
+      const requested=params.get("daily");
+      const day=requested==="today"?localDay(today):requested;
+      const puzzle=params.getAll("daily").length===1?dailyPuzzle(day):null;
+      return puzzle?{puzzle,round:null,error:""}
+        :{puzzle:ROUNDS[0],round:0,error:"That daily date is invalid. Round 1 is loaded."};
+    }
     const requested=params.get("round");
-    const round=params.getAll("round").length<=1&&/^[123]$/.test(requested??"")?Number(requested)-1:0;
-    return {puzzle:ROUNDS[round],round,error:requested!==null&&round===0&&requested!=="1"?"Unknown round. Round 1 is loaded.":""};
+    const invalidRound=requested!==null&&(params.getAll("round").length!==1||!/^[123]$/.test(requested));
+    const round=requested!==null&&!invalidRound?Number(requested)-1:0;
+    return {puzzle:ROUNDS[round],round,error:invalidRound?"Unknown round. Round 1 is loaded.":""};
   }
   function scoreAttempt(puzzle,index,raw) {
     const value=valid(raw);
@@ -37,7 +67,7 @@
       excessUnits:flipped?moveUnits-minimumUnits:null,optimal:flipped&&moveUnits===minimumUnits,
       solution:ranked.ranked[0]};
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,valid};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -45,9 +75,26 @@
   let {puzzle,round,error}=parsePuzzle(window.location.search);
   let selected=2,proposed=puzzle.values[selected],attempts=0,best=null;
   const choiceButtons=[...document.querySelectorAll(".reading")];
-  const sourceUrl=()=>round===null
+  const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
     :"one-move.html?round="+(round+1);
+  function dailyBest(day) {
+    try {
+      const saved=Number(window.localStorage.getItem("inward-math-daily-v1-"+day));
+      return Number.isInteger(saved)&&saved>0&&saved<=1000000?saved:null;
+    } catch(_) {return null;}
+  }
+  function saveDailyBest(day,moveUnits) {
+    try {
+      const previous=dailyBest(day);
+      if(previous===null||moveUnits<previous) window.localStorage.setItem("inward-math-daily-v1-"+day,String(moveUnits));
+    } catch(_) { /* The puzzle works even when storage is unavailable. */ }
+  }
+  function updateDailyStatus() {
+    const day=puzzle.date??localDay(new Date()),saved=dailyBest(day);
+    $("daily-status").textContent=saved===null?"Edition "+day+" · complete a strict flip to keep your best move on this device."
+      :"Edition "+day+" completed on this device. Best strict move: "+fmt(saved/10000)+".";
+  }
   function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
@@ -64,7 +111,7 @@
   }
   function render() {
     const stats=core.evaluate(puzzle.values,puzzle.target),opposite=stats.winner==="Mean"?"median":"mean";
-    $("round-name").textContent=round===null?"Shared puzzle":"Round "+(round+1)+" / 3";
+    $("round-name").textContent=puzzle.date?"Daily edition / "+puzzle.date:round===null?"Shared puzzle":"Round "+(round+1)+" / 3";
     $("round-title").textContent=puzzle.title;
     $("cue").textContent=puzzle.cue;
     $("current-winner").textContent=stats.winner+" closer";
@@ -79,9 +126,11 @@
     });
     $("attempt-count").textContent="Attempts this puzzle: "+attempts+(best===null?"":" · Best strict flip: "+fmt(best/10000));
     $("next").hidden=true;
+    $("next").textContent=puzzle.date||round===null?"Try round 1 ↗":"Next puzzle ↗";
     $("play-again").hidden=true;
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
+    updateDailyStatus();
     setAddress();updateProposal();
   }
   function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();}
@@ -115,6 +164,7 @@
     $("play-again").hidden=!flipped;
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
+      if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);updateDailyStatus();}
       $("personal-move").textContent=fmt(moveUnits/10000);
       $("minimum-move").textContent=fmt(minimumUnits/10000);
       $("move-comparison").textContent=judged.optimal?"Exact minimum. You found the shortest strict flip!"
