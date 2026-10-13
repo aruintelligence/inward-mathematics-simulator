@@ -175,6 +175,23 @@
       if(previous===null||moveUnits<previous) window.localStorage.setItem("inward-math-daily-v1-"+day,String(moveUnits));
     } catch(_) { /* The puzzle works even when storage is unavailable. */ }
   }
+  function dailyDraft(day) {
+    try {
+      const raw=window.localStorage.getItem("inward-math-draft-v1-"+day);
+      if(raw===null) return null;
+      const draft=JSON.parse(raw);
+      const value=typeof draft?.value==="number"?valid(String(draft.value)):null;
+      return Number.isInteger(draft?.index)&&draft.index>=0&&draft.index<5&&value!==null
+        ?{index:draft.index,value}:null;
+    } catch(_) {return null;}
+  }
+  function saveDailyDraft(day,index,value) {
+    try {window.localStorage.setItem("inward-math-draft-v1-"+day,JSON.stringify({index,value}));}
+    catch(_) { /* An unfinished move can still be played without storage. */ }
+  }
+  function clearDailyDraft(day) {
+    try {window.localStorage.removeItem("inward-math-draft-v1-"+day);}catch(_) { /* A completed move is still scored. */ }
+  }
   const home=$("home-daily-preview");
   if(home&&!$("stage")) {
     const readings=[...home.querySelectorAll("[data-preview-reading]")];
@@ -201,11 +218,16 @@
       $("home-daily-target").textContent=fmt(puzzle.target);
       $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
+      const draft=dailyDraft(day),draftNote=$("home-daily-draft");
       const shortest=best===null?null:core.rankLevers(puzzle.values,puzzle.target).ranked[0]?.flip.distance;
       const shortestUnits=shortest===null||shortest===undefined?null:units(shortest);
       const exact=best!==null&&best===shortestUnits;
       link.href=selectedReading===null?href:href.replace("#stage","&pick="+(selectedReading+1)+"#stage");
-      link.textContent=selectedReading!==null?"Try reading "+(selectedReading+1)+" ↗":best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
+      link.textContent=selectedReading!==null?"Try reading "+(selectedReading+1)+" ↗":draft?"Resume your move ↗":best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
+      if(draftNote) {
+        draftNote.hidden=draft===null;
+        draftNote.textContent=draft===null?"":"Draft on this device · Reading "+(draft.index+1)+(draft.value===puzzle.values[draft.index]?" selected":" → "+fmt(draft.value));
+      }
       if(progress) {
         progress.hidden=best===null;
         progress.textContent=best===null?"":exact?"Exact minimum on this device · move "+fmt(best/10000):"Flipped on this device · best move "+fmt(best/10000);
@@ -268,7 +290,11 @@
   }
   if(!$("stage")) return;
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=initialReading(window.location.search,puzzle),proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
+  const picks=new URLSearchParams(window.location.search).getAll("pick");
+  const explicitPick=!!puzzle.date&&picks.length===1&&/^[1-5]$/.test(picks[0]);
+  const draft=puzzle.date&&!explicitPick?dailyDraft(puzzle.date):null;
+  let selected=draft?.index??initialReading(window.location.search,puzzle),proposed=draft?.value??puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
+  if(explicitPick) saveDailyDraft(puzzle.date,selected,proposed);
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -469,17 +495,18 @@
     updatePracticeRun();
     setAddress();updateProposal();updateHints();
   }
-  function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();}
+  function persistDraft() {if(puzzle.date) saveDailyDraft(puzzle.date,selected,proposed);}
+  function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();persistDraft();}
   function load(next,number) {
     puzzle=next;round=number;selected=2;proposed=puzzle.values[selected];attempts=0;best=null;hintLevel=0;
     $("share-status").textContent="";$("link-error").textContent="";render();
     $("stage-title").scrollIntoView({block:"start"});
   }
   choiceButtons.forEach((button,index)=>button.addEventListener("click",()=>choose(index)));
-  $("slider").addEventListener("input",event=>{proposed=Number(event.target.value);updateProposal();});
+  $("slider").addEventListener("input",event=>{proposed=Number(event.target.value);updateProposal();persistDraft();});
   $("proposed").addEventListener("input",event=>{
     const parsed=valid(event.target.value);
-    if(parsed!==null) {proposed=parsed;updateProposal();}
+    if(parsed!==null) {proposed=parsed;updateProposal();persistDraft();}
     else $("input-error").textContent="Enter 0–100 with at most four decimal places.";
   });
   $("proposed").addEventListener("blur",event=>{if(valid(event.target.value)===null) event.target.value=fmt(proposed);});
@@ -509,7 +536,7 @@
     if($("duel")) $("duel").hidden=!flipped;
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
-      if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);updateDailyStatus();}
+      if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);clearDailyDraft(puzzle.date);updateDailyStatus();}
       if(puzzle.practice) {runEntries=recordPractice(runEntries,puzzle.practice,moveUnits,judged.optimal);updatePracticeRun();}
       if($("duel")) {
         $("duel-score").textContent=fmt(best/10000);
