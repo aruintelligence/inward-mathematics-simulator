@@ -235,10 +235,18 @@
     .step-lens-body .step-outcome { margin:12px 0 0; color:var(--gold); font-weight:750; }
     .future-lens { margin:10px 0 0; border-color:#6e678a; background:linear-gradient(125deg,#172e44,#252b48); }
     .future-lens summary { color:#e0c5ff; }
+    .future-stage { margin:20px 0 0; border-radius:20px; box-shadow:0 20px 50px #0003; }
+    .future-stage summary { padding:17px 22px; font-size:1.2rem; }
+    .future-kicker { display:block; margin-bottom:5px; color:#b7c5d8; font-size:.68rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
+    .future-stage .step-lens-body { padding:18px 22px 22px; }
+    .future-stage .step-lens-body>p { max-width:880px; margin-bottom:18px; color:#d6e1ed; font-size:.94rem; }
+    .future-layout { display:grid; grid-template-columns:minmax(270px,.7fr) minmax(0,1.3fr); align-items:start; gap:28px; }
+    .future-inputs,.future-visual { min-width:0; }
+    .future-inputs .future-control:first-child { margin-top:0; }
     .future-lens .future-control { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 4px; color:#e2e9ee; font-weight:750; font-size:.86rem; }
     .future-lens input[type="range"] { accent-color:#d9b8ff; }
     .future-lens #future-horizon { accent-color:var(--gold); }
-    .future-lens canvas { margin:12px 0 8px; background:#0b1d31; }
+    .future-lens canvas { margin:0 0 8px; background:#0b1d31; }
     .future-key { display:flex; flex-wrap:wrap; gap:5px 17px; color:#d5e1e4; font-size:.77rem; }
     .future-key i { display:inline-block; width:18px; height:3px; margin:0 6px 3px 0; background:var(--gold); }
     .future-key .alternative i { background:#d9b8ff; }
@@ -286,6 +294,7 @@
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
     @media(max-width:850px) { .grid,.hero-layout { grid-template-columns:1fr; } .hero-heading { grid-column:1; grid-row:1; } .hero-instrument { grid-column:1; grid-row:2; width:100%; max-width:680px; margin-top:8px; } .hero-copy { grid-column:1; grid-row:3; margin-top:16px; } }
+    @media(max-width:850px) { .future-layout { grid-template-columns:1fr; gap:18px; } }
     @media(max-width:850px) { .path-grid { grid-template-columns:1fr; } .path-card { min-height:190px; } .pathways-head { align-items:start; flex-direction:column; } }
     @media(max-width:700px) { .daily-preview-grid { grid-template-columns:1fr; } .daily-home-days { grid-template-columns:repeat(4,minmax(0,1fr)); } }
     @media(max-width:700px) { .scene-grid,.workbench-form { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
@@ -417,7 +426,6 @@
         </div>
         <p id="event" class="status" role="status">Paused at step 0.</p>
         <details class="step-lens" id="step-lens"><summary>See one step ahead ↗</summary><div class="step-lens-body"><p>From the current state, add the pull term to velocity and multiply by 0.92. Opening this view does not advance the model. A faint ring marks the next position while paused.</p><div class="step-flow"><div><span>Pull term · x, y</span><strong id="step-preview-pull">—</strong></div><div><span>Damped velocity · x, y</span><strong id="step-preview-velocity">—</strong></div><div><span>Next position · x, y</span><strong id="step-preview-position">—</strong></div></div><p class="step-outcome" id="step-preview-outcome"></p></div></details>
-        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label><input id="future-horizon" type="range" min="1" max="60" step="1" value="60"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p><p class="future-leads" id="future-leads"></p><button class="future-next-lead" id="future-next-lead" type="button">Jump to next lead change ↗</button><button class="future-apply" id="future-apply" type="button">Use alternative α in live run</button></div></details>
         <div class="formula"><strong>Model:</strong> <code>v ← 0.92(v + 0.008α(target − position)); position ← position + v</code>. A shock adds one seeded impulse to velocity. “Settled” means distance &lt; 4 and speed &lt; 0.5 for 45 consecutive steps.</div>
       </section>
 
@@ -437,6 +445,30 @@
         <div class="formula"><strong>Model:</strong> mean = sum ÷ 5; median = middle sorted value. Both use the same five observations. The target is known only because this is a generated example. An outlier does not prove one observer is dishonest.</div>
       </section>
     </div>
+
+    <details class="step-lens future-lens future-stage" id="future-lens">
+      <summary><span class="future-kicker">Experiment 01 · side study</span>Compare two futures ↗</summary>
+      <div class="step-lens-body">
+        <p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p>
+        <div class="future-layout">
+          <div class="future-inputs">
+            <label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label>
+            <input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5">
+            <label class="future-control" for="future-horizon"><span>Inspect update</span><output id="future-horizon-value">60</output></label>
+            <input id="future-horizon" type="range" min="1" max="60" step="1" value="60">
+            <p class="future-summary" id="future-summary"></p>
+            <p class="future-leads" id="future-leads"></p>
+            <button class="future-next-lead" id="future-next-lead" type="button">Jump to next lead change ↗</button>
+            <button class="future-apply" id="future-apply" type="button">Use alternative α in live run</button>
+          </div>
+          <div class="future-visual">
+            <canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; selected update values follow">The selected update values follow.</canvas>
+            <div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div>
+            <div class="future-results"><div><span id="future-current-caption">Current α · distance at update 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span id="future-alternate-caption">Alternative α · distance at update 60</span><strong id="future-alternate-distance">—</strong></div></div>
+          </div>
+        </div>
+      </div>
+    </details>
 
     <section class="sensitivity" aria-labelledby="sensitivity-title">
       <p class="eyebrow">Experiment 02 / sensitivity sweep</p>
