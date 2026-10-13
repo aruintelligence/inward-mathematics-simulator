@@ -678,6 +678,7 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
   }
   const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(html,/href="one-move\.html\?daily=today"/);
+  assert.match(html,/href="one-move\.html\?round=1#stage">Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
 });
 
