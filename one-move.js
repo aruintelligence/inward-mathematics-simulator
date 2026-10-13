@@ -67,7 +67,11 @@
       excessUnits:flipped?moveUnits-minimumUnits:null,optimal:flipped&&moveUnits===minimumUnits,
       solution:ranked.ranked[0]};
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid};
+  function duelInvitation(puzzle,moveUnits,url) {
+    const edition=puzzle.date?"Daily Flip / "+puzzle.date:"One Move";
+    return edition+" · I flipped the verdict with a move of "+fmt(moveUnits/10000)+". Can you beat my move?\n\n"+url;
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -128,6 +132,8 @@
     $("next").hidden=true;
     $("next").textContent=puzzle.date||round===null?"Try round 1 ↗":"Next puzzle ↗";
     $("play-again").hidden=true;
+    $("duel").hidden=true;
+    $("duel-status").textContent="";
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -162,9 +168,12 @@
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
+    $("duel").hidden=!flipped;
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
       if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);updateDailyStatus();}
+      $("duel-score").textContent=fmt(best/10000);
+      $("duel-edition").textContent=puzzle.date?"Daily Flip / "+puzzle.date:round===null?"One Move / shared puzzle":"One Move / round "+(round+1);
       $("personal-move").textContent=fmt(moveUnits/10000);
       $("minimum-move").textContent=fmt(minimumUnits/10000);
       $("move-comparison").textContent=judged.optimal?"Exact minimum. You found the shortest strict flip!"
@@ -177,6 +186,22 @@
   });
   $("next").addEventListener("click",()=>load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length));
   $("play-again").addEventListener("click",()=>{$("result").hidden=true;$("proposed").focus();});
+  $("duel-share").addEventListener("click",async()=>{
+    const url=new URL(sourceUrl(),window.location.href).href;
+    const title=puzzle.date?"Daily Flip / "+puzzle.date:"One Move challenge";
+    const invitation=duelInvitation(puzzle,best,url);
+    if(typeof navigator.share==="function") {
+      try {
+        await navigator.share({title,text:invitation.slice(0,-url.length).trim(),url});
+        $("duel-status").textContent="Challenge shared. Your reading and solution stay hidden.";
+        return;
+      } catch(error) {
+        if(error?.name==="AbortError") {$("duel-status").textContent="Share cancelled. Your puzzle is ready whenever you are.";return;}
+      }
+    }
+    try {await navigator.clipboard.writeText(invitation);$("duel-status").textContent="Blind challenge copied. Your reading and solution stay hidden.";}
+    catch(_) {$("duel-status").textContent="Sharing is unavailable here. Use the exact puzzle link below.";}
+  });
   for(const button of document.querySelectorAll("[data-round]")) button.addEventListener("click",()=>load(ROUNDS[Number(button.dataset.round)],Number(button.dataset.round)));
   $("copy").addEventListener("click",async()=>{
     try{await navigator.clipboard.writeText(new URL(sourceUrl(),window.location.href).href);$("share-status").textContent="Puzzle link copied. Your attempts are not included.";}
