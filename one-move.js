@@ -55,6 +55,10 @@
     const generated=generatedValues(day);
     return generated?{...generated,date:day,title:"The daily flip",cue:"A fresh generated arrangement for "+day+". Everyone opening this date gets the same puzzle."}:null;
   }
+  function datedEdition(day,today,bestForDay) {
+    if(!validDay(day)||day>localDay(today)||!dailyPuzzle(day)) return null;
+    return {day,href:"one-move.html?daily="+day+"#stage",progress:trailState(day,bestForDay(day)).aria};
+  }
   function dailyPreview(today=new Date()) {
     const day=localDay(today),puzzle=dailyPuzzle(day);
     if(!puzzle) return null;
@@ -171,7 +175,7 @@
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
   const dailyChallengeCardFilename=day=>"inward-math-daily-challenge-"+day+".png";
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,nextOpenDaily,trailState,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,nextOpenDaily,trailState,datedEdition,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename,dailyChallengeCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -448,6 +452,17 @@
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
     :"one-move.html?round="+(round+1);
+  function updateDateExplorer() {
+    const input=$("date-explorer-input"),link=$("date-explorer-link"),status=$("date-explorer-status");
+    if(!input||!link||!status) return;
+    const now=new Date(),today=localDay(now);
+    input.max=today;
+    if(!input.value) input.value=puzzle.date&&puzzle.date<=today?puzzle.date:today;
+    const edition=datedEdition(input.value,now,dailyBest);
+    link.hidden=!edition;
+    link.href=edition?.href??"#date-explorer";
+    status.textContent=edition?edition.day+" · "+edition.progress:"Choose a real date from 2000 through today.";
+  }
   function updateDailyStatus() {
     const day=puzzle.date??localDay(new Date()),saved=dailyBest(day);
     $("daily-status").textContent=saved===null?"Edition "+day+" · complete a strict flip to keep your best move on this device."
@@ -473,6 +488,7 @@
       link.append(weekday,number,status);trail.append(link);
     }
     $("trail-summary").textContent=completed+" of 7 editions flipped · "+exactCount+" exact on this device.";
+    updateDateExplorer();
   }
   function updatePracticeRun() {
     if(!$("practice-run")) return;
@@ -662,6 +678,8 @@
     $("stage-title").scrollIntoView({block:"start"});
   }
   choiceButtons.forEach((button,index)=>button.addEventListener("click",()=>choose(index)));
+  $("date-explorer-input")?.addEventListener("input",updateDateExplorer);
+  $("date-explorer-input")?.addEventListener("change",updateDateExplorer);
   $("slider").addEventListener("input",event=>{proposed=Number(event.target.value);updateProposal();persistDraft();});
   $("proposed").addEventListener("input",event=>{
     const parsed=valid(event.target.value);
