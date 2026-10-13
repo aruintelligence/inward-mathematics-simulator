@@ -242,6 +242,15 @@ test("invalid replay parameters leave the fresh example intact", () => {
   }
 });
 
+test("replay link falls back to JSON when control history is too long", async () => {
+  const lab=loadLab();
+  for(let i=0;i<81;i++) input(lab.element("alpha"),i%2?1.5:1.6);
+  await click(lab.element("copy-run"));
+  assert.equal(lab.share.copied,null);
+  assert.equal(lab.element("run-link").hidden,true);
+  assert.match(lab.element("run-share-status").textContent,/too long.*Export its JSON/);
+});
+
 test("observer comparison uses the same four values under outlier changes", () => {
   const lab=loadLab();
   input(lab.element("outlier"),50);
