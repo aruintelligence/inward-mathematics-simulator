@@ -11,10 +11,12 @@ function loadLab(search="") {
 
   const initial = {"alpha":"1.5","future-alpha":"2.5","future-horizon":"60","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
   const elements = new Map();
-  const download = {clicked:false,blob:null,filename:null};
+  const download = {clicked:false,blob:null,filename:null,type:null,labels:[]};
   const share = {copied:null,scrolled:null};
   const context = new Proxy({}, {get: (_target, key) => {
     if (key === "canvas") return undefined;
+    if (key === "createLinearGradient") return () => ({addColorStop(){}});
+    if (key === "fillText") return label => download.labels.push(label);
     return () => {};
   }});
   function element(id) {
@@ -25,6 +27,7 @@ function loadLab(search="") {
         setAttribute(name,value) {this.attributes[name]=value;},
         scrollIntoView() {share.scrolled=id;},
         getContext() {return context;},
+        toBlob(callback,type) {download.type=type;callback(new Blob(["PNG"],{type}));},
       });
     }
     return elements.get(id);
@@ -249,6 +252,22 @@ test("replay link falls back to JSON when control history is too long", async ()
   assert.equal(lab.share.copied,null);
   assert.equal(lab.element("run-link").hidden,true);
   assert.match(lab.element("run-share-status").textContent,/too long.*Export its JSON/);
+});
+
+test("visual receipt captures a fixed step and downloads that PNG", () => {
+  const lab=loadLab(),receipt=lab.element("receipt");
+  click(lab.element("step"));click(lab.element("shock"));
+  receipt.open=true;receipt.handlers.toggle();
+  assert.match(lab.element("receipt-canvas").attributes["aria-label"],/step 1.*shocks 1/);
+  assert.ok(lab.download.labels.includes("Inward Mathematics™"));
+  click(lab.element("step"));
+  click(lab.element("receipt-save"));
+  assert.equal(lab.download.type,"image/png");
+  assert.equal(lab.download.filename,"inward-math-run-seed-42-step-1.png");
+  click(lab.element("receipt-refresh"));
+  assert.match(lab.element("receipt-canvas").attributes["aria-label"],/step 2.*shocks 1/);
+  click(lab.element("receipt-save"));
+  assert.equal(lab.download.filename,"inward-math-run-seed-42-step-2.png");
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {

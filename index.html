@@ -298,6 +298,17 @@
     .notebook-tools .status { margin:8px 0 0; font-size:.8rem; text-align:right; }
     .notebook-tools a { color:var(--cyan); }
     .notebook p { margin:.3rem 0 0; }
+    .receipt { margin-top:20px; border-color:#496e7b; }
+    .receipt summary { display:flex; align-items:center; gap:13px; list-style:none; cursor:pointer; color:var(--text); }
+    .receipt summary::-webkit-details-marker { display:none; }
+    .receipt summary::before { content:""; flex:none; width:8px; height:8px; border:solid var(--mint); border-width:0 2px 2px 0; transform:rotate(-45deg); }
+    .receipt[open] summary::before { transform:rotate(45deg); }
+    .receipt summary strong { display:block; font-size:1.2rem; }
+    .receipt summary .eyebrow { display:block; margin-bottom:4px; }
+    .receipt summary:focus-visible { outline:3px solid var(--gold); outline-offset:5px; }
+    .receipt-body p { max-width:800px; }
+    .receipt canvas { margin:15px 0; }
+    .receipt .actions { margin-top:4px; align-items:center; }
     .status { color:var(--mint); font-weight:700; }
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
     footer a { color:var(--cyan); }
@@ -531,6 +542,15 @@
       <p class="formula"><strong>Protocol:</strong> seeds = (selected seed + 0 through 127) modulo 2<sup>32</sup>. Four estimates per seed come from successive draws of the documented pseudorandom generator, scaled to [42, 58); the same fifth estimate is tested for all 128. Press Reset seed &amp; state to apply a new seed. Averages and seed counts answer different questions; this fixed generated cohort is not a population estimate or external validation.</p>
     </section>
 
+    <details class="sensitivity receipt" id="receipt">
+      <summary><span><span class="eyebrow">Experiment artifact</span><strong>Make a visual run receipt ↗</strong></span></summary>
+      <div class="receipt-body">
+        <p>Capture the current trajectory, seed, and model readings as a PNG. The picture is a snapshot of a toy run; use the replay link below for the exact event history. Refresh after the run changes.</p>
+        <canvas id="receipt-canvas" width="1200" height="630" role="img" aria-label="Visual snapshot of the toy run; details follow">A visual run receipt is available as a PNG.</canvas>
+        <div class="actions"><button id="receipt-refresh" type="button">Refresh snapshot</button><button id="receipt-save" class="primary" type="button">Save receipt PNG</button><span id="receipt-status" class="status" role="status"></span></div>
+      </div>
+    </details>
+
     <section class="notebook" aria-labelledby="notebook-title">
       <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, the 101-point sweep, and the 128-seed cohort as JSON. Or copy a link that replays this toy run and opens it paused. The link contains the seed, selected fifth reading, pull changes, shock strengths, and step count; URLs can appear in browser history or hosting logs. Use invented values only.</p></div>
       <div class="notebook-tools"><div class="actions"><button id="export" class="primary" type="button">Export run JSON</button><button id="copy-run" type="button">Copy replay link</button><a id="run-link" href="#" hidden>Open replay link ↗</a></div><p id="run-share-status" class="status" role="status"></p></div>
@@ -546,11 +566,12 @@
     const sweepCanvas = $("sweep"), sweepX = sweepCanvas.getContext("2d");
     const cohortCanvas = $("cohort"), cohortX = cohortCanvas.getContext("2d");
     const workbenchCanvas = $("workbench-chart"), workbenchX = workbenchCanvas.getContext("2d");
+    const receiptCanvas = $("receipt-canvas"), receiptX = receiptCanvas.getContext("2d");
     const target = {x:455, y:160};
     const witnessTarget = 50;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scenes = {outlier:{fifth:85,target:"wg-title"},mean:{fifth:40,target:"sensitivity-title"},reversal:{fifth:50,target:"cohort-title"}};
-    let simulation, shockRng, observers, sensitivity, cohort, workbenchAnalysis=null, activeScene=null, heroFlipTarget=null, paused = true, lastFrame = 0, accumulator = 0;
+    let simulation, shockRng, observers, sensitivity, cohort, workbenchAnalysis=null, activeScene=null, heroFlipTarget=null, receiptCapture=null, paused = true, lastFrame = 0, accumulator = 0;
 
     function makeRng(seed) {
       let state = seed >>> 0;
@@ -917,6 +938,49 @@
       rcx.font = "14px system-ui";rcx.fillStyle="#c4dadc";rcx.fillText("Fixed target",target.x-40,target.y-42);
       rcx.fillText("Moving point",Math.max(12,Math.min(490,simulation.position.x-35)),Math.max(20,simulation.position.y-23));
     }
+    function captureReceipt() {
+      const ctx=receiptX,seed=simulation.seed,step=simulation.step,alpha=Number($("alpha").value),d=distance(),v=speed();
+      receiptCapture={seed,step};
+      ctx.fillStyle="#071522";ctx.fillRect(0,0,1200,630);
+      const header=ctx.createLinearGradient(0,0,1200,180);
+      header.addColorStop(0,"#123b42");header.addColorStop(1,"#292744");
+      ctx.fillStyle=header;ctx.fillRect(0,0,1200,174);
+      ctx.fillStyle="#59eac3";ctx.fillRect(54,165,1092,3);
+      ctx.textAlign="left";ctx.fillStyle="#9edcd4";ctx.font="800 17px system-ui";
+      ctx.fillText("ĀRU INTELLIGENCE  /  LIVE RESEARCH INSTRUMENT",54,55);
+      ctx.fillStyle="#f1faf6";ctx.font="800 46px system-ui";ctx.fillText("Inward Mathematics™",54,118);
+      ctx.fillStyle="#d7c0f5";ctx.font="700 17px system-ui";ctx.fillText("RUN RECEIPT  ·  TOY MODEL",857,67);
+      ctx.fillStyle="#122b3c";ctx.fillRect(54,207,431,329);
+      ctx.strokeStyle="#496477";ctx.lineWidth=2;ctx.strokeRect(54,207,431,329);
+      ctx.fillStyle="#b8d4d9";ctx.font="700 18px system-ui";ctx.fillText("DISTANCE TO FIXED TARGET",82,258);
+      ctx.fillStyle="#ffcb78";ctx.font="800 82px system-ui";ctx.fillText(d.toFixed(2),78,355);
+      ctx.fillStyle="#d1e4e6";ctx.font="18px system-ui";ctx.fillText("model units",82,387);
+      ctx.strokeStyle="#3e5a6c";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(82,411);ctx.lineTo(457,411);ctx.stroke();
+      ctx.fillStyle="#a9c1c8";ctx.font="700 16px system-ui";
+      ctx.fillText("PULL α",82,453);ctx.fillText("SPEED",273,453);
+      ctx.fillText("SHOCKS",82,508);ctx.fillText("STEP",273,508);
+      ctx.fillStyle="#effaf7";ctx.font="800 26px ui-monospace, monospace";
+      ctx.fillText(alpha.toFixed(1),82,484);ctx.fillText(v.toFixed(2),273,484);
+      ctx.fillText(String(simulation.shocks.length),82,530);ctx.fillText(String(step),273,530);
+      const px=518,py=207,pw=628,ph=329,mapX=point=>px+24+point.x/600*(pw-48),mapY=point=>py+24+point.y/340*(ph-48);
+      ctx.fillStyle="#0b2031";ctx.fillRect(px,py,pw,ph);ctx.strokeStyle="#496477";ctx.lineWidth=2;ctx.strokeRect(px,py,pw,ph);
+      ctx.save();ctx.beginPath();ctx.rect(px+3,py+3,pw-6,ph-6);ctx.clip();
+      ctx.strokeStyle="#254155";ctx.lineWidth=1;
+      for(let i=1;i<6;i++) {const x=px+i*pw/6,y=py+i*ph/6;ctx.beginPath();ctx.moveTo(x,py);ctx.lineTo(x,py+ph);ctx.moveTo(px,y);ctx.lineTo(px+pw,y);ctx.stroke();}
+      ctx.strokeStyle="#557982";ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(mapX(simulation.position),mapY(simulation.position));ctx.lineTo(mapX(target),mapY(target));ctx.stroke();ctx.setLineDash([]);
+      ctx.strokeStyle="#75d1e9";ctx.lineWidth=4;ctx.lineJoin="round";ctx.beginPath();
+      simulation.trail.forEach((point,i)=>i?ctx.lineTo(mapX(point),mapY(point)):ctx.moveTo(mapX(point),mapY(point)));ctx.stroke();
+      ctx.strokeStyle="#5af0c6";ctx.lineWidth=3;ctx.beginPath();ctx.arc(mapX(target),mapY(target),24,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle="#5af0c6";ctx.beginPath();ctx.arc(mapX(target),mapY(target),10,0,Math.PI*2);ctx.fill();
+      ctx.shadowColor="#ffcb78";ctx.shadowBlur=20;ctx.fillStyle="#ffcb78";ctx.beginPath();ctx.arc(mapX(simulation.position),mapY(simulation.position),12,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.restore();
+      ctx.font="700 15px system-ui";ctx.fillStyle="#7deacc";ctx.fillText("FIXED TARGET",px+24,py+38);
+      ctx.fillStyle="#ffcb78";ctx.fillText("CURRENT POINT",px+pw-166,py+38);
+      ctx.fillStyle="#9eb6c5";ctx.font="700 17px system-ui";ctx.fillText("SEED "+seed+"   /   STEP "+step,54,579);
+      ctx.font="15px system-ui";ctx.fillText("Damped toy model · known target · no scientific or safety claim",54,607);
+      receiptCanvas.setAttribute("aria-label","Toy run receipt captured at step "+step+" for seed "+seed+". Pull strength "+alpha.toFixed(1)+", distance "+d.toFixed(2)+", speed "+v.toFixed(2)+", shocks "+simulation.shocks.length+". Visual snapshot, not an exact event record.");
+      $("receipt-status").textContent="Captured at step "+step+". Refresh after the run changes.";
+    }
     function drawWitness(stats) {
       wgx.clearRect(0,0,600,340);
       const map = value => 50 + value*5;
@@ -1084,6 +1148,19 @@
       simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:alpha});
       $("event").textContent="Applied alternative α "+alpha.toFixed(1)+" at step "+simulation.step+". "+(paused?"Use Step once or Run to continue.":"The live run continues.");
       render();
+    });
+    $("receipt").addEventListener("toggle",()=>{if($("receipt").open) captureReceipt();});
+    $("receipt-refresh").addEventListener("click",captureReceipt);
+    $("receipt-save").addEventListener("click",()=>{
+      if(!receiptCapture) captureReceipt();
+      const captured={...receiptCapture};
+      receiptCanvas.toBlob(blob=>{
+        if(!blob) {$("receipt-status").textContent="PNG could not be created; try refreshing the snapshot.";return;}
+        const url=URL.createObjectURL(blob),link=document.createElement("a");
+        link.href=url;link.download="inward-math-run-seed-"+captured.seed+"-step-"+captured.step+".png";
+        document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        $("receipt-status").textContent="Receipt PNG saved for step "+captured.step+".";
+      },"image/png");
     });
     $("reset").addEventListener("click",()=>{activeScene=null;reset();});
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
