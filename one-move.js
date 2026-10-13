@@ -197,10 +197,20 @@
   if(home&&!$("stage")) {
     const readings=[...home.querySelectorAll("[data-preview-reading]")];
     const choices=[...home.querySelectorAll("[data-preview-pick]")];
+    const cardShare=$("home-daily-card-share");
+    let fileSharing=false;
+    try {
+      fileSharing=!!cardShare&&typeof File==="function"&&typeof navigator.share==="function"&&
+        typeof navigator.canShare==="function"&&navigator.canShare({files:[new File([],"challenge.png",{type:"image/png"})]});
+    } catch(_) {fileSharing=false;}
+    if(cardShare) cardShare.hidden=!fileSharing;
+    let cardBlob=null,cardBlobDay=null,cardSerial=0;
     let selectedReading=null;
     function drawDailyCard(preview) {
       const canvas=$("home-daily-card"),status=$("home-daily-card-status");
       if(!canvas) return false;
+      cardSerial++;cardBlob=null;cardBlobDay=null;
+      if(fileSharing) cardShare.disabled=true;
       const ctx=canvas.getContext("2d");
       if(!ctx) {status.textContent="Image preview is unavailable in this browser.";return false;}
       const {day,puzzle}=preview;
@@ -227,6 +237,18 @@
       canvas.setAttribute("aria-label","Daily Flip challenge card for "+day+". Readings "+puzzle.values.map(fmt).join(", ")+
         ". Target "+fmt(puzzle.target)+". Find a one-reading reversal. Answer hidden.");
       status.textContent="";
+      if(fileSharing&&typeof canvas.toBlob==="function") {
+        const serial=cardSerial;
+        canvas.toBlob(blob=>{
+          if(serial!==cardSerial||!blob||home.dataset.day!==day) return;
+          try {
+            if(!navigator.canShare({files:[new File([blob],dailyChallengeCardFilename(day),{type:"image/png"})]})) {
+              cardShare.hidden=true;return;
+            }
+            cardBlob=blob;cardBlobDay=day;cardShare.disabled=false;
+          } catch(_) {cardShare.hidden=true;}
+        },"image/png");
+      }
       return true;
     }
     function renderDailyPreview() {
@@ -342,6 +364,24 @@
         setTimeout(()=>URL.revokeObjectURL(url),60000);
         status.textContent="Challenge PNG downloaded.";
       },"image/png");
+    });
+    cardShare?.addEventListener("click",async()=>{
+      const preview=dailyPreview(new Date()),status=$("home-daily-card-status");
+      if(!preview) {status.textContent="Today's puzzle is unavailable.";return;}
+      if(cardBlobDay!==preview.day||!cardBlob) {
+        drawDailyCard(preview);
+        status.textContent="Preparing today's image. Share when the button is ready.";
+        return;
+      }
+      const file=new File([cardBlob],dailyChallengeCardFilename(preview.day),{type:"image/png"});
+      const url=new URL(preview.href,window.location.href).href;
+      try {
+        await navigator.share({files:[file],title:"Daily Flip / "+preview.day,
+          text:"Can you flip the verdict? Play this edition: "+url});
+        status.textContent="Challenge image shared.";
+      } catch(error) {
+        status.textContent=error?.name==="AbortError"?"Sharing canceled.":"Could not share the image. Download the PNG instead.";
+      }
     });
     const share=$("home-daily-share");
     if(share) share.addEventListener("click",async()=>{
