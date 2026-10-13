@@ -166,6 +166,8 @@ test("future fork compares pull strengths without changing the current run", () 
   assert.ok(alternative>4&&alternative<6);
   assert.match(lab.element("future-summary").textContent,/Alternative pull is .* closer at update 60/);
   assert.match(lab.element("future-leads").textContent,/17, 30, 44, 57/);
+  assert.match(lab.element("future-tally").textContent,/current nearer at 26, alternative at 34, nearly equal at 0/);
+  assert.match(lab.element("future-ribbon").attributes["aria-label"],/Selected update 60 is outlined/);
   click(lab.element("future-next-lead"));
   assert.equal(lab.element("future-horizon").value,"17");
   assert.equal(snapshot(lab).step,0);
@@ -180,6 +182,7 @@ test("future fork compares pull strengths without changing the current run", () 
   input(lab.element("future-alpha"),1.5);
   assert.equal(lab.element("future-current-distance").textContent,lab.element("future-alternate-distance").textContent);
   assert.match(lab.element("future-summary").textContent,/strengths match/);
+  assert.match(lab.element("future-tally").textContent,/current nearer at 0, alternative at 0, nearly equal at 60/);
   assert.equal(lab.element("future-apply").disabled,true);
   assert.equal(lab.element("future-next-lead").disabled,true);
   assert.match(lab.element("future-leads").textContent,/No lead change/);
