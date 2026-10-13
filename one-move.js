@@ -232,8 +232,17 @@
           $("home-daily-map-"+name).style.left=value+"%";
           $("home-daily-map-"+name+"-value").textContent=fmt(value);
         }
+        for(const [name,value] of [["mean",mean],["median",median]]) {
+          $("home-daily-map-"+name+"-target").style.left=puzzle.target+"%";
+          const band=$("home-daily-map-"+name+"-distance");
+          band.style.left=fmt(Math.min(value,puzzle.target))+"%";
+          band.style.width=fmt(Math.abs(value-puzzle.target))+"%";
+        }
+        $("home-daily-map-errors").textContent="Shorter band = closer to target · Mean error "+
+          fmt(Math.abs(mean-puzzle.target))+" · Median error "+fmt(Math.abs(median-puzzle.target));
         map.setAttribute("aria-label","Starting arrangement on a 0 to 100 scale. Readings "+puzzle.values.map(fmt).join(", ")+
-          ". Target "+fmt(puzzle.target)+". Mean "+fmt(mean)+". Median "+fmt(median)+
+          ". Target "+fmt(puzzle.target)+". Mean "+fmt(mean)+", error "+fmt(Math.abs(mean-puzzle.target))+
+          ". Median "+fmt(median)+", error "+fmt(Math.abs(median-puzzle.target))+
           (selectedReading===null?".":". Reading "+(selectedReading+1)+" selected."));
       }
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
