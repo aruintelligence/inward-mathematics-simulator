@@ -1057,7 +1057,7 @@
       $("trace-distance").textContent=point.distance.toFixed(2);
       const atStep=shocks.filter(step=>step===selected).length;
       $("trace-event").textContent=atStep?atStep+" shock "+(atStep===1?"impulse was":"impulses were")+" added at this step. Position changes on the next update.":"No shock was added at this step.";
-      $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock events in this window. This view stays frozen until you refresh it.";
+      $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock "+(shocks.length===1?"event":"events")+" in this window. This view stays frozen until you refresh it.";
       const ctx=traceX,left=51,right=568,top=19,bottom=194;
       const max=Math.max(4,...points.map(p=>p.distance))*1.04;
       const x=step=>first===last?(left+right)/2:left+(step-first)/(last-first)*(right-left),y=value=>bottom-value/max*(bottom-top);
