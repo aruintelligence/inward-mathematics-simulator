@@ -407,7 +407,7 @@
         <p>Set the pull strength, add a shock, then watch the point return toward a fixed target. Pause to inspect exact steps.</p>
         <canvas id="rc" width="600" height="340" role="img" aria-label="Point, target, and recent trajectory in a damped spring simulation">Canvas is needed for the trajectory; numeric results are below.</canvas>
         <div class="legend"><span><i class="swatch" style="background:var(--mint)"></i>target</span><span><i class="swatch" style="background:var(--gold)"></i>moving point</span><span><i class="swatch" style="background:var(--cyan)"></i>trail</span></div>
-        <div class="metrics" aria-live="polite">
+        <div class="metrics">
           <div class="metric"><span>Distance to target</span><strong id="distance">—</strong></div>
           <div class="metric"><span>Coherence proxy · e<sup>−d/120</sup></span><strong id="coherence">—</strong></div>
           <div class="metric gold"><span>Speed</span><strong id="speed">—</strong></div>
@@ -933,7 +933,7 @@
       $("step-preview-velocity").textContent=vector(next.velocity);
       $("step-preview-position").textContent=vector(next.position);
       const movement=Math.abs(change)<0.00005?"almost unchanged":change<0?"closer by "+(-change).toFixed(4):"farther by "+change.toFixed(4);
-      $("step-preview-outcome").textContent="After step "+(simulation.step+1)+": distance "+next.distance.toFixed(4)+" · "+movement+". Preview only; choose Step once to apply it.";
+      $("step-preview-outcome").textContent="After step "+(simulation.step+1)+": distance "+next.distance.toFixed(4)+" · "+movement+". "+(paused?"Preview only; choose Step once to apply it.":"The live run is moving; pause it to inspect a fixed next step.");
     }
     function renderFuture() {
       if(!$("future-lens").open) return;

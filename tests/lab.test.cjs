@@ -148,6 +148,10 @@ test("one-step forecast matches the next exact state after a parameter change an
   assert.ok(Math.abs(snapshot(lab).position.x-afterShock[0])<0.00005);
   assert.ok(Math.abs(snapshot(lab).position.y-afterShock[1])<0.00005);
   assert.match(lab.element("step-preview-outcome").textContent,/After step 3:/);
+  click(lab.element("run"));
+  assert.match(lab.element("step-preview-outcome").textContent,/live run is moving; pause it/);
+  click(lab.element("run"));
+  assert.match(lab.element("step-preview-outcome").textContent,/choose Step once to apply it/);
 });
 
 test("future fork compares pull strengths without changing the current run", () => {
