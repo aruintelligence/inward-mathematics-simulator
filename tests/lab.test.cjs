@@ -616,7 +616,7 @@ test("flip levers ranks actual strict reversals for every movable reading", () =
 });
 
 test("One Move scores strict reversals against the exact four-decimal minimum", () => {
-  const {ROUNDS,parsePuzzle,scoreAttempt}=require("../one-move.js");
+  const {ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle}=require("../one-move.js");
   const first=ROUNDS[0];
   assert.equal(scoreAttempt(first,2,"51.6666").flipped,false);
   const shortest=scoreAttempt(first,2,"51.6667");
@@ -640,15 +640,45 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
     assert.equal(result.result.winner,winner);
   }
   assert.equal(parsePuzzle("?round=2").round,1);
+  assert.match(parsePuzzle("?round=1&round=2").error,/Unknown round/);
   assert.equal(parsePuzzle("?values=40%2C42%2C50%2C60%2C68&target=52").round,null);
   assert.equal(parsePuzzle("?values=0%2C0%2C50%2C100%2C100&target=50").round,0);
   assert.match(parsePuzzle("?values=0%2C0%2C50%2C100%2C100&target=50").error,/no strict/);
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=2" defer/);
-  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round puzzle/);
+  assert.match(page,/src="one-move\.js\?v=3" defer/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
+});
+
+test("daily puzzle is reproducible by date and every generated edition has a real reversal", () => {
+  const {dailyPuzzle,parsePuzzle,scoreAttempt}=require("../one-move.js");
+  const {rankLevers}=require("../flip-levers.js");
+  const day="2026-10-12",today=dailyPuzzle(day);
+  assert.deepEqual(today.values,[40,67,92,43,84]);
+  assert.equal(today.target,80);
+  assert.deepEqual(dailyPuzzle(day),today);
+  assert.notDeepEqual(dailyPuzzle("2026-10-13").values,today.values);
+  assert.equal(parsePuzzle("?daily=today",new Date(2026,9,12,12)).puzzle.date,day);
+  assert.deepEqual(parsePuzzle("?daily="+day).puzzle,today);
+  assert.match(parsePuzzle("?daily=2026-02-30").error,/invalid/);
+  assert.match(parsePuzzle("?daily="+day+"&daily="+day).error,/invalid/);
+  const optimal=rankLevers(today.values,today.target).ranked[0];
+  assert.equal(optimal.index,1);
+  assert.equal(optimal.flip.value,64.7499);
+  assert.equal(scoreAttempt(today,optimal.index,String(optimal.flip.value)).optimal,true);
+  for(let i=0;i<366;i++) {
+    const date=new Date(Date.UTC(2027,0,1+i)).toISOString().slice(0,10);
+    const puzzle=dailyPuzzle(date);
+    assert.ok(puzzle,"missing daily case for "+date);
+    const ranked=rankLevers(puzzle.values,puzzle.target);
+    assert.ok(ranked.ranked.length>=3);
+    assert.ok(ranked.ranked[0].flip.distance>=.75&&ranked.ranked[0].flip.distance<=12);
+  }
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/href="one-move\.html\?daily=today"/);
+  assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
 });
 
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {
