@@ -138,13 +138,17 @@
       width:lever.flip?lever.flip.distance/longest*100:0,best:position===0&&!!lever.flip,chosen:lever.index===chosenIndex
     }))};
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas};
+  function resultCardFilename(puzzle) {
+    return "inward-math-one-move-"+(puzzle.date?"daily-"+puzzle.date:puzzle.practice?"case-"+puzzle.practice:
+      ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null;
+  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -281,6 +285,39 @@
       row.append(label,track,amount,detail);list.append(row);
     }
   }
+  function drawResultCard(judged) {
+    if(!$("move-card-kit")) return;
+    $("move-card-kit").hidden=false;
+    cardReady=false;
+    const canvas=$("move-card"),ctx=canvas.getContext("2d");
+    if(!ctx) {$("move-card-status").textContent="Image preview is unavailable in this browser.";return;}
+    const before=core.evaluate(puzzle.values,puzzle.target),after=judged.result;
+    const edition=puzzle.date?"DAILY / "+puzzle.date:puzzle.practice?"OPEN RUN / CASE "+String(puzzle.practice).padStart(3,"0"):
+      round===null?"SHARED PUZZLE":"ROUND "+(round+1)+" / 3";
+    const block=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
+    const label=(value,x,y,size,color,weight="700")=>{ctx.fillStyle=color;ctx.font=weight+" "+size+"px system-ui, sans-serif";ctx.fillText(value,x,y);};
+    block(0,0,1200,630,"#071c2b");block(24,24,1152,582,"#102e3e");block(24,24,1152,9,"#70f0c9");
+    label("ĀRU / INWARD MATHEMATICS",68,85,22,"#70f0c9","800");
+    ctx.textAlign="right";label(edition,1130,85,20,"#ffd08b");ctx.textAlign="left";
+    label("ONE MOVE. ONE REVERSAL.",68,157,45,"#f3f7f4","800");
+    label("Reading "+(judged.index+1)+"   "+fmt(puzzle.values[judged.index])+" → "+fmt(judged.value),68,216,28,"#ffb3bc");
+    ctx.textAlign="right";label("TARGET  "+fmt(puzzle.target),1130,211,27,"#ffd08b","800");ctx.textAlign="left";
+    block(68,244,514,199,"#092634");block(598,244,532,199,"#123b3c");
+    label("BEFORE",89,282,18,"#a6dffc","800");label("AFTER",619,282,18,"#70f0c9","800");
+    label(before.winner.toUpperCase()+" CLOSER",89,328,27,"#f3f7f4","800");
+    label(after.winner.toUpperCase()+" CLOSER",619,328,27,"#70f0c9","800");
+    label("Mean error  "+errorFmt(before.meanError),89,376,23,"#d3e5e4");
+    label("Median error  "+errorFmt(before.medianError),89,412,23,"#d3e5e4");
+    label("Mean error  "+errorFmt(after.meanError),619,376,23,"#d3e5e4");
+    label("Median error  "+errorFmt(after.medianError),619,412,23,"#d3e5e4");
+    label("YOUR MOVE",68,490,19,"#b9d4d3","800");
+    label(fmt(judged.moveUnits/10000),68,547,48,"#70f0c9","800");
+    label(judged.optimal?"EXACT MINIMUM":"MINIMUM  "+fmt(judged.minimumUnits/10000),360,538,23,"#ffd08b","800");
+    ctx.textAlign="right";label("aruintelligence.github.io/inward-mathematics-simulator",1130,540,16,"#b9d4d3");ctx.textAlign="left";
+    label(round===null&&!puzzle.date&&!puzzle.practice?"READER-SUPPLIED READINGS + TARGET · NOT INDEPENDENTLY VERIFIED":"DETERMINISTIC WHAT-IF READINGS · NOT OBSERVED DATA",68,583,16,"#b9d4d3");
+    canvas.setAttribute("aria-label","Result card for "+edition+": reading "+(judged.index+1)+" from "+fmt(puzzle.values[judged.index])+" to "+fmt(judged.value)+", move "+fmt(judged.moveUnits/10000)+". "+before.winner+" was closer before; "+after.winner+" is closer after. "+(judged.optimal?"Exact minimum.":"Shortest move "+fmt(judged.minimumUnits/10000)+"."));
+    cardReady=true;
+  }
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
     $("selected-old").textContent=fmt(puzzle.values[selected]);
@@ -317,6 +354,7 @@
     if($("verdict-shift")) $("verdict-shift").hidden=true;
     if($("mechanism")) $("mechanism").hidden=true;
     if($("route-atlas")) $("route-atlas").hidden=true;
+    if($("move-card-kit")) {$("move-card-kit").hidden=true;$("move-card-status").textContent="";cardReady=false;}
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -354,6 +392,8 @@
     showVerdictShift(judged);
     showMoveMechanism(judged);
     showRouteAtlas(judged);
+    if($("move-card-kit")) $("move-card-kit").hidden=true;
+    cardReady=false;
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
@@ -373,6 +413,7 @@
       $("optimal-example").textContent="One shortest answer: move reading "+(solution.index+1)+" from "+fmt(solution.value)+" to "+fmt(solution.flip.value)+".";
       $("your-bar").style.width="100%";
       $("minimum-bar").style.width=Math.max(3,minimumUnits/moveUnits*100)+"%";
+      drawResultCard(judged);
     }
     $("attempt-count").textContent="Attempts this puzzle: "+attempts+(best===null?"":" · Best strict flip: "+fmt(best/10000));
   });
@@ -385,6 +426,17 @@
     load(ROUNDS[round===null?0:(round+1)%ROUNDS.length],round===null?0:(round+1)%ROUNDS.length);
   });
   $("play-again").addEventListener("click",()=>{$("result").hidden=true;$("proposed").focus();});
+  $("download-move-card")?.addEventListener("click",()=>{
+    if(!cardReady) return;
+    $("move-card").toBlob(blob=>{
+      if(!blob) {$("move-card-status").textContent="Could not create the PNG. Try another browser.";return;}
+      const url=URL.createObjectURL(blob),link=document.createElement("a");
+      link.href=url;link.download=resultCardFilename(puzzle);
+      document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      $("move-card-status").textContent="Result PNG downloaded.";
+    },"image/png");
+  });
   $("duel-share")?.addEventListener("click",async()=>{
     const url=new URL(sourceUrl(),window.location.href).href;
     const title=puzzle.date?"Daily Flip / "+puzzle.date:puzzle.practice?"Practice Flip / "+puzzle.practice:"One Move challenge";
