@@ -84,7 +84,18 @@
     if(!route) return "This arrangement has no strict single-reading reversal in 0–100.";
     return "One shortest route starts with Reading "+(route.index+1)+". Move it "+(route.flip.value<route.value?"down":"up")+". The exact crossing is still yours to find.";
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays,hintFor};
+  function verdictShift(puzzle,judged) {
+    const before=core.evaluate(puzzle.values,puzzle.target),after=judged.result;
+    const scale=Math.max(1,before.meanError,before.medianError,after.meanError,after.medianError);
+    const meanDelta=after.meanError-before.meanError,medianDelta=after.medianError-before.medianError;
+    const movement=meanDelta>1e-8&&medianDelta>1e-8?"Both errors grew. ":
+      meanDelta< -1e-8&&medianDelta< -1e-8?"Both errors shrank. ":
+      Math.abs(meanDelta)<1e-8&&Math.abs(medianDelta)<1e-8?"Neither error moved. ":"The errors changed differently. ";
+    const lead=after.winner==="Equal"?"The final errors match: this is a tie, not a strict reversal.":
+      "The "+after.winner.toLowerCase()+" is closer by "+errorFmt(Math.abs(after.meanError-after.medianError))+" error units.";
+    return {before,after,scale,insight:movement+lead};
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -146,6 +157,22 @@
     button.disabled=hintLevel===2;
     button.setAttribute("aria-expanded",String(hintLevel>0));
   }
+  function showVerdictShift(judged) {
+    if(!$("verdict-shift")) return;
+    const shift=verdictShift(puzzle,judged);
+    $("verdict-shift").hidden=false;
+    $("verdict-insight").textContent=shift.insight;
+    for(const phase of ["before","after"]) {
+      const stats=shift[phase];
+      $(phase+"-lead").textContent=stats.winner==="Equal"?"Tie":stats.winner+" closer";
+      for(const kind of ["mean","median"]) {
+        const value=stats[kind+"Error"];
+        $(phase+"-"+kind+"-error").textContent=errorFmt(value);
+        $(phase+"-"+kind+"-bar").style.width=(value/shift.scale*100).toFixed(2)+"%";
+        $(phase+"-"+kind+"-row").dataset.leading=String(stats.winner.toLowerCase()===kind);
+      }
+    }
+  }
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
     $("selected-old").textContent=fmt(puzzle.values[selected]);
@@ -179,6 +206,7 @@
     $("next").textContent=puzzle.date||round===null?"Try round 1 ↗":"Next puzzle ↗";
     $("play-again").hidden=true;
     if($("duel")) {$("duel").hidden=true;$("duel-status").textContent="";}
+    if($("verdict-shift")) $("verdict-shift").hidden=true;
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -211,6 +239,7 @@
       ?"Reading "+(selected+1)+" moved from "+fmt(puzzle.values[selected])+" to "+fmt(proposed)+". "+result.winner+" is now closer: mean error "+errorFmt(result.meanError)+", median error "+errorFmt(result.medianError)+"."
       :result.winner==="Equal"?"Both estimates have equal error here. Cross the tie to give the opposing estimate a strict lead."
       :"The "+result.winner.toLowerCase()+" is still closer. Try a different value or reading.";
+    showVerdictShift(judged);
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
