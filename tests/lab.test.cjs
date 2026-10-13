@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=20" defer/);
+  assert.match(page,/src="one-move\.js\?v=21" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -775,7 +775,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=20" defer/);
+  assert.match(html,/src="one-move\.js\?v=21" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -953,7 +953,7 @@ test("a cached pre-duel page still initializes and scores with the new script", 
     setAttribute(){},querySelector(){return {textContent:"",style:{}};}}));
   const document={getElementById:element,querySelectorAll(selector){return selector===".reading"?readings:[];}};
   let address="";
-  const window={location:{search:"?daily=2026-10-12&pick=2",href:"https://example.test/one-move.html?daily=2026-10-12&pick=2"},
+  const window={location:{search:"?daily=2026-10-12&pick=2",hash:"#stage",href:"https://example.test/one-move.html?daily=2026-10-12&pick=2#stage"},
     history:{replaceState(_state,_title,url){address=url;}},localStorage:{getItem(){return null;},setItem(){}}};
   const script=fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8");
   vm.runInNewContext(script,{module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,
@@ -961,7 +961,7 @@ test("a cached pre-duel page still initializes and scores with the new script", 
   assert.match(element("mission").textContent,/Make the mean strictly closer/);
   assert.equal(element("selected-reading").textContent,"2");
   assert.equal(element("proposed").value,"67");
-  assert.equal(address,"one-move.html?daily=2026-10-12");
+  assert.equal(address,"one-move.html?daily=2026-10-12#stage");
   readings[1].handlers.click();
   element("proposed").value="64.7499";
   element("submit").handlers.click();
