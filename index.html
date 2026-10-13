@@ -298,6 +298,7 @@
     .trace-key { display:flex; flex-wrap:wrap; gap:5px 16px; color:#d0e2e5; font-size:.77rem; }
     .trace-key i { display:inline-block; width:17px; height:3px; margin:0 6px 3px 0; background:var(--gold); }
     .trace-key .shock-key i { background:var(--rose); }
+    .trace-key .change-key i { background:#d9b8ff; }
     .trace-key .selected-key i { background:#73cde8; }
     .trace-key .target-key i { background:var(--mint); }
     .controls { display:grid; gap:16px; }
@@ -504,7 +505,7 @@
     <details class="step-lens trace-stage" id="trace-lens">
       <summary><span><span class="trace-kicker">Experiment 01 · observed path</span>Trace the path behind you ↗</span></summary>
       <div class="step-lens-body">
-        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose marks show shock timing. Opening or refreshing this view does not change the live model.</p>
+        <p>Freeze up to 150 recent positions from the actual run. Scrub the captured steps to inspect distance and position; rose and lavender marks show shock and pull-change timing. Opening or refreshing this view does not change the live model.</p>
         <div class="trace-layout">
           <div class="trace-inputs">
             <label class="trace-control" for="trace-step"><span>Inspect captured step</span><output id="trace-step-value">0</output></label>
@@ -519,7 +520,7 @@
           <div class="trace-visual">
             <h3 class="trace-plot-title">Distance through time</h3>
             <canvas id="trace-chart" width="600" height="240" role="img" aria-label="Captured distance by step; selected values follow">The captured step values follow.</canvas>
-            <div class="trace-key"><span><i></i>observed distance</span><span class="shock-key"><i></i>shock step</span></div>
+            <div class="trace-key"><span><i></i>observed distance</span><span class="shock-key"><i></i>shock step</span><span class="change-key"><i></i>pull α change</span></div>
             <h3 class="trace-plot-title trace-map-title">Where the point traveled</h3>
             <canvas id="trace-map" width="600" height="300" role="img" aria-label="Captured positions in the toy field; selected values follow">The captured position values follow.</canvas>
             <div class="trace-key"><span><i></i>observed path</span><span class="selected-key"><i></i>selected step</span><span class="target-key"><i></i>fixed target</span><span class="shock-key"><i></i>shock position</span></div>
@@ -1053,21 +1054,25 @@
       const last=simulation.step,first=last-simulation.trail.length+1;
       traceCapture={seed:simulation.seed,first,last,
         points:simulation.trail.map((position,i)=>({step:first+i,position:{...position},distance:Math.hypot(target.x-position.x,target.y-position.y)})),
-        shocks:simulation.shocks.filter(shock=>shock.step>=first&&shock.step<=last).map(shock=>shock.step)};
+        shocks:simulation.shocks.filter(shock=>shock.step>=first&&shock.step<=last).map(shock=>shock.step),
+        changes:simulation.parameterChanges.filter(change=>change.parameter==="alpha"&&change.step>=first&&change.step<=last).map(change=>({step:change.step,value:change.value}))};
       $("trace-step").min=String(first);$("trace-step").max=String(last);$("trace-step").value=String(last);
       $("trace-step").disabled=first===last;
       renderTrace();
     }
     function renderTrace() {
       if(!traceCapture) return;
-      const {first,last,points,shocks,seed}=traceCapture;
+      const {first,last,points,shocks,changes,seed}=traceCapture;
       const selected=Math.max(first,Math.min(last,Number($("trace-step").value))),point=points[selected-first];
       $("trace-step-value").textContent=String(selected);
       $("trace-position").textContent=point.position.x.toFixed(2)+", "+point.position.y.toFixed(2);
       $("trace-distance").textContent=point.distance.toFixed(2);
       const atStep=shocks.filter(step=>step===selected).length;
-      $("trace-event").textContent=atStep?atStep+" shock "+(atStep===1?"impulse was":"impulses were")+" added at this step. Position changes on the next update.":"No shock was added at this step.";
-      $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock "+(shocks.length===1?"event":"events")+" in this window. This view stays frozen until you refresh it.";
+      const pullChanges=changes.filter(change=>change.step===selected),events=[];
+      if(atStep) events.push(atStep+" shock "+(atStep===1?"impulse was":"impulses were")+" added at this step. Position changes on the next update.");
+      if(pullChanges.length) events.push("Pull α set to "+pullChanges.at(-1).value.toFixed(1)+" at this step"+(pullChanges.length>1?" after "+pullChanges.length+" changes":"")+". The next update uses it.");
+      $("trace-event").textContent=events.join(" ")||"No shock or pull change was recorded at this step.";
+      $("trace-summary").textContent="Captured seed "+seed+", steps "+first+"–"+last+"; "+shocks.length+" shock "+(shocks.length===1?"event":"events")+" and "+changes.length+" pull "+(changes.length===1?"change":"changes")+" in this window. This view stays frozen until you refresh it.";
       $("trace-closest").disabled=points.length<2;
       $("trace-jump").disabled=!shocks.length;
       const ctx=traceX,left=51,right=568,top=19,bottom=194;
@@ -1081,10 +1086,12 @@
       ctx.fillText("steps",right-24,235);
       ctx.strokeStyle="#ff8f9d";ctx.lineWidth=1;ctx.setLineDash([4,5]);
       for(const step of new Set(shocks)) {ctx.beginPath();ctx.moveTo(x(step),top);ctx.lineTo(x(step),bottom);ctx.stroke();}
+      ctx.strokeStyle="#d9b8ff";ctx.setLineDash([2,4]);
+      for(const step of new Set(changes.map(change=>change.step))) {const px=x(step)+(shocks.includes(step)?4:0);ctx.beginPath();ctx.moveTo(px,top);ctx.lineTo(px,bottom);ctx.stroke();}
       ctx.setLineDash([]);ctx.strokeStyle="#ffcb78";ctx.lineWidth=3;ctx.beginPath();
       points.forEach((p,i)=>i?ctx.lineTo(x(p.step),y(p.distance)):ctx.moveTo(x(p.step),y(p.distance)));ctx.stroke();
       ctx.fillStyle="#73cde8";ctx.beginPath();ctx.arc(x(selected),y(point.distance),6,0,Math.PI*2);ctx.fill();
-      traceCanvas.setAttribute("aria-label","Captured distance from the target for seed "+seed+", steps "+first+" to "+last+". At selected step "+selected+", distance "+point.distance.toFixed(2)+", position "+point.position.x.toFixed(2)+", "+point.position.y.toFixed(2)+"; "+atStep+" shocks at this step. Rose lines mark shock steps.");
+      traceCanvas.setAttribute("aria-label","Captured distance from the target for seed "+seed+", steps "+first+" to "+last+". At selected step "+selected+", distance "+point.distance.toFixed(2)+", position "+point.position.x.toFixed(2)+", "+point.position.y.toFixed(2)+"; "+atStep+" shock "+(atStep===1?"event":"events")+" and "+pullChanges.length+" pull "+(pullChanges.length===1?"change":"changes")+" at this step. Rose lines mark shock steps and lavender lines mark pull changes.");
       drawTraceMap();
     }
     function drawTraceMap() {

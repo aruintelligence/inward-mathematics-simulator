@@ -281,7 +281,7 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.equal(lab.element("trace-jump").disabled,true);
   click(lab.element("step"));click(lab.element("step"));
   const atTwo=snapshot(lab);
-  click(lab.element("shock"));click(lab.element("step"));
+  input(lab.element("alpha"),2.0);click(lab.element("shock"));click(lab.element("step"));
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"3");
   assert.equal(lab.element("trace-closest").disabled,false);
@@ -289,7 +289,9 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   input(lab.element("trace-step"),2);
   assert.equal(lab.element("trace-distance").textContent,atTwo.distance.toFixed(2));
   assert.match(lab.element("trace-event").textContent,/1 shock impulse was added/);
+  assert.match(lab.element("trace-event").textContent,/Pull α set to 2\.0 at this step/);
   assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
+  assert.match(lab.element("trace-chart").attributes["aria-label"],/1 pull change at this step/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
   const before=snapshot(lab);
   input(lab.element("trace-step"),3);
