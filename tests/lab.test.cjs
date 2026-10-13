@@ -4,7 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const {test} = require("node:test");
 
-function loadLab(search="") {
+function loadLab(search="",hash="") {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
@@ -32,7 +32,7 @@ function loadLab(search="") {
     }
     return elements.get(id);
   }
-  const window = {matchMedia: () => ({matches:false}),location:{search,href:"https://aruintelligence.github.io/inward-mathematics-simulator/"+search}};
+  const window = {matchMedia: () => ({matches:false}),location:{search,hash,href:"https://aruintelligence.github.io/inward-mathematics-simulator/"+search+hash}};
   const navigator = {clipboard:{async writeText(value) {share.copied=value;}}};
   const document = {
     getElementById:element,
@@ -255,6 +255,47 @@ test("replay link falls back to JSON when control history is too long", async ()
   assert.equal(lab.share.copied,null);
   assert.equal(lab.element("run-link").hidden,true);
   assert.match(lab.element("run-share-status").textContent,/too long.*Export its JSON/);
+});
+
+test("captured-step link replays the frozen selection and opens its trace", async () => {
+  const lab=loadLab(),lens=lab.element("trace-lens");
+  click(lab.element("step"));click(lab.element("step"));
+  input(lab.element("alpha"),2);click(lab.element("shock"));
+  const atTwo=snapshot(lab);
+  click(lab.element("step"));input(lab.element("shock-strength"),75);
+  lens.open=true;lens.handlers.toggle();
+  input(lab.element("trace-step"),2);
+  click(lab.element("step"));click(lab.element("shock"));
+  input(lab.element("alpha"),2.5);input(lab.element("outlier"),99);
+  await click(lab.element("trace-copy"));
+  const link=lab.share.copied,url=new URL(link);
+  assert.equal(url.searchParams.get("inspect"),"trace");
+  assert.equal(url.hash,"#trace-lens");
+  assert.equal(JSON.parse(url.searchParams.get("run")).n,2);
+  assert.equal(lab.element("trace-link").href,link);
+  assert.match(lab.element("trace-export-status").textContent,/captured step 2 copied/);
+  const replay=loadLab(url.search,url.hash);
+  assert.deepEqual(snapshot(replay),atTwo,"later live changes cannot leak into a frozen step link");
+  assert.equal(replay.element("trace-lens").open,true);
+  assert.equal(replay.element("trace-step").value,"2");
+  assert.equal(replay.element("trace-step").max,"2");
+  assert.match(replay.element("trace-map").attributes["aria-label"],/selected step 2/);
+  input(lab.element("trace-step"),3);
+  assert.equal(lab.element("trace-link").hidden,true,"a link for a prior selection is hidden");
+  click(lab.element("reset"));
+  assert.equal(new URL(link).searchParams.get("run"),url.searchParams.get("run"),"the copied link survives a reset");
+});
+
+test("trace remains inspectable when its captured run exceeds replay limits", async () => {
+  const lab=loadLab();
+  for(let i=0;i<81;i++) input(lab.element("alpha"),i%2?1.5:1.6);
+  const lens=lab.element("trace-lens");lens.open=true;lens.handlers.toggle();
+  await click(lab.element("trace-copy"));
+  assert.equal(lab.share.copied,null);
+  assert.equal(lab.element("trace-link").hidden,true);
+  assert.match(lab.element("trace-export-status").textContent,/too long for a link/);
+  click(lab.element("trace-export"));
+  assert.equal(lab.download.blob.type,"text/csv");
 });
 
 test("visual receipt captures a fixed step and downloads that PNG", () => {
