@@ -293,6 +293,10 @@
     caption { text-align:left; color:var(--muted); padding:5px 0 10px; }
     .notebook { margin:20px 0 35px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
     .notebook h2 { font-size:1.2rem; }
+    .notebook-tools { flex:0 0 auto; max-width:360px; }
+    .notebook-tools .actions { margin-top:0; justify-content:flex-end; }
+    .notebook-tools .status { margin:8px 0 0; font-size:.8rem; text-align:right; }
+    .notebook-tools a { color:var(--cyan); }
     .notebook p { margin:.3rem 0 0; }
     .status { color:var(--mint); font-weight:700; }
     footer { color:var(--muted); border-top:1px solid var(--line); padding:20px 0 35px; font-size:.85rem; }
@@ -528,8 +532,8 @@
     </section>
 
     <section class="notebook" aria-labelledby="notebook-title">
-      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, the 101-point sweep, and the 128-seed cohort as JSON. It stays on this device.</p></div>
-      <div class="actions"><button id="export" class="primary" type="button">Export run JSON</button></div>
+      <div><p class="eyebrow">Experiment notebook</p><h2 id="notebook-title">Keep the inputs and outcome</h2><p>Export the seed, parameters, shock events, exact state, the 101-point sweep, and the 128-seed cohort as JSON. Or copy a link that replays this toy run and opens it paused. The link contains the seed, selected fifth reading, pull changes, shock strengths, and step count; URLs can appear in browser history or hosting logs. Use invented values only.</p></div>
+      <div class="notebook-tools"><div class="actions"><button id="export" class="primary" type="button">Export run JSON</button><button id="copy-run" type="button">Copy replay link</button><a id="run-link" href="#" hidden>Open replay link ↗</a></div><p id="run-share-status" class="status" role="status"></p></div>
     </section>
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="challenge.html">Prediction challenge</a> · <a href="one-move.html">One Move puzzle</a> · <a href="shape-the-data.html">Shape the Data</a> · <a href="flip-levers.html">Flip Levers</a> · <a href="target-lens.html">Target Lens</a> · <a href="flip-point.html">Flip Point</a> · <a href="decision-field.html">Decision Field</a> · <a href="guide.html">Five-minute lesson</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
@@ -771,14 +775,17 @@
       if (simulation.trail.length > 150) simulation.trail.shift();
       simulation.stableSteps = distance() < 4 && speed() < 0.5 ? simulation.stableSteps + 1 : 0;
     }
-    function addShock() {
-      const magnitude = Number($("shock-strength").value) * (0.65 + 0.35 * shockRng());
+    function recordShock(strength) {
+      const magnitude = strength * (0.65 + 0.35 * shockRng());
       const angle = shockRng() * Math.PI * 2;
       const impulse = {x:magnitude * Math.cos(angle), y:magnitude * Math.sin(angle)};
       simulation.velocity.x += impulse.x;
       simulation.velocity.y += impulse.y;
       simulation.stableSteps = 0;
-      simulation.shocks.push({step:simulation.step, impulse, selectedStrength:Number($("shock-strength").value)});
+      simulation.shocks.push({step:simulation.step, impulse, selectedStrength:strength});
+    }
+    function addShock() {
+      recordShock(Number($("shock-strength").value));
       $("event").textContent = "Shock " + simulation.shocks.length + " added at step " + simulation.step + ".";
       render();
     }
@@ -1005,6 +1012,57 @@
         witnessCohort:cohort
       };
     }
+    function replayPayload() {
+      if(simulation.step>3600 || simulation.parameterChanges.length>80 || simulation.shocks.length>80) throw new Error("Run exceeds replay-link limits");
+      return {v:1,s:simulation.seed,a:simulation.initialAlpha,n:simulation.step,f:Number($("outlier").value),k:Number($("shock-strength").value),
+        p:simulation.parameterChanges.map(change=>[change.step,change.parameter==="alpha"?"a":"k",change.value]),
+        q:simulation.shocks.map(shock=>[shock.step,shock.selectedStrength])};
+    }
+    function replayUrl() {
+      const url=window.location.href.split(/[?#]/)[0]+"?run="+encodeURIComponent(JSON.stringify(replayPayload()))+"#rc-title";
+      if(url.length>6000) throw new Error("Run exceeds replay-link limits");
+      return url;
+    }
+    function parseReplay(raw) {
+      if(!raw || raw.length>3000) throw new Error("Invalid replay link");
+      const data=JSON.parse(raw),integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
+      const grid=(value,min,max,step)=>typeof value==="number"&&Number.isFinite(value)&&value>=min&&value<=max&&Math.abs((value-min)/step-Math.round((value-min)/step))<1e-7;
+      if(!data || data.v!==1 || !integer(data.s,0,4294967295) || !grid(data.a,0.5,3,0.1) || !integer(data.n,0,3600) || !integer(data.f,0,100) || !grid(data.k,10,100,5)
+        || !Array.isArray(data.p) || data.p.length>80 || !Array.isArray(data.q) || data.q.length>80) throw new Error("Invalid replay link");
+      let previous=0;
+      for(const entry of data.p) {
+        if(!Array.isArray(entry)||entry.length!==3||!integer(entry[0],previous,data.n)||!(entry[1]==="a"?grid(entry[2],0.5,3,0.1):entry[1]==="k"&&grid(entry[2],10,100,5))) throw new Error("Invalid replay link");
+        previous=entry[0];
+      }
+      previous=0;
+      for(const entry of data.q) {
+        if(!Array.isArray(entry)||entry.length!==2||!integer(entry[0],previous,data.n)||!grid(entry[1],10,100,5)) throw new Error("Invalid replay link");
+        previous=entry[0];
+      }
+      return data;
+    }
+    function restoreReplay() {
+      const raw=new URLSearchParams(window.location.search).get("run");
+      if(raw===null) return;
+      let data;
+      try { data=parseReplay(raw); }
+      catch { $("event").textContent="Invalid replay link; a fresh example is shown."; return; }
+      $("seed").value=String(data.s);$("alpha").value=String(data.a);$("outlier").value=String(data.f);$("shock-strength").value=String(data.k);
+      activeScene=null;reset();
+      let nextChange=0,nextShock=0;
+      for(let step=0;step<=data.n;step++) {
+        while(nextChange<data.p.length&&data.p[nextChange][0]===step) {
+          const [at,code,value]=data.p[nextChange++],parameter=code==="a"?"alpha":"shockStrength";
+          $(code==="a"?"alpha":"shock-strength").value=String(value);
+          simulation.parameterChanges.push({step:at,parameter,value});
+        }
+        while(nextShock<data.q.length&&data.q[nextShock][0]===step) recordShock(data.q[nextShock++][1]);
+        if(step<data.n) stepModel();
+      }
+      $("shock-strength").value=String(data.k);
+      render();
+      $("event").textContent="Replayed "+data.n+" steps and "+data.q.length+" shocks from this link. Paused for inspection.";
+    }
     $("run").addEventListener("click",()=>{paused=!paused;$("run").textContent=paused?"Run":"Pause";$("event").textContent=paused?"Paused at step "+simulation.step+".":"Running from step "+simulation.step+".";render();});
     $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
     $("shock").addEventListener("click",addShock);
@@ -1060,6 +1118,14 @@
       document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
       $("event").textContent="Run JSON exported on this device.";
     });
+    $("copy-run").addEventListener("click",async()=>{
+      let link;
+      try { link=replayUrl(); }
+      catch { $("run-link").hidden=true;$("run-share-status").textContent="This run is too long for a link. Export its JSON instead.";return; }
+      $("run-link").href=link;$("run-link").hidden=false;
+      try { await navigator.clipboard.writeText(link);$("run-share-status").textContent="Exact toy run link copied. It opens paused."; }
+      catch { $("run-share-status").textContent="Open the replay link here to copy it from the address bar."; }
+    });
     function frame(now) {
       const elapsed=Math.min(100,now-lastFrame);lastFrame=now;
       if(!paused) {
@@ -1082,6 +1148,7 @@
     }
     reset();
     renderWorkbench();
+    restoreReplay();
     if(sharedDatasetError) $("workbench-error").textContent=sharedDatasetError;
     requestAnimationFrame(frame);
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});

@@ -206,6 +206,41 @@ test("future fork compares pull strengths without changing the current run", () 
   assert.notEqual(snapshot(lab).position.x,applied.position.x);
 });
 
+test("replay link restores exact state and future shock sequence", async () => {
+  const lab=loadLab();
+  lab.element("seed").value="12345";click(lab.element("reset"));
+  input(lab.element("outlier"),37);
+  click(lab.element("step"));
+  input(lab.element("alpha"),2.2);
+  input(lab.element("shock-strength"),75);
+  click(lab.element("shock"));
+  click(lab.element("step"));
+  input(lab.element("alpha"),0.8);
+  click(lab.element("shock"));
+  const original=snapshot(lab);
+  await click(lab.element("copy-run"));
+  const link=lab.share.copied;
+  assert.match(link,/\?run=/);
+  assert.match(link,/#rc-title$/);
+  assert.equal(lab.element("run-link").href,link);
+  assert.equal(lab.element("run-link").hidden,false);
+  const replay=loadLab(new URL(link).search);
+  assert.deepEqual(snapshot(replay),original);
+  assert.match(replay.element("event").textContent,/Replayed 2 steps and 2 shocks/);
+  click(lab.element("shock"));click(replay.element("shock"));
+  assert.deepEqual(snapshot(replay).shocks,snapshot(lab).shocks,"the next seeded shock also agrees after replay");
+});
+
+test("invalid replay parameters leave the fresh example intact", () => {
+  for(const payload of ["not-json",JSON.stringify({v:1,s:42,a:1.5,n:3601,f:85,k:60,p:[],q:[]}),JSON.stringify({v:1,s:42,a:1.5,n:1,f:85,k:60,p:[],q:[[0,999]]})]) {
+    const lab=loadLab("?run="+encodeURIComponent(payload));
+    assert.equal(snapshot(lab).step,0);
+    assert.equal(snapshot(lab).seed,42);
+    assert.equal(snapshot(lab).shocks.length,0);
+    assert.match(lab.element("event").textContent,/Invalid replay link/);
+  }
+});
+
 test("observer comparison uses the same four values under outlier changes", () => {
   const lab=loadLab();
   input(lab.element("outlier"),50);
