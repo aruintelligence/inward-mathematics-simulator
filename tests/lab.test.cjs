@@ -9,7 +9,7 @@ function loadLab(search="") {
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
 
-  const initial = {"alpha":"1.5","future-alpha":"2.5","future-horizon":"60","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
+  const initial = {"alpha":"1.5","future-alpha":"2.5","future-horizon":"60","trace-step":"0","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
   const elements = new Map();
   const download = {clicked:false,blob:null,filename:null,type:null,labels:[]};
   const share = {copied:null,scrolled:null};
@@ -268,6 +268,32 @@ test("visual receipt captures a fixed step and downloads that PNG", () => {
   assert.match(lab.element("receipt-canvas").attributes["aria-label"],/step 2.*shocks 1/);
   click(lab.element("receipt-save"));
   assert.equal(lab.download.filename,"inward-math-run-seed-42-step-2.png");
+});
+
+test("observed trace scrubs a frozen path and marks shocks without moving the run", () => {
+  const lab=loadLab(),lens=lab.element("trace-lens");
+  lens.open=true;lens.handlers.toggle();
+  assert.equal(lab.element("trace-step").disabled,true);
+  click(lab.element("step"));click(lab.element("step"));
+  const atTwo=snapshot(lab);
+  click(lab.element("shock"));click(lab.element("step"));
+  click(lab.element("trace-refresh"));
+  assert.equal(lab.element("trace-step").max,"3");
+  input(lab.element("trace-step"),2);
+  assert.equal(lab.element("trace-distance").textContent,atTwo.distance.toFixed(2));
+  assert.match(lab.element("trace-event").textContent,/1 shock impulse was added/);
+  assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
+  const before=snapshot(lab);
+  input(lab.element("trace-step"),1);
+  assert.deepEqual(snapshot(lab),before);
+  click(lab.element("step"));
+  assert.equal(lab.element("trace-step").max,"3","the captured path stays frozen");
+  click(lab.element("trace-refresh"));
+  assert.equal(lab.element("trace-step").max,"4");
+  for(let i=4;i<155;i++) lab.window.InwardMathLab.step();
+  click(lab.element("trace-refresh"));
+  assert.equal(lab.element("trace-step").max,"155");
+  assert.equal(lab.element("trace-step").min,"6","only the most recent 150 positions are retained");
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {
