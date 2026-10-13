@@ -295,6 +295,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.match(lab.element("trace-chart").attributes["aria-label"],/selected step 2/);
   assert.match(lab.element("trace-chart").attributes["aria-label"],/1 pull change at this step/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
+  assert.match(lab.element("trace-map").attributes["aria-label"],/Rose squares mark 1 shock position; lavender rings mark 1 pull-change position/);
   assert.equal(lab.element("trace-jump").disabled,true,"the only shock is already selected");
   assert.equal(lab.element("trace-next-pull").disabled,true,"the only pull change is already selected");
   click(lab.element("trace-export"));
@@ -338,6 +339,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.equal(lab.element("trace-next-pull").disabled,true);
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-next-pull").disabled,false);
+  assert.match(lab.element("trace-map").attributes["aria-label"],/lavender rings mark 2 pull-change positions/);
   click(lab.element("trace-next-pull"));
   assert.equal(lab.element("trace-step").value,"2","pull navigation wraps to the earliest captured change");
   click(lab.element("trace-next-pull"));
@@ -348,6 +350,7 @@ test("observed trace scrubs and exports a frozen path with event history", async
   assert.equal(lab.element("trace-step").max,"155");
   assert.equal(lab.element("trace-step").min,"6","only the most recent 150 positions are retained");
   assert.equal(lab.element("trace-next-pull").disabled,true,"changes outside the retained window are excluded");
+  assert.match(lab.element("trace-map").attributes["aria-label"],/lavender rings mark 0 pull-change positions/);
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {
