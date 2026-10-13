@@ -187,11 +187,14 @@
       $("home-daily-target").textContent=fmt(puzzle.target);
       $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
+      const shortest=best===null?null:core.rankLevers(puzzle.values,puzzle.target).ranked[0]?.flip.distance;
+      const shortestUnits=shortest===null||shortest===undefined?null:units(shortest);
+      const exact=best!==null&&best===shortestUnits;
       link.href=href;
-      link.textContent=best===null?"Play today's puzzle ↗":"Beat your best ↗";
+      link.textContent=best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
       if(progress) {
         progress.hidden=best===null;
-        progress.textContent=best===null?"":"Flipped on this device · best move "+fmt(best/10000);
+        progress.textContent=best===null?"":exact?"Exact minimum on this device · move "+fmt(best/10000):"Flipped on this device · best move "+fmt(best/10000);
       }
       home.dataset.winner=winner.toLowerCase();
     }
