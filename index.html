@@ -292,6 +292,9 @@
     .trace-jump:disabled { color:#9baeb7; text-decoration:none; cursor:default; }
     .trace-refresh { margin-top:8px; padding:10px 14px; border:1px solid #74b8c7; border-radius:9px; background:#173b49; color:#dff8f7; font-weight:750; cursor:pointer; }
     .trace-refresh:hover { filter:brightness(1.14); }
+    .trace-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .trace-actions .trace-refresh { margin-top:0; }
+    .trace-export-status { margin-top:7px; color:#9fe6f1; font-size:.78rem; }
     .trace-visual canvas { margin:0 0 8px; background:#0a1e2f; }
     .trace-plot-title { margin:0 0 8px; color:#d1e4e9; font-size:.78rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
     .trace-map-title { margin-top:20px; }
@@ -515,7 +518,8 @@
             <p class="trace-summary" id="trace-summary"></p>
             <button class="trace-jump" id="trace-closest" type="button">Jump to closest approach ↗</button>
             <button class="trace-jump" id="trace-jump" type="button">Jump to next shock ↗</button>
-            <button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button>
+            <div class="trace-actions"><button class="trace-refresh" id="trace-refresh" type="button">Refresh captured path</button><button class="trace-refresh" id="trace-export" type="button">Download path CSV</button></div>
+            <p class="trace-export-status" id="trace-export-status" role="status"></p>
           </div>
           <div class="trace-visual">
             <h3 class="trace-plot-title">Distance through time</h3>
@@ -1058,7 +1062,20 @@
         changes:simulation.parameterChanges.filter(change=>change.parameter==="alpha"&&change.step>=first&&change.step<=last).map(change=>({step:change.step,value:change.value}))};
       $("trace-step").min=String(first);$("trace-step").max=String(last);$("trace-step").value=String(last);
       $("trace-step").disabled=first===last;
+      $("trace-export-status").textContent="";
       renderTrace();
+    }
+    function exportTrace() {
+      if(!traceCapture) return;
+      const {seed,first,last,points,shocks,changes}=traceCapture;
+      const rows=["step,x,y,distance,shock_count,pull_alpha_changes",...points.map(point=>{
+        const at=changes.filter(change=>change.step===point.step).map(change=>change.value).join("|");
+        return [point.step,point.position.x,point.position.y,point.distance,shocks.filter(step=>step===point.step).length,'"'+at+'"'].join(",");
+      })];
+      const file=new Blob([rows.join("\n")+"\n"],{type:"text/csv"}),url=URL.createObjectURL(file),link=document.createElement("a");
+      link.href=url;link.download="inward-math-trace-seed-"+seed+"-steps-"+first+"-"+last+".csv";
+      document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      $("trace-export-status").textContent="Saved "+points.length+" captured "+(points.length===1?"step":"steps")+" as CSV. Refresh to export a newer path.";
     }
     function renderTrace() {
       if(!traceCapture) return;
@@ -1289,6 +1306,7 @@
       $("trace-step").value=String(steps.find(step=>step>selected)??steps[0]);renderTrace();
     });
     $("trace-refresh").addEventListener("click",captureTrace);
+    $("trace-export").addEventListener("click",exportTrace);
     $("future-lens").addEventListener("toggle",renderFuture);
     $("future-alpha").addEventListener("input",renderFuture);
     $("future-horizon").addEventListener("input",renderFuture);

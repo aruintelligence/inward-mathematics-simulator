@@ -273,7 +273,7 @@ test("visual receipt captures a fixed step and downloads that PNG", () => {
   assert.equal(lab.download.filename,"inward-math-run-seed-42-step-2.png");
 });
 
-test("observed trace scrubs a frozen path and marks shocks without moving the run", () => {
+test("observed trace scrubs and exports a frozen path with event history", async () => {
   const lab=loadLab(),lens=lab.element("trace-lens");
   lens.open=true;lens.handlers.toggle();
   assert.equal(lab.element("trace-step").disabled,true);
@@ -294,6 +294,17 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   assert.match(lab.element("trace-chart").attributes["aria-label"],/1 pull change at this step/);
   assert.match(lab.element("trace-map").attributes["aria-label"],/selected step 2.*position/);
   assert.equal(lab.element("trace-jump").disabled,true,"the only shock is already selected");
+  click(lab.element("trace-export"));
+  assert.equal(lab.download.blob.type,"text/csv");
+  assert.equal(lab.download.filename,"inward-math-trace-seed-42-steps-0-3.csv");
+  const csv=(await lab.download.blob.text()).trim().split("\n");
+  assert.equal(csv.length,5);
+  assert.equal(csv[0],"step,x,y,distance,shock_count,pull_alpha_changes");
+  const eventRow=csv[3].split(",");
+  assert.equal(eventRow[0],"2");
+  assert.ok(Math.abs(Number(eventRow[1])-atTwo.position.x)<1e-12);
+  assert.equal(eventRow[4],"1");
+  assert.equal(eventRow[5],'"2"');
   const before=snapshot(lab);
   input(lab.element("trace-step"),3);
   click(lab.element("trace-closest"));
@@ -307,8 +318,12 @@ test("observed trace scrubs a frozen path and marks shocks without moving the ru
   click(lab.element("step"));
   click(lab.element("shock"));
   assert.equal(lab.element("trace-step").max,"3","the captured path stays frozen");
+  click(lab.element("trace-export"));
+  assert.equal(lab.download.filename,"inward-math-trace-seed-42-steps-0-3.csv","export remains tied to the capture");
   click(lab.element("trace-refresh"));
   assert.equal(lab.element("trace-step").max,"4");
+  click(lab.element("trace-export"));
+  assert.equal(lab.download.filename,"inward-math-trace-seed-42-steps-0-4.csv");
   assert.match(lab.element("trace-map").attributes["aria-label"],/steps 0 to 4/);
   click(lab.element("trace-jump"));
   assert.equal(lab.element("trace-step").value,"2","jump wraps to the first captured shock");
