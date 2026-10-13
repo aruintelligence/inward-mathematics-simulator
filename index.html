@@ -956,12 +956,12 @@
       ctx.fillStyle="#ffcb78";ctx.font="800 82px system-ui";ctx.fillText(d.toFixed(2),78,355);
       ctx.fillStyle="#d1e4e6";ctx.font="18px system-ui";ctx.fillText("model units",82,387);
       ctx.strokeStyle="#3e5a6c";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(82,411);ctx.lineTo(457,411);ctx.stroke();
-      ctx.fillStyle="#a9c1c8";ctx.font="700 16px system-ui";
-      ctx.fillText("PULL α",82,453);ctx.fillText("SPEED",273,453);
-      ctx.fillText("SHOCKS",82,508);ctx.fillText("STEP",273,508);
-      ctx.fillStyle="#effaf7";ctx.font="800 26px ui-monospace, monospace";
-      ctx.fillText(alpha.toFixed(1),82,484);ctx.fillText(v.toFixed(2),273,484);
-      ctx.fillText(String(simulation.shocks.length),82,530);ctx.fillText(String(step),273,530);
+      ctx.fillStyle="#a9c1c8";ctx.font="700 15px system-ui";
+      ctx.fillText("PULL α",82,444);ctx.fillText("SPEED",273,444);
+      ctx.fillText("SHOCKS",82,495);ctx.fillText("STEP",273,495);
+      ctx.fillStyle="#effaf7";ctx.font="800 24px ui-monospace, monospace";
+      ctx.fillText(alpha.toFixed(1),82,472);ctx.fillText(v.toFixed(2),273,472);
+      ctx.fillText(String(simulation.shocks.length),82,523);ctx.fillText(String(step),273,523);
       const px=518,py=207,pw=628,ph=329,mapX=point=>px+24+point.x/600*(pw-48),mapY=point=>py+24+point.y/340*(ph-48);
       ctx.fillStyle="#0b2031";ctx.fillRect(px,py,pw,ph);ctx.strokeStyle="#496477";ctx.lineWidth=2;ctx.strokeRect(px,py,pw,ph);
       ctx.save();ctx.beginPath();ctx.rect(px+3,py+3,pw-6,ph-6);ctx.clip();
