@@ -224,6 +224,7 @@ test("replay link restores exact state and future shock sequence", async () => {
   assert.match(link,/#rc-title$/);
   assert.equal(lab.element("run-link").href,link);
   assert.equal(lab.element("run-link").hidden,false);
+  assert.match(lab.element("run-link").textContent,/saved replay from step 2/);
   const replay=loadLab(new URL(link).search);
   assert.deepEqual(snapshot(replay),original);
   assert.match(replay.element("event").textContent,/Replayed 2 steps and 2 shocks/);

@@ -1119,11 +1119,12 @@
       $("event").textContent="Run JSON exported on this device.";
     });
     $("copy-run").addEventListener("click",async()=>{
-      let link;
+      let link;const savedStep=simulation.step;
       try { link=replayUrl(); }
       catch { $("run-link").hidden=true;$("run-share-status").textContent="This run is too long for a link. Export its JSON instead.";return; }
       $("run-link").href=link;$("run-link").hidden=false;
-      try { await navigator.clipboard.writeText(link);$("run-share-status").textContent="Exact toy run link copied. It opens paused."; }
+      $("run-link").textContent="Open saved replay from step "+savedStep+" ↗";
+      try { await navigator.clipboard.writeText(link);$("run-share-status").textContent="Replay link for step "+savedStep+" copied. It opens paused."; }
       catch { $("run-share-status").textContent="Open the replay link here to copy it from the address bar."; }
     });
     function frame(now) {
