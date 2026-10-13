@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=19" defer/);
+  assert.match(page,/src="one-move\.js\?v=20" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -683,13 +683,18 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
 });
 
 test("homepage previews and shares the exact local daily puzzle without a solution", async () => {
-  const {dailyPreview,dailyPuzzle,dailyInvitation}=require("../one-move.js");
+  const {dailyPreview,dailyPuzzle,dailyInvitation,initialReading,parsePuzzle,ROUNDS}=require("../one-move.js");
   const first=dailyPreview(new Date(2026,9,12,12));
   assert.equal(first.day,"2026-10-12");
   assert.deepEqual(first.puzzle,dailyPuzzle(first.day));
   assert.equal(first.winner,"Median");
   assert.equal(first.estimate,67);
   assert.equal(first.href,"one-move.html?daily=2026-10-12#stage");
+  assert.deepEqual(parsePuzzle("?daily=2026-10-12&pick=2").puzzle,first.puzzle);
+  assert.equal(initialReading("?daily=2026-10-12&pick=2",first.puzzle),1);
+  assert.equal(initialReading("?daily=2026-10-12&pick=2&pick=3",first.puzzle),2);
+  assert.equal(initialReading("?daily=2026-10-12&pick=02",first.puzzle),2);
+  assert.equal(initialReading("?round=1&pick=2",ROUNDS[0]),2);
   const invitation=dailyInvitation(first,"https://example.test/one-move.html?daily=2026-10-12#stage");
   assert.match(invitation,/2026-10-12/);
   assert.match(invitation,/https:\/\/example\.test\/one-move\.html\?daily=2026-10-12#stage/);
@@ -700,7 +705,8 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
     constructor(...args) {super(...(args.length?args:[2026,9,day,12]));}
   }
   const readings=Array.from({length:5},()=>({textContent:""}));
-  const home={dataset:{},querySelectorAll:()=>readings};
+  const choices=Array.from({length:5},()=>({attributes:{},handlers:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(name,handler){this.handlers[name]=handler;}}));
+  const home={dataset:{},querySelectorAll:selector=>selector==="[data-preview-reading]"?readings:choices};
   const elements=new Map([["home-daily-preview",home],["stage",null]]);
   for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
@@ -731,6 +737,12 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   events.pageshow();
   assert.equal(elements.get("home-daily-link").textContent,"Replay today's puzzle ↗");
   assert.equal(elements.get("home-daily-progress").textContent,"Exact minimum on this device · move 2.2501");
+  choices[1].handlers.click();
+  assert.equal(choices[1].attributes["aria-pressed"],"true");
+  assert.equal(choices[0].attributes["aria-pressed"],"false");
+  assert.equal(choices[1].attributes["aria-label"],"Reading 2, 67. Choose this reading to move.");
+  assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-12&pick=2#stage");
+  assert.equal(elements.get("home-daily-link").textContent,"Try reading 2 ↗");
   elements.get("home-daily-share-status").textContent="Puzzle invitation copied.";
   day=13;events.focus();
   assert.equal(elements.get("home-daily-date").dateTime,"2026-10-13");
@@ -739,9 +751,13 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-progress").hidden,true);
   assert.equal(elements.get("home-daily-progress").textContent,"");
   assert.equal(elements.get("home-daily-share-status").textContent,"");
+  assert.equal(choices[1].attributes["aria-pressed"],"false");
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
+  choices[3].handlers.click();
+  assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13&pick=4#stage");
   await share.handlers.click();
   assert.match(copied,/one-move\.html\?daily=2026-10-13#stage/);
+  assert.doesNotMatch(copied,/pick=/);
   assert.doesNotMatch(copied,/Mean \d|Median \d|64\.7499/);
   assert.match(elements.get("home-daily-share-status").textContent,/copied/);
   navigator.share=async data=>{sent=data;};
@@ -756,9 +772,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
   assert.match(html,/id="home-daily-preview"/);
   assert.match(html,/id="home-daily-progress" role="status" hidden/);
+  assert.match(html,/data-preview-pick aria-pressed="false"/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=19" defer/);
+  assert.match(html,/src="one-move\.js\?v=20" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
@@ -935,18 +952,23 @@ test("a cached pre-duel page still initializes and scores with the new script", 
   const readings=Array.from({length:5},()=>({handlers:{},addEventListener(name,callback){this.handlers[name]=callback;},
     setAttribute(){},querySelector(){return {textContent:"",style:{}};}}));
   const document={getElementById:element,querySelectorAll(selector){return selector===".reading"?readings:[];}};
-  const window={location:{search:"?daily=2026-10-12",href:"https://example.test/one-move.html?daily=2026-10-12"},
-    history:{replaceState(){}},localStorage:{getItem(){return null;},setItem(){}}};
+  let address="";
+  const window={location:{search:"?daily=2026-10-12&pick=2",href:"https://example.test/one-move.html?daily=2026-10-12&pick=2"},
+    history:{replaceState(_state,_title,url){address=url;}},localStorage:{getItem(){return null;},setItem(){}}};
   const script=fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8");
   vm.runInNewContext(script,{module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,
     navigator:{clipboard:{writeText:async()=>{}}},URL,URLSearchParams},{timeout:2000});
   assert.match(element("mission").textContent,/Make the mean strictly closer/);
+  assert.equal(element("selected-reading").textContent,"2");
+  assert.equal(element("proposed").value,"67");
+  assert.equal(address,"one-move.html?daily=2026-10-12");
   readings[1].handlers.click();
   element("proposed").value="64.7499";
   element("submit").handlers.click();
   assert.equal(element("result").hidden,false);
   assert.equal(element("result-title").textContent,"You flipped it.");
   assert.match(element("move-comparison").textContent,/Exact minimum/);
+  assert.equal(element("play-again").textContent,"Try another route");
 });
 
 test("flip point finds true reversals, touching ties, and a nearest movement", () => {

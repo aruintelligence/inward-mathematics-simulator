@@ -54,6 +54,11 @@
   function dailyInvitation(preview,url) {
     return "One Move / "+preview.day+" · Five readings. One target. Change one reading to flip the closer estimate. Can you find the smallest move?\n\n"+url;
   }
+  function initialReading(search,puzzle) {
+    if(!puzzle.date) return 2;
+    const picks=new URLSearchParams(search).getAll("pick");
+    return picks.length===1&&/^[1-5]$/.test(picks[0])?Number(picks[0])-1:2;
+  }
   function practicePuzzle(seed) {
     if(!Number.isInteger(seed)||seed<1||seed>999999) return null;
     const generated=generatedValues("practice:"+seed);
@@ -153,7 +158,7 @@
     return "inward-math-one-move-"+(puzzle.date?"daily-"+puzzle.date:puzzle.practice?"case-"+puzzle.practice:
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,initialReading,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -173,25 +178,34 @@
   const home=$("home-daily-preview");
   if(home&&!$("stage")) {
     const readings=[...home.querySelectorAll("[data-preview-reading]")];
+    const choices=[...home.querySelectorAll("[data-preview-pick]")];
+    let selectedReading=null;
     function renderDailyPreview() {
       const preview=dailyPreview(new Date());
       if(!preview) return;
       const {day,puzzle,winner,estimate,href}=preview;
-      if(home.dataset.day&&home.dataset.day!==day) $("home-daily-share-status").textContent="";
+      if(home.dataset.day&&home.dataset.day!==day) {
+        selectedReading=null;
+        $("home-daily-share-status").textContent="";
+      }
       home.dataset.day=day;
       const date=$("home-daily-date");
       date.dateTime=day;
       date.textContent=new Date(Number(day.slice(0,4)),Number(day.slice(5,7))-1,Number(day.slice(8,10)),12)
         .toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
       readings.forEach((item,index)=>{item.textContent=fmt(puzzle.values[index]);});
+      choices.forEach((button,index)=>{
+        button.setAttribute("aria-pressed",String(selectedReading===index));
+        button.setAttribute("aria-label","Reading "+(index+1)+", "+fmt(puzzle.values[index])+". Choose this reading to move.");
+      });
       $("home-daily-target").textContent=fmt(puzzle.target);
       $("home-daily-winner").textContent=estimate===null?"Mean and median tie":winner+" "+fmt(estimate)+" is closer";
       const best=dailyBest(day),link=$("home-daily-link"),progress=$("home-daily-progress");
       const shortest=best===null?null:core.rankLevers(puzzle.values,puzzle.target).ranked[0]?.flip.distance;
       const shortestUnits=shortest===null||shortest===undefined?null:units(shortest);
       const exact=best!==null&&best===shortestUnits;
-      link.href=href;
-      link.textContent=best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
+      link.href=selectedReading===null?href:href.replace("#stage","&pick="+(selectedReading+1)+"#stage");
+      link.textContent=selectedReading!==null?"Try reading "+(selectedReading+1)+" ↗":best===null?"Play today's puzzle ↗":shortestUnits!==null&&best>shortestUnits?"Beat your best ↗":"Replay today's puzzle ↗";
       if(progress) {
         progress.hidden=best===null;
         progress.textContent=best===null?"":exact?"Exact minimum on this device · move "+fmt(best/10000):"Flipped on this device · best move "+fmt(best/10000);
@@ -199,6 +213,11 @@
       home.dataset.winner=winner.toLowerCase();
     }
     renderDailyPreview();
+    choices.forEach((button,index)=>button.addEventListener("click",()=>{
+      if(home.dataset.day!==localDay(new Date())) renderDailyPreview();
+      selectedReading=index;
+      renderDailyPreview();
+    }));
     document.addEventListener("visibilitychange",()=>{if(!document.hidden) renderDailyPreview();});
     window.addEventListener("focus",renderDailyPreview);
     window.addEventListener("pageshow",renderDailyPreview);
@@ -229,7 +248,7 @@
   }
   if(!$("stage")) return;
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
+  let selected=initialReading(window.location.search,puzzle),proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[],runFrontier=puzzle.practice??null,cardReady=false;
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -466,6 +485,7 @@
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
+    $("play-again").textContent=judged.optimal?"Try another route":"Try an even smaller move";
     if($("duel")) $("duel").hidden=!flipped;
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
