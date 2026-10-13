@@ -125,13 +125,18 @@
       "The median moves from "+fmt(medianBefore)+" to "+fmt(medianAfter)+" as the middle value changes.";
     return {before,after,meanMove,medianBefore,medianAfter,explanation:meanText+" "+medianText};
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism};
+  function recordPractice(entries,seed,moveUnits,optimal) {
+    const prior=entries.find(entry=>entry.seed===seed);
+    if(!prior) return [...entries,{seed,moveUnits,optimal}];
+    return entries.map(entry=>entry.seed===seed?{seed,moveUnits:Math.min(prior.moveUnits,moveUnits),optimal:prior.optimal||optimal}:entry);
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   let {puzzle,round,error}=parsePuzzle(window.location.search);
-  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0;
+  let selected=2,proposed=puzzle.values[selected],attempts=0,best=null,hintLevel=0,runEntries=[];
   const choiceButtons=[...document.querySelectorAll(".reading")];
   const sourceUrl=()=>puzzle.date?"one-move.html?daily="+puzzle.date:puzzle.practice?"one-move.html?practice="+puzzle.practice:round===null
     ?"one-move.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target)
@@ -172,6 +177,25 @@
       link.append(weekday,number,status);trail.append(link);
     }
     $("trail-summary").textContent=completed+" of 7 editions flipped on this device.";
+  }
+  function updatePracticeRun() {
+    if(!$("practice-run")) return;
+    $("practice-run").hidden=!puzzle.practice;
+    if(!puzzle.practice) return;
+    const exact=runEntries.filter(entry=>entry.optimal).length;
+    $("run-summary").textContent=runEntries.length+" flipped · "+exact+" exact minimum"+(exact===1?"":"s");
+    const track=$("run-track");track.replaceChildren();
+    const prior=runEntries.filter(entry=>entry.seed!==puzzle.practice).slice(-4);
+    const current=runEntries.find(entry=>entry.seed===puzzle.practice);
+    for(const entry of [...prior,current??{seed:puzzle.practice,moveUnits:null,optimal:false}]) {
+      const tile=document.createElement("div"),number=document.createElement("strong"),status=document.createElement("span");
+      tile.className="run-tile";
+      tile.dataset.state=entry.moveUnits===null?"current":entry.optimal?"exact":"flipped";
+      if(entry.seed===puzzle.practice) tile.setAttribute("aria-current","step");
+      number.textContent="#"+String(entry.seed).padStart(3,"0");
+      status.textContent=entry.moveUnits===null?"In play":entry.optimal?"Exact · "+fmt(entry.moveUnits/10000):"Flip · "+fmt(entry.moveUnits/10000);
+      tile.append(number,status);track.append(tile);
+    }
   }
   function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
   function updateHints() {
@@ -260,6 +284,7 @@
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
+    updatePracticeRun();
     setAddress();updateProposal();updateHints();
   }
   function choose(index) {selected=index;proposed=puzzle.values[index];updateProposal();}
@@ -298,6 +323,7 @@
     if(flipped) {
       if(best===null||moveUnits<best) best=moveUnits;
       if(puzzle.date) {saveDailyBest(puzzle.date,moveUnits);updateDailyStatus();}
+      if(puzzle.practice) {runEntries=recordPractice(runEntries,puzzle.practice,moveUnits,judged.optimal);updatePracticeRun();}
       if($("duel")) {
         $("duel-score").textContent=fmt(best/10000);
         $("duel-edition").textContent=puzzle.date?"Daily Flip / "+puzzle.date:puzzle.practice?"Practice Flip / "+puzzle.practice:round===null?"One Move / shared puzzle":"One Move / round "+(round+1);

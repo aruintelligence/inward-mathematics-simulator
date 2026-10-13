@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=10" defer/);
+  assert.match(page,/src="one-move\.js\?v=11" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -707,6 +707,23 @@ test("numbered practice cases replay exactly and always have viable strict flips
   const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(html,/href="one-move\.html\?practice=1#stage">Start practice/);
   assert.match(html,/id="practice-title">The open run/);
+});
+
+test("practice run records one best result per case and upgrades exact wins", () => {
+  const {recordPractice}=require("../one-move.js");
+  const first=recordPractice([],1,35000,false);
+  assert.deepEqual(first,[{seed:1,moveUnits:35000,optimal:false}]);
+  const worse=recordPractice(first,1,42000,false);
+  assert.deepEqual(worse,first);
+  const exact=recordPractice(worse,1,22501,true);
+  assert.deepEqual(exact,[{seed:1,moveUnits:22501,optimal:true}]);
+  const second=recordPractice(exact,2,91001,false);
+  assert.deepEqual(second.map(entry=>entry.seed),[1,2]);
+  assert.equal(second.filter(entry=>entry.optimal).length,1);
+  assert.deepEqual(first,[{seed:1,moveUnits:35000,optimal:false}],"previous run state remains independent");
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="practice-run" hidden/);
+  assert.match(html,/id="run-track" aria-label="Recent practice cases"/);
 });
 
 test("the seven-day trail crosses months and leap days in local calendar order", () => {
@@ -800,7 +817,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift","mechanism"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift","mechanism","practice-run"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
