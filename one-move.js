@@ -51,6 +51,9 @@
       estimate:current.winner==="Mean"?current.mean:current.winner==="Median"?current.median:null,
       href:"one-move.html?daily="+day+"#stage"};
   }
+  function dailyInvitation(preview,url) {
+    return "One Move / "+preview.day+" · Five readings. One target. Change one reading to flip the closer estimate. Can you find the smallest move?\n\n"+url;
+  }
   function practicePuzzle(seed) {
     if(!Number.isInteger(seed)||seed<1||seed>999999) return null;
     const generated=generatedValues("practice:"+seed);
@@ -150,7 +153,7 @@
     return "inward-math-one-move-"+(puzzle.date?"daily-"+puzzle.date:puzzle.practice?"case-"+puzzle.practice:
       ROUNDS.includes(puzzle)?"round-"+(ROUNDS.indexOf(puzzle)+1):"shared")+".png";
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,dailyPreview,dailyInvitation,practicePuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism,recordPractice,routeAtlas,resultCardFilename};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -175,6 +178,29 @@
     renderDailyPreview();
     document.addEventListener("visibilitychange",()=>{if(!document.hidden) renderDailyPreview();});
     window.addEventListener("focus",renderDailyPreview);
+    const share=$("home-daily-share");
+    if(share) share.addEventListener("click",async()=>{
+      renderDailyPreview();
+      const preview=dailyPreview(new Date()),status=$("home-daily-share-status");
+      if(!preview) {status.textContent="Today's puzzle is unavailable. Try the dated puzzle link.";return;}
+      const url=new URL(preview.href,window.location.href).href;
+      const invitation=dailyInvitation(preview,url);
+      if(typeof navigator.share==="function") {
+        try {
+          await navigator.share({title:"One Move / "+preview.day,text:invitation.split("\n\n")[0],url});
+          status.textContent="Invitation shared.";
+          return;
+        } catch(error) {
+          if(error?.name==="AbortError") {status.textContent="Sharing canceled.";return;}
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(invitation);
+        status.textContent="Puzzle invitation copied. The answer stays hidden.";
+      } catch(_) {
+        status.textContent="Sharing is unavailable here. Open the dated puzzle and copy its address.";
+      }
+    });
     return;
   }
   if(!$("stage")) return;
