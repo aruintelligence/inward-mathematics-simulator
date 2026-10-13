@@ -12,6 +12,12 @@
   const valid=raw=>/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/.test(String(raw))&&Number(raw)<=100?Number(raw):null;
   const units=value=>Math.round(value*10000);
   const localDay=date=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
+  function recentDays(today) {
+    return Array.from({length:7},(_,index)=>{
+      const date=new Date(today.getFullYear(),today.getMonth(),today.getDate()-6+index,12);
+      return {date,day:localDay(date)};
+    });
+  }
   function validDay(day) {
     if(!/^20\d\d-\d\d-\d\d$/.test(day??"")) return false;
     const parsed=new Date(day+"T00:00:00Z");
@@ -71,7 +77,7 @@
     const edition=puzzle.date?"Daily Flip / "+puzzle.date:"One Move";
     return edition+" · I flipped the verdict with a move of "+fmt(moveUnits/10000)+". Can you beat my move?\n\n"+url;
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation};
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -98,6 +104,26 @@
     const day=puzzle.date??localDay(new Date()),saved=dailyBest(day);
     $("daily-status").textContent=saved===null?"Edition "+day+" · complete a strict flip to keep your best move on this device."
       :"Edition "+day+" completed on this device. Best strict move: "+fmt(saved/10000)+".";
+    const trail=$("daily-trail");
+    if(!trail) return; // Older cached HTML remains playable during a deployment.
+    const now=new Date(),today=localDay(now),days=recentDays(now);
+    trail.replaceChildren();
+    let completed=0;
+    for(const entry of days) {
+      const best=dailyBest(entry.day),link=document.createElement("a");
+      if(best!==null) completed++;
+      link.className="trail-day";
+      link.dataset.state=best===null?"open":"complete";
+      link.href="one-move.html?daily="+entry.day+"#stage";
+      if(entry.day===today) link.setAttribute("aria-current","date");
+      const weekday=document.createElement("span"),number=document.createElement("strong"),status=document.createElement("span");
+      weekday.className="trail-weekday";weekday.textContent=entry.date.toLocaleDateString(undefined,{weekday:"short"});
+      number.textContent=entry.date.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+      status.className="trail-state";status.textContent=best===null?entry.day===today?"Today · open":"Open edition":"Best "+fmt(best/10000);
+      link.setAttribute("aria-label","Open "+entry.day+" Daily Flip. "+(best===null?"Unsolved on this device.":"Best move on this device: "+fmt(best/10000)+"."));
+      link.append(weekday,number,status);trail.append(link);
+    }
+    $("trail-summary").textContent=completed+" of 7 editions flipped on this device.";
   }
   function setAddress() {try{window.history.replaceState(null,"",sourceUrl());}catch(_){/* Downloaded pages still play. */}}
   function updateProposal() {

@@ -112,14 +112,32 @@
     .daily-invite .eyebrow { color:var(--gold); }
     .daily-invite p { margin:8px 0 0; max-width:650px; color:#e1ece5; font-size:.91rem; }
     .daily-invite .daily-cta { color:#172b2e; background:var(--gold); border-color:var(--gold); }
+    .daily-trail { margin-top:17px; padding:24px; border:1px solid #668b8d; border-radius:20px; background:linear-gradient(145deg,#112c3a,#193b43 70%,#253948); }
+    .trail-head { display:flex; align-items:end; justify-content:space-between; gap:12px 25px; flex-wrap:wrap; }
+    .daily-trail h2 { font-size:clamp(1.55rem,2.8vw,2.2rem); }
+    .daily-trail .trail-intro { margin:8px 0 0; color:var(--muted); font-size:.88rem; }
+    .daily-trail #trail-summary { margin:0; color:var(--gold); font-size:.84rem; font-weight:800; }
+    .trail-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:9px; margin-top:19px; }
+    .trail-day { position:relative; display:flex; flex-direction:column; justify-content:space-between; gap:7px; min-width:0; min-height:119px; padding:14px 12px; border:1px solid #5f8590; border-radius:13px; background:#0a2937; color:var(--text); text-decoration:none; transition:transform .18s ease,border-color .18s ease; }
+    .trail-day:hover { transform:translateY(-3px); border-color:var(--mint); }
+    .trail-day::before { content:""; position:absolute; top:17px; right:12px; width:7px; height:7px; border:1px solid #8ba9ad; border-radius:50%; }
+    .trail-day[data-state="complete"] { background:linear-gradient(150deg,#153e3f,#0a2937); border-color:#7cbca8; }
+    .trail-day[data-state="complete"]::before { background:var(--mint); border-color:var(--mint); box-shadow:0 0 12px #70f0c977; }
+    .trail-day[aria-current="date"] { border-color:var(--gold); box-shadow:inset 0 0 0 1px #ffd08b80; }
+    .trail-day[aria-current="date"]::before { border-color:var(--gold); }
+    .trail-weekday { color:#a9c9c9; font-size:.69rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
+    .trail-day strong { font-size:clamp(1rem,1.8vw,1.45rem); line-height:1.1; letter-spacing:-.04em; white-space:nowrap; }
+    .trail-state { color:var(--muted); font-size:.7rem; line-height:1.25; }
+    .trail-day[data-state="complete"] .trail-state { color:var(--mint); }
+    .trail-day[aria-current="date"] .trail-state { color:var(--gold); }
     .rounds { display:grid; gap:8px; }
     .rounds button { min-height:45px; border:1px solid #658790; border-radius:10px; background:#0b2635; color:var(--text); text-align:left; padding:9px 13px; font-weight:700; }
     .rounds button:hover { border-color:var(--mint); }
     #share-status { min-height:1.4em; color:var(--mint); }
     .note { font-size:.82rem!important; }
     footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem; }
-    @media(max-width:830px) { .hero,.brief { grid-template-columns:1fr; } .hero-art { min-height:210px; } .hero-art .glyph { transform:scale(.75) rotate(-10deg); } }
-    @media(max-width:650px) { .readings { grid-template-columns:repeat(3,minmax(0,1fr)); } .under,.controls { grid-template-columns:1fr; } .reading { min-height:92px; } .move-panel { padding:14px; } }
+    @media(max-width:830px) { .hero,.brief { grid-template-columns:1fr; } .hero-art { min-height:210px; } .hero-art .glyph { transform:scale(.75) rotate(-10deg); } .trail-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+    @media(max-width:650px) { .readings { grid-template-columns:repeat(3,minmax(0,1fr)); } .under,.controls { grid-template-columns:1fr; } .reading { min-height:92px; } .move-panel { padding:14px; } .trail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .daily-trail { padding:18px; } }
     @media(max-width:420px) { .readings { grid-template-columns:repeat(2,minmax(0,1fr)); } .rail { margin:25px 14px 0; } .marker { font-size:.67rem; } .bar-line { grid-template-columns:85px 1fr 72px; font-size:.75rem; } }
     @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
@@ -137,11 +155,12 @@
         <div class="result" id="result" hidden role="status"><h3 id="result-title"></h3><p id="result-detail"></p><div class="benchmark" id="benchmark" hidden><div class="bar-line"><span>Your move</span><div><i id="your-bar"></i></div><b id="personal-move"></b></div><div class="bar-line minimum"><span>Shortest move</span><div><i id="minimum-bar"></i></div><b id="minimum-move"></b></div><p><strong id="move-comparison"></strong></p><p class="example" id="optimal-example"></p></div><section class="duel" id="duel" hidden aria-labelledby="duel-title"><div><p class="eyebrow" id="duel-edition">Daily Flip</p><h4 id="duel-title">Your best move <strong id="duel-score"></strong></h4><p class="duel-note">Invite someone to beat your distance. The challenge opens the original puzzle with your answer hidden.</p></div><div class="duel-actions"><button class="action" id="duel-share" type="button">Challenge a friend ↗</button><span id="duel-status" role="status"></span></div></section><div class="actions"><button class="action" id="next" type="button" hidden>Next puzzle ↗</button><button class="action secondary" id="play-again" type="button" hidden>Try an even smaller move</button><a class="button secondary" id="puzzle-link" href="flip-levers.html">Inspect all five exact levers ↗</a></div></div>
       </section>
       <section class="daily-invite" aria-labelledby="daily-title"><div><p class="eyebrow">One fresh case each calendar day</p><h2 id="daily-title">The daily flip.</h2><p>Every visitor opening the same date sees the same generated arrangement. Your best successful move stays on this device.</p><p id="daily-status" role="status"></p></div><a class="button daily-cta" href="one-move.html?daily=today">Open today's edition ↗</a></section>
+      <section class="daily-trail" aria-labelledby="trail-title"><div class="trail-head"><div><p class="eyebrow">Seven dates · seven exact puzzles</p><h2 id="trail-title">Your seven-day trail.</h2><p class="trail-intro">Revisit a date or pick up where you left off. Completed editions glow on this device.</p></div><p id="trail-summary" role="status"></p></div><nav class="trail-grid" id="daily-trail" aria-label="Recent Daily Flip editions"></nav></section>
       <div class="under"><section class="panel"><p class="eyebrow">Three different reversals</p><h2>Choose a round.</h2><p>Each arrangement has a strict reversal. Your best move and attempts stay on this page for the current puzzle only.</p><div class="rounds"><button data-round="0" type="button">01 / The narrow crossing →</button><button data-round="1" type="button">02 / Turn the tide →</button><button data-round="2" type="button">03 / The long reach →</button></div></section><section class="panel"><p class="eyebrow">Pass the puzzle on</p><h2>See who can beat your move.</h2><p>The link opens the same starting arrangement, with the solution hidden. It does not include your guesses or score.</p><div class="actions"><button class="action secondary" id="copy" type="button">Copy puzzle link</button><a class="button secondary" id="share-link" href="one-move.html?round=1">Open exact puzzle ↗</a></div><p id="share-status" role="status"></p><p class="note">“Shortest” means the least change to a single reading on a four-decimal grid in 0–100 that produces the opposing strict winner. A tie is not a reversal. The target and cases are invented what-if inputs, not measured truth. The daily date is taken from your device's local calendar when you open “today”; its resulting dated URL reproduces the same case worldwide. Shared custom puzzle URLs contain all five readings and the target; use invented or public values. No account or leaderboard; daily bests use this device's local storage only when available.</p></section></div>
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="flip-levers.html">Exact solver</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
   <script src="flip-levers.js?v=3" defer></script>
-  <script src="one-move.js?v=5" defer></script>
+  <script src="one-move.js?v=6" defer></script>
 </body>
 </html>
