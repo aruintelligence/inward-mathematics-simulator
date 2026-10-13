@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=16" defer/);
+  assert.match(page,/src="one-move\.js\?v=17" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -682,14 +682,18 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
 });
 
-test("homepage previews the exact local daily puzzle and refreshes its dated link", () => {
-  const {dailyPreview,dailyPuzzle}=require("../one-move.js");
+test("homepage previews and shares the exact local daily puzzle without a solution", async () => {
+  const {dailyPreview,dailyPuzzle,dailyInvitation}=require("../one-move.js");
   const first=dailyPreview(new Date(2026,9,12,12));
   assert.equal(first.day,"2026-10-12");
   assert.deepEqual(first.puzzle,dailyPuzzle(first.day));
   assert.equal(first.winner,"Median");
   assert.equal(first.estimate,67);
   assert.equal(first.href,"one-move.html?daily=2026-10-12#stage");
+  const invitation=dailyInvitation(first,"https://example.test/one-move.html?daily=2026-10-12#stage");
+  assert.match(invitation,/2026-10-12/);
+  assert.match(invitation,/https:\/\/example\.test\/one-move\.html\?daily=2026-10-12#stage/);
+  assert.doesNotMatch(invitation,/Median|64\.7499|target 80/);
 
   let day=12;
   class LocalDate extends Date {
@@ -698,13 +702,17 @@ test("homepage previews the exact local daily puzzle and refreshes its dated lin
   const readings=Array.from({length:5},()=>({textContent:""}));
   const home={dataset:{},querySelectorAll:()=>readings};
   const elements=new Map([["home-daily-preview",home],["stage",null]]);
-  for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link"])
+  for(const id of ["home-daily-date","home-daily-target","home-daily-winner","home-daily-link","home-daily-share-status"])
     elements.set(id,{textContent:"",href:"",dateTime:""});
+  const share={handlers:{},addEventListener(name,handler){this.handlers[name]=handler;}};
+  elements.set("home-daily-share",share);
   const events={};
   const document={getElementById:id=>elements.get(id)??null,addEventListener:(name,handler)=>events[name]=handler,hidden:false};
-  const window={addEventListener:(name,handler)=>events[name]=handler};
+  const window={location:{href:"https://example.test/"},addEventListener:(name,handler)=>events[name]=handler};
+  let copied=null,sent=null;
+  const navigator={clipboard:{async writeText(value){copied=value;}}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8"),
-    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,Date:LocalDate,URLSearchParams},{timeout:2000});
+    {module:{exports:{}},require:()=>require("../flip-levers.js"),window,document,navigator,Date:LocalDate,URL,URLSearchParams},{timeout:2000});
   assert.deepEqual(readings.map(item=>item.textContent),["40","67","92","43","84"]);
   assert.equal(elements.get("home-daily-target").textContent,"80");
   assert.equal(elements.get("home-daily-winner").textContent,"Median 67 is closer");
@@ -714,10 +722,24 @@ test("homepage previews the exact local daily puzzle and refreshes its dated lin
   assert.equal(elements.get("home-daily-date").dateTime,"2026-10-13");
   assert.equal(elements.get("home-daily-link").href,"one-move.html?daily=2026-10-13#stage");
   assert.deepEqual(readings.map(item=>Number(item.textContent)),dailyPuzzle("2026-10-13").values);
+  await share.handlers.click();
+  assert.match(copied,/one-move\.html\?daily=2026-10-13#stage/);
+  assert.doesNotMatch(copied,/Mean \d|Median \d|64\.7499/);
+  assert.match(elements.get("home-daily-share-status").textContent,/copied/);
+  navigator.share=async data=>{sent=data;};
+  await share.handlers.click();
+  assert.equal(sent.url,"https://example.test/one-move.html?daily=2026-10-13#stage");
+  assert.doesNotMatch(sent.text,/Mean \d|Median \d/);
+  copied=null;
+  navigator.share=async()=>{throw Object.assign(new Error("Canceled"),{name:"AbortError"});};
+  await share.handlers.click();
+  assert.equal(copied,null,"canceling native share must not copy an invitation");
+  assert.equal(elements.get("home-daily-share-status").textContent,"Sharing canceled.");
   const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
   assert.match(html,/id="home-daily-preview"/);
+  assert.match(html,/id="home-daily-share"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=16" defer/);
+  assert.match(html,/src="one-move\.js\?v=17" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
