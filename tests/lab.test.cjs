@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=8" defer/);
+  assert.match(page,/src="one-move\.js\?v=9" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -732,6 +732,31 @@ test("committed verdict shift explains a both-worse reversal, a tie, and an unch
   }
 });
 
+test("move anatomy tracks the changed reading through sorted order and one-fifth mean movement", () => {
+  const {moveMechanism,scoreAttempt,ROUNDS}=require("../one-move.js");
+  const puzzle=ROUNDS[0],attempt=scoreAttempt(puzzle,2,"51.6667");
+  const anatomy=moveMechanism(puzzle,attempt);
+  assert.deepEqual(anatomy.before.map(item=>item.value),[40,42,50,60,68]);
+  assert.deepEqual(anatomy.after.map(item=>item.value),[40,42,51.6667,60,68]);
+  assert.equal(anatomy.meanMove,.33334);
+  assert.equal(anatomy.medianBefore,50);
+  assert.equal(anatomy.medianAfter,51.6667);
+  assert.match(anatomy.explanation,/mean moves \+0\.33334.*median moves from 50 to 51\.6667/i);
+  const tie=moveMechanism(puzzle,scoreAttempt(puzzle,4,"58"));
+  assert.equal(tie.meanMove,-2);
+  assert.equal(tie.medianAfter,50);
+  assert.match(tie.explanation,/median stays at 50/);
+  const duplicates={values:[10,20,20,30,40]};
+  const repeated=moveMechanism(duplicates,{index:1,value:35});
+  assert.deepEqual(repeated.before.map(item=>item.index),[0,1,2,3,4]);
+  assert.deepEqual(repeated.after.map(item=>item.index),[0,2,3,1,4]);
+  assert.equal(repeated.medianAfter,30);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="mechanism" hidden/);
+  assert.match(html,/id="before-sorted"[^>]+aria-label="Readings before, sorted"/);
+  assert.match(html,/id="after-sorted"[^>]+aria-label="Readings after, sorted"/);
+});
+
 test("blind duel invitation shares a score and reproducible puzzle without the answer", () => {
   const {dailyPuzzle,duelInvitation,ROUNDS}=require("../one-move.js");
   const puzzle=dailyPuzzle("2026-10-12"),url="https://example.test/one-move.html?daily=2026-10-12";
@@ -748,7 +773,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary","hint-button","hint-panel","hint-one","hint-two","hint-progress","verdict-shift","mechanism"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
