@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=18" defer/);
+  assert.match(page,/src="one-move\.js\?v=19" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -727,6 +727,10 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.equal(elements.get("home-daily-link").textContent,"Beat your best ↗");
   assert.equal(elements.get("home-daily-progress").hidden,false);
   assert.equal(elements.get("home-daily-progress").textContent,"Flipped on this device · best move 5.0001");
+  saved.set("inward-math-daily-v1-2026-10-12","22501");
+  events.pageshow();
+  assert.equal(elements.get("home-daily-link").textContent,"Replay today's puzzle ↗");
+  assert.equal(elements.get("home-daily-progress").textContent,"Exact minimum on this device · move 2.2501");
   elements.get("home-daily-share-status").textContent="Puzzle invitation copied.";
   day=13;events.focus();
   assert.equal(elements.get("home-daily-date").dateTime,"2026-10-13");
@@ -754,7 +758,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-progress" role="status" hidden/);
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=18" defer/);
+  assert.match(html,/src="one-move\.js\?v=19" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
