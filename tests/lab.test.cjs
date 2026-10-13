@@ -9,7 +9,7 @@ function loadLab(search="") {
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, "the single-file lab must contain its model script");
 
-  const initial = {"alpha":"1.5","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
+  const initial = {"alpha":"1.5","future-alpha":"2.5","shock-strength":"60","seed":"42","outlier":"85","dataset":"48, 49, 50, 51, 85","known-target":"50"};
   const elements = new Map();
   const download = {clicked:false,blob:null,filename:null};
   const share = {copied:null,scrolled:null};
@@ -148,6 +148,30 @@ test("one-step forecast matches the next exact state after a parameter change an
   assert.ok(Math.abs(snapshot(lab).position.x-afterShock[0])<0.00005);
   assert.ok(Math.abs(snapshot(lab).position.y-afterShock[1])<0.00005);
   assert.match(lab.element("step-preview-outcome").textContent,/After step 3:/);
+});
+
+test("future fork compares pull strengths without changing the current run", () => {
+  const lab=loadLab(),lens=lab.element("future-lens"),start=snapshot(lab);
+  lens.open=true;lens.handlers.toggle();
+  const current=Number(lab.element("future-current-distance").textContent);
+  const alternative=Number(lab.element("future-alternate-distance").textContent);
+  assert.ok(current>20&&current<25);
+  assert.ok(alternative>4&&alternative<6);
+  assert.match(lab.element("future-summary").textContent,/Alternative pull ends .* closer after 60 updates/);
+  assert.equal(snapshot(lab).step,0);
+  input(lab.element("future-alpha"),1.5);
+  assert.equal(lab.element("future-current-distance").textContent,lab.element("future-alternate-distance").textContent);
+  assert.match(lab.element("future-summary").textContent,/strengths match/);
+  input(lab.element("future-alpha"),0.5);
+  assert.equal(lab.element("future-alpha-value").textContent,"0.5");
+  assert.equal(Number(lab.element("future-current-distance").textContent),current);
+  assert.deepEqual(snapshot(lab).position,start.position);
+  assert.deepEqual(snapshot(lab).velocity,start.velocity);
+  click(lab.element("shock"));
+  assert.equal(snapshot(lab).step,0);
+  assert.equal(snapshot(lab).shocks.length,1);
+  assert.notEqual(Number(lab.element("future-current-distance").textContent),current);
+  assert.match(lab.element("future-chart").attributes["aria-label"],/with no new shocks/);
 });
 
 test("observer comparison uses the same four values under outlier changes", () => {

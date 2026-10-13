@@ -233,6 +233,20 @@
     .step-flow span { display:block; color:#c2d9dd; font-size:.68rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
     .step-flow strong { display:block; margin-top:5px; color:#f3f9f3; font:750 clamp(.7rem,1.2vw,.85rem)/1.4 ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
     .step-lens-body .step-outcome { margin:12px 0 0; color:var(--gold); font-weight:750; }
+    .future-lens { margin:10px 0 0; border-color:#6e678a; background:linear-gradient(125deg,#172e44,#252b48); }
+    .future-lens summary { color:#e0c5ff; }
+    .future-lens .future-control { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 4px; color:#e2e9ee; font-weight:750; font-size:.86rem; }
+    .future-lens input[type="range"] { accent-color:#d9b8ff; }
+    .future-lens canvas { margin:12px 0 8px; background:#0b1d31; }
+    .future-key { display:flex; flex-wrap:wrap; gap:5px 17px; color:#d5e1e4; font-size:.77rem; }
+    .future-key i { display:inline-block; width:18px; height:3px; margin:0 6px 3px 0; background:var(--gold); }
+    .future-key .alternative i { background:#d9b8ff; }
+    .future-results { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+    .future-results div { padding:10px 12px; border:1px solid #5e6685; border-radius:9px; background:#0d2235; }
+    .future-results span { display:block; color:#c7d8df; font-size:.74rem; }
+    .future-results strong { display:block; color:var(--gold); font:750 1.18rem ui-monospace,SFMono-Regular,monospace; }
+    .future-results .alternative strong { color:#d9b8ff; }
+    .future-lens .future-summary { margin:12px 0 0; color:#e8e2f5; }
     .controls { display:grid; gap:16px; }
     .control { display:grid; gap:5px; color:#dbe8e9; font-size:.93rem; }
     .control .label-row { display:flex; justify-content:space-between; gap:10px; }
@@ -270,7 +284,7 @@
     @media(max-width:700px) { .scene-grid,.workbench-form { grid-template-columns:1fr; } .scene-card { min-height:140px; } }
     @media(max-width:600px) { .sweep-metrics,.cohort-metrics { grid-template-columns:1fr; } }
     @media(max-width:480px) { header { padding-top:30px; } .hero-instrument { padding:16px; } .hero-reading { min-height:150px; } .hero-next { align-items:stretch; flex-direction:column; } .hero-next button,.hero-next a { justify-content:center; width:100%; text-align:center; } .hero-next a { padding:8px; border:1px solid #547c7c; background:#143439; } .daily-preview-list { gap:5px; } .daily-preview-list button { padding-inline:2px; } .daily-preview-result { justify-content:space-between; } .daily-map { padding:12px 14px; } .daily-map-row { grid-template-columns:minmax(0,1fr) auto; gap:0 10px; margin-top:5px; } .daily-map-value { grid-column:2; } .daily-map-track { grid-column:1/-1; grid-row:2; } .daily-map-axis { display:block; margin-top:2px; } .daily-preview-actions .daily-link,.daily-preview-actions .share-link { width:100%; } .daily-preview-actions .course-link { width:100%; } .daily-home-days { grid-template-columns:repeat(3,minmax(0,1fr)); } .step-flow { grid-template-columns:1fr; } .panel,.notebook,.sensitivity { padding:16px; } .notebook { align-items:flex-start; flex-direction:column; } .tag { white-space:normal; } }
-    @media(max-width:400px) { .daily-preview-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .daily-home-days { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:400px) { .daily-preview-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .daily-home-days { grid-template-columns:repeat(2,minmax(0,1fr)); } .future-results { grid-template-columns:1fr; } }
     @media(prefers-reduced-motion:reduce) { .hero-instrument::after { animation:none; } .scene-card,.path-card,.daily-preview-list button { transition:none; } }
   </style>
 </head>
@@ -395,7 +409,8 @@
           <button id="reset" type="button">Reset seed &amp; state</button>
         </div>
         <p id="event" class="status" role="status">Paused at step 0.</p>
-        <details class="step-lens" id="step-lens"><summary>See one step ahead ↗</summary><div class="step-lens-body"><p>Calculated from the current position, velocity, and pull strength. Opening this view does not advance the model. A faint ring on the plot marks the next position while paused.</p><div class="step-flow"><div><span>Pull term · x, y</span><strong id="step-preview-pull">—</strong></div><div><span>Velocity after ×0.92 · x, y</span><strong id="step-preview-velocity">—</strong></div><div><span>Next position · x, y</span><strong id="step-preview-position">—</strong></div></div><p class="step-outcome" id="step-preview-outcome"></p></div></details>
+        <details class="step-lens" id="step-lens"><summary>See one step ahead ↗</summary><div class="step-lens-body"><p>From the current state, add the pull term to velocity and multiply by 0.92. Opening this view does not advance the model. A faint ring marks the next position while paused.</p><div class="step-flow"><div><span>Pull term · x, y</span><strong id="step-preview-pull">—</strong></div><div><span>Damped velocity · x, y</span><strong id="step-preview-velocity">—</strong></div><div><span>Next position · x, y</span><strong id="step-preview-position">—</strong></div></div><p class="step-outcome" id="step-preview-outcome"></p></div></details>
+        <details class="step-lens future-lens" id="future-lens"><summary>Compare two futures ↗</summary><div class="step-lens-body"><p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. This comparison does not change the live run.</p><label class="future-control" for="future-alpha"><span>Alternative pull strength α</span><output id="future-alpha-value">2.5</output></label><input id="future-alpha" type="range" min="0.5" max="3" step="0.1" value="2.5"><canvas id="future-chart" width="600" height="240" role="img" aria-label="Distance to target across 60 future updates for two pull strengths; numeric endpoints follow">The numeric endpoints follow.</canvas><div class="future-key"><span><i></i>current α · solid gold</span><span class="alternative"><i></i>alternative α · dashed lavender</span></div><div class="future-results"><div><span>Current α · distance after 60</span><strong id="future-current-distance">—</strong></div><div class="alternative"><span>Alternative α · distance after 60</span><strong id="future-alternate-distance">—</strong></div></div><p class="future-summary" id="future-summary"></p></div></details>
         <div class="formula"><strong>Model:</strong> <code>v ← 0.92(v + 0.008α(target − position)); position ← position + v</code>. A shock adds one seeded impulse to velocity. “Settled” means distance &lt; 4 and speed &lt; 0.5 for 45 consecutive steps.</div>
       </section>
 
@@ -673,12 +688,24 @@
     }
     function distance() { return Math.hypot(target.x - simulation.position.x, target.y - simulation.position.y); }
     function speed() { return Math.hypot(simulation.velocity.x, simulation.velocity.y); }
+    function nextState(position,velocity,alpha) {
+      const spring = 0.008 * alpha;
+      const pull={x:spring*(target.x-position.x),y:spring*(target.y-position.y)};
+      const nextVelocity={x:0.92*(velocity.x+pull.x),y:0.92*(velocity.y+pull.y)};
+      const nextPosition={x:position.x+nextVelocity.x,y:position.y+nextVelocity.y};
+      return {pull,velocity:nextVelocity,position:nextPosition,distance:Math.hypot(target.x-nextPosition.x,target.y-nextPosition.y)};
+    }
     function forecastStep() {
-      const spring = 0.008 * Number($("alpha").value);
-      const pull={x:spring*(target.x-simulation.position.x),y:spring*(target.y-simulation.position.y)};
-      const velocity={x:0.92*(simulation.velocity.x+pull.x),y:0.92*(simulation.velocity.y+pull.y)};
-      const position={x:simulation.position.x+velocity.x,y:simulation.position.y+velocity.y};
-      return {pull,velocity,position,distance:Math.hypot(target.x-position.x,target.y-position.y)};
+      return nextState(simulation.position,simulation.velocity,Number($("alpha").value));
+    }
+    function futurePath(alpha,steps=60) {
+      let position=simulation.position,velocity=simulation.velocity;
+      const distances=[distance()];
+      for(let i=0;i<steps;i++) {
+        const next=nextState(position,velocity,alpha);
+        position=next.position;velocity=next.velocity;distances.push(next.distance);
+      }
+      return distances;
     }
     function stepModel() {
       const next=forecastStep();
@@ -857,6 +884,32 @@
       const movement=Math.abs(change)<0.00005?"almost unchanged":change<0?"closer by "+(-change).toFixed(4):"farther by "+change.toFixed(4);
       $("step-preview-outcome").textContent="After step "+(simulation.step+1)+": distance "+next.distance.toFixed(4)+" · "+movement+". Preview only; choose Step once to apply it.";
     }
+    function renderFuture() {
+      if(!$("future-lens").open) return;
+      const currentAlpha=Number($("alpha").value),alternateAlpha=Number($("future-alpha").value);
+      const current=futurePath(currentAlpha),alternate=futurePath(alternateAlpha),last=current.length-1;
+      $("future-alpha-value").textContent=alternateAlpha.toFixed(1);
+      $("future-current-distance").textContent=current[last].toFixed(2);
+      $("future-alternate-distance").textContent=alternate[last].toFixed(2);
+      const difference=Math.abs(current[last]-alternate[last]);
+      $("future-summary").textContent=currentAlpha===alternateAlpha?"The strengths match, so both paths coincide. Move the alternative slider to fork them."
+        :difference<0.005?"The paths end almost equally close after 60 updates. Their intermediate motion can still differ."
+        :(current[last]<alternate[last]?"Current":"Alternative")+" pull ends "+difference.toFixed(2)+" units closer after 60 updates. This is one horizon, not a universal ranking.";
+      const canvas=$("future-chart"),ctx=canvas.getContext("2d"),left=49,right=568,top=19,bottom=194;
+      const max=Math.max(4,...current,...alternate)*1.04,x=i=>left+i/last*(right-left),y=value=>bottom-value/max*(bottom-top);
+      ctx.clearRect(0,0,600,240);ctx.strokeStyle="#38566b";ctx.lineWidth=1;ctx.fillStyle="#bdd0d8";ctx.font="12px system-ui";
+      for(const value of [0,max/2,max]) {
+        const py=y(value);ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(right,py);ctx.stroke();ctx.fillText(value.toFixed(0),8,py+4);
+      }
+      for(const i of [0,30,60]) ctx.fillText(String(i),x(i)-6,218);
+      ctx.fillText("updates",right-39,235);
+      for(const [points,color,dashes] of [[current,"#ffd08b",[]],[alternate,"#d9b8ff",[7,5]]]) {
+        ctx.strokeStyle=color;ctx.lineWidth=3;ctx.setLineDash(dashes);ctx.beginPath();
+        points.forEach((value,i)=>i?ctx.lineTo(x(i),y(value)):ctx.moveTo(x(i),y(value)));ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle=color;ctx.beginPath();ctx.arc(right,y(points[last]),5,0,Math.PI*2);ctx.fill();
+      }
+      canvas.setAttribute("aria-label","Distance to the target over 60 updates from the current state with no new shocks. Current pull "+currentAlpha.toFixed(1)+" ends at "+current[last].toFixed(2)+"; alternative pull "+alternateAlpha.toFixed(1)+" ends at "+alternate[last].toFixed(2)+".");
+    }
     function render() {
       const d=distance(), s=speed(), stats=witnessStats();
       $("distance").textContent=d.toFixed(1);
@@ -870,7 +923,7 @@
       $("mean-readout").textContent=stats.mean.toFixed(1)+" / "+stats.meanError.toFixed(1);
       $("median-readout").textContent=stats.median.toFixed(1)+" / "+stats.medianError.toFixed(1);
       $("comparison").textContent=stats.medianError<stats.meanError?"Median has lower error for these five values.":stats.medianError>stats.meanError?"Mean has lower error for these five values.":"Both have equal error for these five values.";
-      renderForecast();drawRC();drawWitness(stats);
+      renderForecast();renderFuture();drawRC();drawWitness(stats);
     }
     function snapshot() {
       const stats=witnessStats();
@@ -893,6 +946,8 @@
     $("step").addEventListener("click",()=>{paused=true;$("run").textContent="Run";stepModel();$("event").textContent="Advanced to step "+simulation.step+".";render();});
     $("shock").addEventListener("click",addShock);
     $("step-lens").addEventListener("toggle",render);
+    $("future-lens").addEventListener("toggle",renderFuture);
+    $("future-alpha").addEventListener("input",renderFuture);
     $("reset").addEventListener("click",()=>{activeScene=null;reset();});
     $("alpha").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"alpha",value:Number($("alpha").value)});render();});
     $("shock-strength").addEventListener("input",()=>{simulation.parameterChanges.push({step:simulation.step,parameter:"shockStrength",value:Number($("shock-strength").value)});render();});
