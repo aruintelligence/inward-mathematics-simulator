@@ -647,7 +647,7 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=5" defer/);
+  assert.match(page,/src="one-move\.js\?v=6" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
 });
@@ -682,6 +682,16 @@ test("daily puzzle is reproducible by date and every generated edition has a rea
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play today's puzzle/);
 });
 
+test("the seven-day trail crosses months and leap days in local calendar order", () => {
+  const {recentDays}=require("../one-move.js");
+  assert.deepEqual(recentDays(new Date(2028,2,2,12)).map(entry=>entry.day),[
+    "2028-02-25","2028-02-26","2028-02-27","2028-02-28","2028-02-29","2028-03-01","2028-03-02"]);
+  assert.deepEqual(recentDays(new Date(2027,0,2,12)).map(entry=>entry.day),[
+    "2026-12-27","2026-12-28","2026-12-29","2026-12-30","2026-12-31","2027-01-01","2027-01-02"]);
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="daily-trail" aria-label="Recent Daily Flip editions"/);
+});
+
 test("blind duel invitation shares a score and reproducible puzzle without the answer", () => {
   const {dailyPuzzle,duelInvitation,ROUNDS}=require("../one-move.js");
   const puzzle=dailyPuzzle("2026-10-12"),url="https://example.test/one-move.html?daily=2026-10-12";
@@ -698,7 +708,7 @@ test("blind duel invitation shares a score and reproducible puzzle without the a
 });
 
 test("a cached pre-duel page still initializes and scores with the new script", () => {
-  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share"]);
+  const elements=new Map(),legacy=new Set(["duel","duel-status","duel-score","duel-edition","duel-share","daily-trail","trail-summary"]);
   function element(id) {
     if(legacy.has(id)) return null;
     if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,style:{},dataset:{},handlers:{},
