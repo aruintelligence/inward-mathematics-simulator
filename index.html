@@ -34,6 +34,12 @@
     .hero-actions a,.share-action { display:inline-flex; align-items:center; justify-content:center; border-radius:11px; padding:12px 17px; font-weight:750; text-decoration:none; border:1px solid #4d7e83; color:var(--text); background:#183b42; }
     .hero-actions a:first-child { color:#072520; background:var(--mint); border-color:var(--mint); }
     .hero-actions a:hover,.share-action:hover { filter:brightness(1.12); }
+    .hero-daily { display:flex; align-items:center; flex-wrap:wrap; gap:5px 12px; max-width:600px; margin-top:20px; padding:12px 15px; border:1px solid #977d63; border-radius:13px; background:linear-gradient(110deg,#393c3d,#183846); color:var(--text); text-decoration:none; box-shadow:0 10px 28px #0003; }
+    .hero-daily:hover { border-color:var(--gold); background:linear-gradient(110deg,#54483d,#1d4350); }
+    .hero-daily .daily-kicker { color:var(--gold); font-size:.68rem; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
+    .hero-daily strong { font-size:.88rem; }
+    .hero-daily time,.hero-daily .daily-state { color:#d9e6e3; font-size:.76rem; }
+    .hero-daily .daily-arrow { margin-left:auto; color:var(--gold); font-size:.78rem; font-weight:850; }
     .pathways { margin:0 0 36px; padding:28px 0 0; border-top:1px solid #315666; }
     .pathways-head { display:flex; align-items:end; justify-content:space-between; gap:12px 24px; margin-bottom:17px; }
     .pathways h2 { font-size:clamp(1.7rem,3.2vw,2.55rem); line-height:1.12; letter-spacing:-.035em; }
@@ -278,6 +284,7 @@
         <div class="hero-copy">
           <p class="intro">Move one of five generated estimates. Watch the mean and median disagree, then choose how to investigate: predict an unseen result, explore the exact boundary, or test your own numbers.</p>
           <div class="hero-actions"><a href="challenge.html">Make a prediction ↗</a><a href="#paths">Choose your route ↓</a></div>
+          <a class="hero-daily" id="hero-daily-link" href="#home-daily-preview"><span class="daily-kicker">Daily Flip</span><strong>Five readings. One reversal.</strong><time id="hero-daily-date">Today</time><span class="daily-state" id="hero-daily-status">Open today's puzzle</span><span class="daily-arrow" aria-hidden="true">Explore ↓</span></a>
         </div>
       </div>
       <p class="scope">These are toy calculations with known inputs. “Coherence” is a distance transform; neither model measures memory, consciousness, safety, or a physical law.</p>
@@ -913,6 +920,6 @@
     window.InwardMathLab=Object.freeze({snapshot,reset,step:()=>{stepModel();render();},shock:addShock,analyzeDataset});
   </script>
   <script src="flip-levers.js?v=3" defer></script>
-  <script src="one-move.js?v=32" defer></script>
+  <script src="one-move.js?v=33" defer></script>
 </body>
 </html>
