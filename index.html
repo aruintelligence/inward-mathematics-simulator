@@ -236,7 +236,11 @@
     .future-lens { margin:10px 0 0; border-color:#6e678a; background:linear-gradient(125deg,#172e44,#252b48); }
     .future-lens summary { color:#e0c5ff; }
     .future-stage { margin:20px 0 0; border-radius:20px; box-shadow:0 20px 50px #0003; }
-    .future-stage summary { padding:17px 22px; font-size:1.2rem; }
+    .future-stage summary { display:flex; align-items:center; gap:13px; padding:17px 22px; font-size:1.2rem; list-style:none; }
+    .future-stage summary::-webkit-details-marker { display:none; }
+    .future-stage summary::before { content:""; flex:none; width:8px; height:8px; border:solid #e0c5ff; border-width:0 2px 2px 0; transform:rotate(-45deg); }
+    .future-stage[open] summary::before { transform:rotate(45deg); }
+    .future-title { display:block; }
     .future-kicker { display:block; margin-bottom:5px; color:#b7c5d8; font-size:.68rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
     .future-stage .step-lens-body { padding:18px 22px 22px; }
     .future-stage .step-lens-body>p { max-width:880px; margin-bottom:18px; color:#d6e1ed; font-size:.94rem; }
@@ -447,7 +451,7 @@
     </div>
 
     <details class="step-lens future-lens future-stage" id="future-lens">
-      <summary><span class="future-kicker">Experiment 01 · side study</span>Compare two futures ↗</summary>
+      <summary><span class="future-title"><span class="future-kicker">Experiment 01 · side study</span>Compare two futures ↗</span></summary>
       <div class="step-lens-body">
         <p>Fork this exact position and velocity into two 60-update paths. Both use the same target and damping, with no new shocks. Previewing does not change the live run.</p>
         <div class="future-layout">
