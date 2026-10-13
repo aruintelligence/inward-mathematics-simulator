@@ -95,7 +95,19 @@
       "The "+after.winner.toLowerCase()+" is closer by "+errorFmt(Math.abs(after.meanError-after.medianError))+" error units.";
     return {before,after,scale,insight:movement+lead};
   }
-  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift};
+  function moveMechanism(puzzle,judged) {
+    const oldValue=puzzle.values[judged.index],differenceUnits=units(judged.value)-units(oldValue),difference=differenceUnits/10000;
+    const before=puzzle.values.map((value,index)=>({value,index})).sort((a,b)=>a.value-b.value||a.index-b.index);
+    const after=puzzle.values.map((value,index)=>({value:index===judged.index?judged.value:value,index})).sort((a,b)=>a.value-b.value||a.index-b.index);
+    const meanMove=differenceUnits/50000,medianBefore=before[2].value,medianAfter=after[2].value;
+    const direction=value=>value>0?"+"+errorFmt(value):errorFmt(value);
+    const meanText=difference===0?"The mean stays put because the reading did not move.":
+      "The mean moves "+direction(meanMove)+" because it absorbs one-fifth of the "+direction(difference)+" change.";
+    const medianText=medianAfter===medianBefore?"The median stays at "+fmt(medianAfter)+": the middle value did not change.":
+      "The median moves from "+fmt(medianBefore)+" to "+fmt(medianAfter)+" as the middle value changes.";
+    return {before,after,meanMove,medianBefore,medianAfter,explanation:meanText+" "+medianText};
+  }
+  const api={ROUNDS,parsePuzzle,scoreAttempt,dailyPuzzle,validDay,valid,duelInvitation,recentDays,hintFor,verdictShift,moveMechanism};
   if(typeof module==="object"&&module.exports) module.exports=api;
   if(typeof document==="undefined") return;
 
@@ -173,6 +185,25 @@
       }
     }
   }
+  function showMoveMechanism(judged) {
+    if(!$("mechanism")) return;
+    const mechanism=moveMechanism(puzzle,judged);
+    $("mechanism").hidden=false;
+    $("mechanism-explanation").textContent=mechanism.explanation;
+    for(const phase of ["before","after"]) {
+      const row=$(phase+"-sorted");
+      row.replaceChildren();
+      for(const [position,reading] of mechanism[phase].entries()) {
+        const chip=document.createElement("span");
+        chip.className="sorted-reading";
+        chip.dataset.moved=String(reading.index===judged.index);
+        chip.dataset.middle=String(position===2);
+        chip.textContent=fmt(reading.value);
+        chip.setAttribute("aria-label","Reading "+(reading.index+1)+": "+fmt(reading.value)+(position===2?", middle value":"")+(reading.index===judged.index?", moved reading":""));
+        row.append(chip);
+      }
+    }
+  }
   function updateProposal() {
     $("selected-reading").textContent=String(selected+1);
     $("selected-old").textContent=fmt(puzzle.values[selected]);
@@ -207,6 +238,7 @@
     $("play-again").hidden=true;
     if($("duel")) {$("duel").hidden=true;$("duel-status").textContent="";}
     if($("verdict-shift")) $("verdict-shift").hidden=true;
+    if($("mechanism")) $("mechanism").hidden=true;
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
     updateDailyStatus();
@@ -240,6 +272,7 @@
       :result.winner==="Equal"?"Both estimates have equal error here. Cross the tie to give the opposing estimate a strict lead."
       :"The "+result.winner.toLowerCase()+" is still closer. Try a different value or reading.";
     showVerdictShift(judged);
+    showMoveMechanism(judged);
     $("benchmark").hidden=!flipped;
     $("next").hidden=!flipped;
     $("play-again").hidden=!flipped;
