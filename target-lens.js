@@ -148,7 +148,22 @@
       lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty};
+  function stabilityEdge(values,low,high) {
+    const baseline=certifyJointUncertainty(values,low,high,0);
+    if(baseline.kind!=="strict") return {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0};
+    // Allowed reading boxes are nested as epsilon grows. Once a tie is possible,
+    // it remains possible. Search the input's integer millionth grid, while
+    // each fixed-epsilon certificate covers all real readings in its boxes.
+    let lastStrictUnits=0,firstTieUnits=100*TARGET_SCALE;
+    while(firstTieUnits-lastStrictUnits>1) {
+      const mid=Math.floor((lastStrictUnits+firstTieUnits)/2);
+      if(certifyJointUncertainty(values,low,high,mid/TARGET_SCALE).kind==="strict") lastStrictUnits=mid;
+      else firstTieUnits=mid;
+    }
+    return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
+  }
+
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,stabilityEdge};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -158,6 +173,7 @@
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
+  let cachedEdge={key:null,result:null};
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
   if(supplied===false) $("input-error").textContent="That shared view is invalid. Case A is loaded instead.";
@@ -280,6 +296,10 @@
 
     const drift=certifyReadingDrift(current.values,current.low,current.high,current.epsilon);
     const exact=certifyJointUncertainty(current.values,current.low,current.high,current.epsilon);
+    const edgeKey=current.values.map(value=>Math.round(value*TARGET_SCALE)).join(",")+"|"+
+      Math.round(current.low*TARGET_SCALE)+"|"+Math.round(current.high*TARGET_SCALE);
+    if(cachedEdge.key!==edgeKey) cachedEdge={key:edgeKey,result:stabilityEdge(current.values,current.low,current.high)};
+    const edge=cachedEdge.result;
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -298,6 +318,14 @@
     if(exact.witness) $("drift-witness").textContent="Exact tie witness: readings "+
       exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
       "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
+    $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
+    $("edge-first-tie").textContent=fmt(edge.firstTieUnits/TARGET_SCALE);
+    $("edge-last-button").disabled=edge.kind!=="edge";
+    $("edge-first-button").disabled=edge.kind!=="edge";
+    $("edge-status").textContent=edge.kind==="edge"
+      ?"For every allowed set of readings and target, "+edge.winner+" is strictly closer through "+fmt(edge.lastStrictUnits/TARGET_SCALE)+
+        ". At "+fmt(edge.firstTieUnits/TARGET_SCALE)+" a tie is possible. These adjacent settings differ by 0.000001; the exact continuous threshold lies between them."
+      :"The target range already permits a tie at zero drift. Narrow it to find a strict stability edge.";
     $("drift-shortcut-status").textContent=drift.kind==="certified"?"Shortcut certifies "+drift.winner:
       drift.kind==="inconclusive"?"Shortcut inconclusive":"No strict baseline";
     $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
@@ -360,6 +388,14 @@
     render();
   });
   $("drift-input").addEventListener("change",event=>{event.target.value=fmt(current.epsilon);});
+  for(const [id,key] of [["edge-last-button","lastStrictUnits"],["edge-first-button","firstTieUnits"]]) {
+    $(id).addEventListener("click",()=>{
+      if(cachedEdge.result.kind!=="edge") return;
+      current.epsilon=cachedEdge.result[key]/TARGET_SCALE;
+      $("drift-error").textContent="";
+      render();
+    });
+  }
   $("drift-example").addEventListener("click",()=>{
     current={...PRESETS.a,values:[...PRESETS.a.values],target:0.5,low:0,high:1,epsilon:4,
       label:"Exact-proof example",key:null};
