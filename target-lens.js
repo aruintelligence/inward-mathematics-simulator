@@ -207,6 +207,18 @@
       lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
   }
 
+  function proofReceipt(values,low,high,epsilon,target) {
+    const certificate=certifyJointUncertainty(values,low,high,epsilon);
+    return {format:"inward-target-lens-proof-v1",scale:TARGET_SCALE,
+      inputs:{readings:values.map(value=>Math.round(value*TARGET_SCALE)),
+        low:Math.round(low*TARGET_SCALE),high:Math.round(high*TARGET_SCALE),
+        drift:Math.round(epsilon*TARGET_SCALE),selectedTarget:Math.round(target*TARGET_SCALE)},
+      claim:{kind:certificate.kind,winner:certificate.winner,
+        estimateRange:certificate.estimateRangeUnits,
+        referenceRange:certificate.referenceRangeUnits,
+        tieTargets:certificate.tieTargets,witness:certificate.witness}};
+  }
+
   function minimumTieSupport(values,low,high,epsilon) {
     // Enumerate all 2^5 choices. Each call certifies an entire continuous
     // box, so a strict result excludes every real perturbation of that subset.
@@ -522,7 +534,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportTieAtlas,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,proofReceipt,minimumTieSupport,supportTieAtlas,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -1223,6 +1235,17 @@
     } catch (_) {
       $("share-status").textContent="Copy unavailable here. Use Open exact view and copy its address.";
     }
+  });
+  $("download-proof").addEventListener("click",()=>{
+    const receipt=proofReceipt(current.values,current.low,current.high,current.epsilon,current.target);
+    const blob=new Blob([JSON.stringify(receipt,null,2)+"\n"],{type:"application/json"});
+    const link=document.createElement("a");
+    const url=URL.createObjectURL(blob);
+    link.href=url;
+    link.download="inward-target-lens-proof.json";
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $("share-status").textContent="Proof receipt downloaded. Verify it with node tools/verify-target-lens.cjs inward-target-lens-proof.json.";
   });
   render();
 })();
