@@ -1650,7 +1650,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/\.witness-grid\[hidden\],\.witness-all-tie\[hidden\] \{ display:none; \}/);
   assert.match(html,/id="interval-ruler" role="img"/);
   assert.match(html,/id="drift-input" type="number"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-reading-drift"/);
+  assert.match(html,/id="drift-witness" hidden/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-exact-joint"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1755,6 +1756,60 @@ test("reading-drift bound proves a strict verdict across simultaneous reading an
   }
 });
 
+test("exact joint certificate matches exhaustive five-reading boxes and finds ties beyond the shortcut", () => {
+  const {certifyJointUncertainty,certifyReadingDrift,PRESETS}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  const beyond=certifyJointUncertainty(values,0,1,4);
+  assert.equal(certifyReadingDrift(values,0,1,4).kind,"inconclusive");
+  assert.deepEqual([beyond.kind,beyond.winner,beyond.estimateRangeUnits.map(n=>n/5000000),
+    beyond.referenceRangeUnits.map(n=>n/5000000)],
+    ["strict","Median",[1.6,10.4],[96.6,114.6]]);
+  const tie=certifyJointUncertainty(values,48,52,1.3);
+  assert.deepEqual([tie.kind,tie.tieFactor,tie.witness.readings.map(n=>n/1000000),tie.witness.targetUnits/1000000],
+    ["tie-possible","reference",[46.7,47.7,48.7,49.7,83.7],52]);
+  assert.equal(certifyJointUncertainty(PRESETS.c.values,0,100,0).kind,"all-tie");
+  assert.equal(certifyJointUncertainty(values,0,100,0).kind,"tie-possible");
+  assert.deepEqual(certifyJointUncertainty([0,0,0,0,0.0001],0,0.000001,0.000001).estimateRangeUnits,[96,102]);
+  for(const epsilon of [-1,101,NaN]) assert.throws(()=>certifyJointUncertainty(values,0,1,epsilon),RangeError);
+
+  let seed=59411;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<120;trial++) {
+    const base=Array.from({length:5},()=>Math.floor(roll()*7));
+    const epsilon=Math.floor(roll()*3);
+    const a=Math.floor(roll()*11),b=Math.floor(roll()*11),low=Math.min(a,b),high=Math.max(a,b);
+    const exact=certifyJointUncertainty(base,low,high,epsilon);
+    const lo=base.map(value=>Math.max(0,value-epsilon));
+    const hi=base.map(value=>value+epsilon);
+    let minD=Infinity,maxD=-Infinity,minB=Infinity,maxB=-Infinity;
+    const visit=(index,readings)=>{
+      if(index<5) {
+        for(let value=lo[index];value<=hi[index];value++) visit(index+1,[...readings,value]);
+        return;
+      }
+      const total=readings.reduce((sum,value)=>sum+value,0);
+      const middle=[...readings].sort((x,y)=>x-y)[2];
+      const D=total-5*middle;
+      minD=Math.min(minD,D);maxD=Math.max(maxD,D);
+      for(const target of [low,high]) {
+        const B=total+5*middle-10*target;
+        minB=Math.min(minB,B);maxB=Math.max(maxB,B);
+        if(exact.kind==="strict") assert.equal(D*B<0?"Mean":"Median",exact.winner);
+      }
+    };
+    visit(0,[]);
+    assert.deepEqual(exact.estimateRangeUnits.map(n=>n/1000000),[minD,maxD]);
+    assert.deepEqual(exact.referenceRangeUnits.map(n=>n/1000000),[minB,maxB]);
+    assert.equal(exact.kind==="strict",(minD>0||maxD<0)&&(minB>0||maxB<0));
+    if(exact.witness) {
+      const readings=exact.witness.readings.map(n=>n/1000000),target=exact.witness.targetUnits/1000000;
+      const mean=readings.reduce((sum,value)=>sum+value,0)/5;
+      const median=[...readings].sort((x,y)=>x-y)[2];
+      assert.ok(Math.abs(Math.abs(mean-target)-Math.abs(median-target))<1e-9);
+    }
+  }
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", () => {
   const elements=new Map(),address=[];
   function element(id) {
@@ -1776,14 +1831,17 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("witness-2").parts.strong.textContent,"56.6");
   assert.equal(element("interval-badge").textContent,"Median throughout");
   assert.match(element("interval-proof-text").textContent,/nearest endpoint is 1\.3 from a tie/);
-  assert.equal(element("drift-badge").textContent,"Median still wins");
+  assert.equal(element("drift-badge").textContent,"Median guaranteed");
+  assert.equal(element("drift-estimate-range").textContent,"[5.2, 8]");
   assert.equal(element("drift-remaining").textContent,"0.6");
   element("drift-input").handlers.input({target:{value:"1.3"}});
-  assert.equal(element("drift-badge").textContent,"Bound inconclusive");
+  assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.match(element("drift-witness").textContent,/46\.7, 47\.7, 48\.7, 49\.7, 83\.7; target 52/);
+  assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
   assert.match(element("drift-proof-text").textContent,/does not prove that a reversal is possible/);
   assert.match(address.at(-1),/eps=1\.3$/);
   element("drift-input").handlers.input({target:{value:"0.9"}});
-  assert.equal(element("drift-badge").textContent,"Median still wins");
+  assert.equal(element("drift-badge").textContent,"Median guaranteed");
   element("drift-input").handlers.input({target:{value:"0.0000001"}});
   assert.match(element("drift-error").textContent,/six decimal places/);
   assert.match(address.at(-1),/eps=0\.9$/);
@@ -1799,7 +1857,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("interval-badge").textContent,"Both winners possible");
   assert.equal(element("interval-ruler").dataset.kind,"crosses");
   assert.match(address.at(-1),/target=53\.3&lo=50&hi=56\.6&eps=0\.9$/);
-  assert.equal(element("drift-badge").textContent,"No strict baseline");
+  assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.equal(element("drift-shortcut-status").textContent,"No strict baseline");
   element("interval-high").handlers.input({target:{value:"53.3"}});
   assert.equal(element("interval-badge").textContent,"Median or tie");
   element("interval-low").handlers.input({target:{value:"53.3"}});
@@ -1818,6 +1877,11 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("interval-ruler").attributes["aria-label"],/Mean and median coincide\./);
   assert.equal(element("interval-span").disabled,true);
   assert.equal(element("interval-tie-mark").hidden,true);
+  element("drift-example").handlers.click();
+  assert.equal(element("drift-badge").textContent,"Median guaranteed");
+  assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
+  assert.equal(element("drift-reference-range").textContent,"[96.6, 114.6]");
+  assert.match(address.at(-1),/target=0\.5&lo=0&hi=1&eps=4$/);
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {

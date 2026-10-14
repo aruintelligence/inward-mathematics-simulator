@@ -96,11 +96,64 @@
       remaining:(gapUnits-allowanceUnits)/TARGET_SCALE};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift};
+  function certifyJointUncertainty(values,low,high,epsilon) {
+    certifyInterval(values,low,high);
+    if(!Number.isFinite(epsilon)||epsilon<0||epsilon>100) throw new RangeError("Invalid reading drift");
+    const driftUnits=Math.round(epsilon*TARGET_SCALE);
+    const lower=values.map(value=>Math.max(0,Math.round(value*TARGET_SCALE)-driftUnits));
+    const upper=values.map(value=>Math.min(100*TARGET_SCALE,Math.round(value*TARGET_SCALE)+driftUnits));
+    const median=readings=>[...readings].sort((a,b)=>a-b)[2];
+    const sum=readings=>readings.reduce((total,value)=>total+value,0);
+    let minEstimate=null,maxEstimate=null;
+    // Every five-reading order has one median, two lower and two upper positions.
+    // For a chosen order, sum(x)-5m decreases as m rises even when the two
+    // lower/upper readings are pushed to the favorable limits of their boxes.
+    for(let middle=0;middle<5;middle++) {
+      const other=[0,1,2,3,4].filter(index=>index!==middle);
+      for(let a=0;a<3;a++) for(let b=a+1;b<4;b++) {
+        const below=[other[a],other[b]],above=other.filter(index=>!below.includes(index));
+        const smallestMedian=Math.max(lower[middle],...below.map(index=>lower[index]));
+        const largestMedian=Math.min(upper[middle],...above.map(index=>upper[index]));
+        if(smallestMedian>largestMedian) continue;
+        const maximize=[...upper];
+        maximize[middle]=smallestMedian;
+        below.forEach(index=>{maximize[index]=Math.min(upper[index],smallestMedian);});
+        const maxUnits=sum(maximize)-5*smallestMedian;
+        if(maxEstimate===null||maxUnits>maxEstimate.units) maxEstimate={units:maxUnits,readings:maximize};
+        const minimize=[...lower];
+        minimize[middle]=largestMedian;
+        above.forEach(index=>{minimize[index]=Math.max(lower[index],largestMedian);});
+        const minUnits=sum(minimize)-5*largestMedian;
+        if(minEstimate===null||minUnits<minEstimate.units) minEstimate={units:minUnits,readings:minimize};
+      }
+    }
+    const minReference=sum(lower)+5*median(lower)-10*Math.round(high*TARGET_SCALE);
+    const maxReference=sum(upper)+5*median(upper)-10*Math.round(low*TARGET_SCALE);
+    const estimateRangeUnits=[minEstimate.units,maxEstimate.units];
+    const referenceRangeUnits=[minReference,maxReference];
+    const estimateCanTie=minEstimate.units<=0&&maxEstimate.units>=0;
+    const referenceCanTie=minReference<=0&&maxReference>=0;
+    const kind=minEstimate.units===0&&maxEstimate.units===0?"all-tie":
+      estimateCanTie||referenceCanTie?"tie-possible":"strict";
+    const winner=kind==="strict"?
+      (Math.sign(minEstimate.units)===Math.sign(minReference)?"Median":"Mean"):null;
+    const witness=kind==="tie-possible"?
+      minEstimate.units===0?{readings:minEstimate.readings,targetUnits:Math.round(low*TARGET_SCALE)}:
+      maxEstimate.units===0?{readings:maxEstimate.readings,targetUnits:Math.round(low*TARGET_SCALE)}:
+      minReference===0?{readings:lower,targetUnits:Math.round(high*TARGET_SCALE)}:
+      maxReference===0?{readings:upper,targetUnits:Math.round(low*TARGET_SCALE)}:null:null;
+    return {kind,winner,estimateRangeUnits,referenceRangeUnits,
+      tieFactor:estimateCanTie?"estimate":referenceCanTie?"reference":null,
+      estimateExtremizers:{minimum:minEstimate.readings,maximum:maxEstimate.readings},
+      lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
+  }
+
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
+  const fmtFactor=units=>String(Number((units/(5*TARGET_SCALE)).toFixed(7)));
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
@@ -226,10 +279,27 @@
               " win and a strict "+certificate.upper.toLowerCase()+" win, with a tie between them. No one strict winner covers the range.";
 
     const drift=certifyReadingDrift(current.values,current.low,current.high,current.epsilon);
+    const exact=certifyJointUncertainty(current.values,current.low,current.high,current.epsilon);
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
-    $("drift-badge").dataset.kind=drift.kind;
-    $("drift-badge").textContent=drift.kind==="certified"?drift.winner+" still wins":
-      drift.kind==="inconclusive"?"Bound inconclusive":"No strict baseline";
+    $("drift-badge").dataset.kind=exact.kind;
+    $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
+      exact.kind==="all-tie"?"Every setting ties":"A tie can occur";
+    $("drift-estimate-range").textContent="["+exact.estimateRangeUnits.map(fmtFactor).join(", ")+"]";
+    $("drift-reference-range").textContent="["+exact.referenceRangeUnits.map(fmtFactor).join(", ")+"]";
+    const factorName=exact.tieFactor==="estimate"?"mean − median":"mean + median − 2×target";
+    $("drift-exact-text").textContent=exact.kind==="strict"
+      ?"Neither factor can reach zero. Their signs stay "+(exact.estimateRangeUnits[0]>0?"positive":"negative")+
+        " and "+(exact.referenceRangeUnits[0]>0?"positive":"negative")+
+        ", so their product keeps "+exact.winner.toLowerCase()+" strictly closer for every allowed reading configuration and every target in the interval."
+      :exact.kind==="all-tie"
+        ?"Mean and median coincide for every allowed set of readings, so every target ties."
+        :"The factor "+factorName+" reaches zero within the allowed continuous ranges. Its extremes occur at allowed readings and targets; moving between them passes through an exact tie. A strict winner cannot cover every configuration.";
+    $("drift-witness").hidden=!exact.witness;
+    if(exact.witness) $("drift-witness").textContent="Exact tie witness: readings "+
+      exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
+      "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
+    $("drift-shortcut-status").textContent=drift.kind==="certified"?"Shortcut certifies "+drift.winner:
+      drift.kind==="inconclusive"?"Shortcut inconclusive":"No strict baseline";
     $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
     $("drift-allowance").textContent=fmt(drift.allowance);
     $("drift-remaining").textContent=drift.kind==="no-baseline"?"—":fmt(drift.remaining);
@@ -290,6 +360,14 @@
     render();
   });
   $("drift-input").addEventListener("change",event=>{event.target.value=fmt(current.epsilon);});
+  $("drift-example").addEventListener("click",()=>{
+    current={...PRESETS.a,values:[...PRESETS.a.values],target:0.5,low:0,high:1,epsilon:4,
+      label:"Exact-proof example",key:null};
+    $("input-error").textContent="";
+    $("interval-error").textContent="";
+    $("drift-error").textContent="";
+    render();
+  });
   $("interval-span").addEventListener("click",()=>{
     const {mean,median}=evaluate(current.values,current.target);
     current.low=Math.min(mean,median);
