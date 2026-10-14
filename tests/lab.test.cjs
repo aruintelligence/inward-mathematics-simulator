@@ -13,6 +13,30 @@ test("Target Lens asset URL changes whenever its script bytes change", () => {
   assert.equal(version[1],crypto.createHash("sha256").update(script).digest("hex").slice(0,12));
 });
 
+test("portable Target Lens receipts verify offline and reject altered mathematics", () => {
+  const {proofReceipt}=require("../target-lens.js");
+  const {verify}=require("../tools/verify-target-lens.cjs");
+  const values=[48,49,50,51,85];
+  const strict=proofReceipt(values,0,1,4,0.5);
+  assert.deepEqual(verify(strict),{kind:"strict",winner:"Median"});
+  const endpoint=proofReceipt(values,48,52,1.3,50);
+  assert.deepEqual(verify(endpoint),{kind:"tie-possible",winner:null});
+  assert.equal(endpoint.claim.witness.targetUnits,52000000);
+  const path=proofReceipt(values,48,52,4,50);
+  assert.deepEqual(verify(path),{kind:"tie-possible",winner:null});
+  assert.equal(path.claim.witness.path.denominator,"40");
+  assert.deepEqual(verify(proofReceipt([0,0,50,100,100],48,52,0,50)),{kind:"all-tie",winner:null});
+  const altered=receipt=>JSON.parse(JSON.stringify(receipt));
+  const badBounds=altered(strict); badBounds.claim.referenceRange[0]++;
+  assert.throws(()=>verify(badBounds),/Incorrect reference factor range/);
+  const badVerdict=altered(strict); badVerdict.claim.winner="Mean";
+  assert.throws(()=>verify(badVerdict),/Incorrect winner/);
+  const badWitness=altered(path); badWitness.claim.witness.path.numerator="10";
+  assert.throws(()=>verify(badWitness),/Witness does not tie/);
+  const badRange=altered(endpoint); badRange.claim.witness.readings[0]=0;
+  assert.throws(()=>verify(badRange),/outside drift box/);
+});
+
 function loadLab(search="",hash="") {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
