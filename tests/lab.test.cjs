@@ -2121,6 +2121,59 @@ test("reading–drift frontier certifies the first selectable tie for every supp
   }
 });
 
+test("continuous support frontier has exact rational boundaries and admissible witnesses", () => {
+  const {PRESETS,supportFrontier,continuousSupportFrontier,continuousStabilityThreshold,
+    certifyJointUncertainty}=require("../target-lens.js");
+  const values=PRESETS.a.values,exact=continuousSupportFrontier(values,48,52);
+  assert.deepEqual(exact.rows.map(row=>[row.numerator,row.denominator,row.mask]),
+    [["8","1",4],["13","7",6],["13","8",7],["13","9",15],["13","10",31]]);
+  assert.deepEqual(continuousSupportFrontier(values,0,100),{kind:"baseline-tie",rows:[]});
+  assert.equal(continuousStabilityThreshold(values,48,52,0).kind,"unreachable");
+  assert.equal(continuousStabilityThreshold([0,0,0,0,100],0,0,1).kind,"unreachable");
+  assert.equal(continuousStabilityThreshold(values,0,1,1).routes.reference,null);
+
+  let seed=57217,checked=0;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<90;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const x=Math.floor(roll()*100000001)/1e6,y=Math.floor(roll()*100000001)/1e6;
+    const low=Math.min(x,y),high=Math.max(x,y);
+    const frontier=continuousSupportFrontier(readings,low,high);
+    const grid=supportFrontier(readings,low,high);
+    assert.equal(frontier.kind,grid.kind);
+    if(frontier.kind!=="frontier") continue;
+    let preceding=null;
+    for(let index=0;index<5;index++) {
+      const row=frontier.rows[index],selectable=grid.rows[index];
+      assert.equal(row.firstTieUnits??null,selectable.firstTieUnits);
+      if(row.kind!=="edge") continue;
+      checked++;
+      const n=BigInt(row.numerator),d=BigInt(row.denominator);
+      if(preceding) assert.ok(n*preceding.denominator<=preceding.numerator*d);
+      preceding={numerator:n,denominator:d};
+      assert.ok(BigInt(row.firstTieUnits-1)*d<n*1000000n);
+      assert.ok(n*1000000n<=BigInt(row.firstTieUnits)*d);
+      assert.equal(certifyJointUncertainty(readings,low,high,(row.firstTieUnits-1)/1e6,row.mask).kind,"strict");
+      assert.notEqual(certifyJointUncertainty(readings,low,high,row.firstTieUnits/1e6,row.mask).kind,"strict");
+      const witness=row.witness,den=BigInt(witness.denominator);
+      const moved=witness.readingsNumerators.map(BigInt),target=BigInt(witness.targetNumerator);
+      for(let readingIndex=0;readingIndex<5;readingIndex++) {
+        const original=BigInt(Math.round(readings[readingIndex]*1e6))*den/1000000n;
+        const delta=moved[readingIndex]-original;
+        assert.ok(row.mask&(1<<readingIndex)||delta===0n);
+        assert.ok((delta<0n?-delta:delta)*d<=n*den);
+        assert.ok(moved[readingIndex]>=0n&&moved[readingIndex]<=100n*den);
+      }
+      assert.ok(target>=BigInt(Math.round(low*1e6))*den/1000000n);
+      assert.ok(target<=BigInt(Math.round(high*1e6))*den/1000000n);
+      const sum=moved.reduce((a,b)=>a+b,0n);
+      const median=[...moved].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+      assert.equal((sum-5n*median)*(sum+5n*median-10n*target),0n);
+    }
+  }
+  assert.ok(checked>100);
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
   let copied="",scrolled="";
@@ -2165,10 +2218,14 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-tie").textContent,"1.3");
   assert.equal(element("sparse-status").textContent,"No tie within this drift");
   assert.match(element("sparse-proof").textContent,/All 32 subsets/);
-  assert.equal(element("frontier-threshold-1").textContent,"ε = 8");
-  assert.equal(element("frontier-threshold-2").textContent,"ε = 1.857143");
-  assert.equal(element("frontier-selection-2").textContent,"Witness subset: 2, 3");
-  assert.equal(element("frontier-threshold-5").textContent,"ε = 1.3");
+  assert.equal(element("frontier-exact-1").textContent,"Exact ε = 8");
+  assert.equal(element("frontier-threshold-1").textContent,"First selectable ε = 8");
+  assert.equal(element("frontier-exact-2").textContent,"Exact ε = 13/7");
+  assert.equal(element("frontier-threshold-2").textContent,"First selectable ε = 1.857143");
+  assert.equal(element("frontier-selection-2").textContent,"Exact witness subset: 2, 3");
+  assert.match(element("frontier-witness-2").textContent,/At ε = 13\/7: readings \[/);
+  assert.equal(element("frontier-exact-5").textContent,"Exact ε = 13/10");
+  assert.equal(element("frontier-threshold-5").textContent,"First selectable ε = 1.3");
   assert.equal(element("frontier-row-5").dataset.reached,"false");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
