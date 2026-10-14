@@ -2215,6 +2215,45 @@ test("target-by-drift envelope follows exact midpoint bounds and the all-target 
   assert.throws(()=>tieReachabilityEnvelope(values,-1),RangeError);
 });
 
+test("exact point threshold inverts the reachability curves across targets", () => {
+  const {tieReachabilityEnvelope,continuousStabilityThreshold,PRESETS}=require("../target-lens.js");
+  const firstByCurve=(envelope,target)=>{
+    if(envelope.switchEpsilon===0) return 0;
+    const baseline=envelope.knots[0].lower;
+    if(Math.abs(target-baseline)<1e-10) return 0;
+    const side=target<baseline?"lower":"upper";
+    for(let index=1;index<envelope.knots.length;index++) {
+      const previous=envelope.knots[index-1],next=envelope.knots[index];
+      if(side==="lower"?next.lower<=target:next.upper>=target)
+        return previous.epsilon+(target-previous[side])*
+          (next.epsilon-previous.epsilon)/(next[side]-previous[side]);
+    }
+    return envelope.switchEpsilon;
+  };
+  for(const [values,targets] of [[PRESETS.a.values,[0,1,48,50,52,53.3,54,100]],
+    [PRESETS.c.values,[0,25,50,75,100]],[[2,5,10,11,100],[0,25,50,75,100]]]) {
+    const envelope=tieReachabilityEnvelope(values,1);
+    for(const target of targets) {
+      const result=continuousStabilityThreshold(values,target,target);
+      const exact=result.kind==="edge"?Number(result.numerator)/Number(result.denominator):0;
+      assert.ok(Math.abs(firstByCurve(envelope,target)-exact)<1e-7,
+        `point ${target} for ${values} should meet its curve`);
+    }
+  }
+  let seed=97213;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<25;trial++) {
+    const values=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const envelope=tieReachabilityEnvelope(values,1);
+    for(const target of [0,25,50,75,100]) {
+      const result=continuousStabilityThreshold(values,target,target);
+      const exact=result.kind==="edge"?Number(result.numerator)/Number(result.denominator):0;
+      assert.ok(Math.abs(firstByCurve(envelope,target)-exact)<1e-7,
+        `point ${target} for ${values} should meet its curve`);
+    }
+  }
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
   let copied="",scrolled="";
@@ -2247,6 +2286,13 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("reach-map-max").textContent,"10");
   assert.match(element("reach-map-caption").textContent,/exact ε = 16\/3/);
   assert.match(element("reach-map").attributes["aria-label"],/No tie is attainable/);
+  assert.equal(element("point-exact").textContent,"33/10");
+  assert.equal(element("point-grid").textContent,"First selectable ε = 3.3");
+  assert.match(element("point-proof").textContent,/range first ties at ε = 13\/10/);
+  assert.match(element("point-witness-text").textContent,/At ε = 33\/10: readings \[44\.7, 45\.7, 46\.7, 47\.7, 81\.7\]; target 50/);
+  assert.equal(element("reach-map-point-dot").attributes.cx,"515.000");
+  assert.equal(element("reach-map-point-dot").attributes.cy,"227.600");
+  assert.match(element("reach-map").attributes["aria-label"],/first tie at exact target 50 is at ε 33\/10/);
   assert.equal(element("drift-remaining").textContent,"0.6");
   assert.equal(element("edge-last-strict").textContent,"1.299999");
   assert.equal(element("edge-exact-fraction").textContent,"13/10");
@@ -2272,6 +2318,15 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("frontier-exact-5").textContent,"Exact ε = 13/10");
   assert.equal(element("frontier-threshold-5").textContent,"First selectable ε = 1.3");
   assert.equal(element("frontier-row-5").dataset.reached,"false");
+  element("point-open").handlers.click();
+  assert.equal(element("interval-low").value,"50");
+  assert.equal(element("interval-high").value,"50");
+  assert.equal(element("drift-input").value,"3.3");
+  assert.equal(element("edge-exact-fraction").textContent,"33/10");
+  assert.equal(element("edge-proof").open,true);
+  assert.equal(scrolled,"edge-proof");
+  assert.match(address.at(-1),/target=50&lo=50&hi=50&eps=3\.3$/);
+  presets[0].handlers.click();
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.equal(element("sparse-count").textContent,"5");
@@ -2319,6 +2374,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(address.at(-1),/target=56\.6&lo=48&hi=52&eps=0\.9$/);
   witnesses[1].handlers.click();
   assert.equal(element("verdict").textContent,"Equal absolute error.");
+  assert.equal(element("point-exact").textContent,"0 · already tied");
+  assert.equal(element("point-witness").hidden,true);
   assert.match(element("proof-factors").textContent,/zero \(a tie\)/);
   element("interval-span").handlers.click();
   assert.equal(element("interval-badge").textContent,"Both winners possible");
@@ -2355,6 +2412,11 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-button").disabled,true);
   assert.equal(element("frontier-rows").hidden,true);
   assert.match(element("frontier-proof").textContent,/No reading change is needed/);
+  assert.equal(element("point-exact").textContent,"0 · already tied");
+  element("point-open").handlers.click();
+  assert.equal(element("drift-input").value,"0");
+  assert.equal(element("interval-low").value,"50");
+  assert.equal(scrolled,"tie-window");
   copied="";
   await element("edge-copy").handlers.click();
   assert.equal(copied,"");

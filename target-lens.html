@@ -195,7 +195,18 @@
     .reach-map-key span::before { content:""; display:inline-block; width:12px; height:12px; margin-right:7px; border-radius:3px; vertical-align:-2px; background:#51dcb0; }
     .reach-map-key span:nth-child(2)::before { background:#d9ae67; }
     .reach-map-key span:nth-child(3)::before { background:var(--rose); }
+    .reach-map-key span:nth-child(4)::before { box-sizing:border-box; background:var(--rose); border:2px solid #342b39; border-radius:50%; }
     .reach-map-card .reach-map-caption { margin-bottom:0; color:#f1f8ed; }
+    .point-edge { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 17px; align-items:center; margin-top:15px; padding:15px; border:1px solid #b88c85; border-radius:10px; background:linear-gradient(120deg,#3a3540,#19323d); }
+    .point-edge small { display:block; color:#f2cdd0; font-size:.7rem; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
+    .point-edge strong { display:block; margin-top:3px; color:#ffd5d9; font:800 clamp(1.2rem,2.5vw,1.65rem) ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .point-edge .point-grid { display:block; margin-top:3px; color:#eef7ef; font-size:.78rem; font-weight:750; }
+    .point-edge button { min-height:43px; padding:9px 12px; border:1px solid #ffb8c1; border-radius:8px; background:#682f49; color:#fff1f0; font-weight:800; cursor:pointer; }
+    .point-edge button:hover { background:#86405c; }
+    .point-edge p,.point-edge details { grid-column:1 / -1; margin:0; color:#f1e8e5; font-size:.82rem; line-height:1.5; }
+    .point-edge details summary { color:#ffdade; cursor:pointer; font-weight:800; }
+    .point-edge details p { margin-top:8px; overflow-wrap:anywhere; }
+    @media (max-width:680px) { .point-edge { grid-template-columns:1fr; } .point-edge button { width:100%; } }
     .edge-card { margin-top:13px; padding:clamp(16px,3vw,24px); border:1px solid #d4a967; border-radius:14px; background:radial-gradient(circle at 88% 3%,#63513c 0,transparent 38%),linear-gradient(130deg,#1b353a,#142630); }
     .edge-card h4 { margin:0 0 5px; color:var(--gold); font-size:.76rem; letter-spacing:.13em; text-transform:uppercase; }
     .edge-card .edge-lead { margin:0 0 16px; color:#e8f4ed; font-size:1.08rem; font-weight:750; }
@@ -422,13 +433,21 @@
                 <line id="reach-map-switch-line" x1="60" x2="970" y1="320" y2="320" stroke="#ffcf7e" stroke-width="3" stroke-dasharray="9 7"></line>
                 <line id="reach-map-current-line" x1="60" x2="970" y1="320" y2="320" stroke="#effff8" stroke-width="2" stroke-dasharray="5 6"></line>
                 <line id="reach-map-selection" x1="60" x2="60" y1="320" y2="320" stroke="#ff9dab" stroke-width="9" stroke-linecap="round"></line>
+                <line id="reach-map-point-line" x1="60" x2="60" y1="320" y2="320" stroke="#ff9dab" stroke-width="2" stroke-dasharray="4 6"></line>
+                <circle id="reach-map-point-dot" cx="60" cy="320" r="8" fill="#ff9dab" stroke="#342b39" stroke-width="3"></circle>
                 <text id="reach-map-max" x="8" y="46">10</text><text x="35" y="325">0</text>
                 <text class="axis-label" x="8" y="181">ε ↑</text>
                 <text x="60" y="346">0</text><text x="505" y="346">50</text><text x="943" y="346">100</text>
                 <text class="axis-label" x="460" y="363">Target →</text>
               </svg></div>
-              <div class="reach-map-key" aria-hidden="true"><span>Midpoint ties</span><span>Every target ties</span><span>Your target range</span></div>
+              <div class="reach-map-key" aria-hidden="true"><span>Midpoint ties</span><span>Every target ties</span><span>Your target range</span><span>First tie at your exact target</span></div>
               <p class="reach-map-caption" id="reach-map-caption"></p>
+              <div class="point-edge" role="group" aria-label="First tie at the selected exact target">
+                <div><small>First tie at your exact target <span id="point-target">50</span></small><strong id="point-exact">33/10</strong><span class="point-grid" id="point-grid">First selectable ε = 3.3</span></div>
+                <button id="point-open" type="button">Inspect this target’s first tie ↗</button>
+                <p id="point-proof"></p>
+                <details id="point-witness"><summary>Show exact five-reading witness</summary><p id="point-witness-text"></p></details>
+              </div>
             </details>
           </div>
           <div class="edge-card" aria-labelledby="edge-title">
@@ -512,6 +531,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=a355a63eb37d"></script>
+  <script src="target-lens.js?v=5f0e73fcc1d3"></script>
 </body>
 </html>
