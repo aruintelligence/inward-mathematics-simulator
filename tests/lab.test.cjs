@@ -1653,7 +1653,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="drift-witness" hidden/);
   assert.match(html,/id="edge-first-button" type="button"/);
   assert.match(html,/id="edge-exact-fraction">13\/10/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-continuous-edge"/);
+  assert.match(html,/id="edge-changes" aria-label="Five exact reading changes"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-proof-anatomy"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1938,11 +1939,12 @@ test("interior tie paths produce exact rational witnesses within fractional read
   assert.ok(count>100);
 });
 
-test("target witnesses and interval controls update the verdict, certificate, and exact link", () => {
+test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
+  let copied="";
   function element(id) {
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
-      style:{setProperty(){}},children:id==="readings"?Array.from({length:5},()=>({textContent:""})):[],parts:{},
+      style:{setProperty(){}},children:id==="readings"||id==="edge-changes"?Array.from({length:5},()=>({textContent:""})):[],parts:{},
       addEventListener(name,callback){this.handlers[name]=callback;},setAttribute(name,value){this.attributes[name]=value;},
       querySelector(selector){return this.parts[selector]??=({textContent:""});}});
     return elements.get(id);
@@ -1952,7 +1954,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   const document={getElementById:element,querySelectorAll(selector){return selector===".witness"?witnesses:selector===".preset"?presets:[];}};
   const window={location:{search:"",href:"https://example.test/target-lens.html"},history:{replaceState(_state,_title,url){address.push(url);}}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","target-lens.js"),"utf8"),
-    {document,window,URL,URLSearchParams,navigator:{clipboard:{async writeText(){}}}},{timeout:1500});
+    {document,window,URL,URLSearchParams,navigator:{clipboard:{async writeText(value){copied=value;}}}},{timeout:1500});
   assert.equal(element("witness-grid").hidden,false);
   assert.equal(element("witness-0").parts.strong.textContent,"50");
   assert.equal(element("witness-1").parts.strong.textContent,"53.3");
@@ -1965,7 +1967,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-last-strict").textContent,"1.299999");
   assert.equal(element("edge-exact-fraction").textContent,"13/10");
   assert.equal(element("edge-exact-decimal").textContent,"= 1.3");
-  assert.match(element("edge-proof-text").textContent,/readings \[46\.7, 47\.7, 48\.7, 49\.7, 83\.7\] and target 52/);
+  assert.match(element("edge-proof-text").textContent,/five admissible changes below tie at target 52/);
+  assert.equal(element("edge-changes").children[0].textContent,"48 → 46.7 · −1.3");
+  assert.equal(element("edge-outcome").textContent,"Mean 55.3 · median 48.7 · both absolute errors 3.3.");
   assert.equal(element("edge-first-tie").textContent,"1.3");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
@@ -2021,6 +2025,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-proof").hidden,true);
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
+  await element("edge-copy").handlers.click();
+  assert.equal(copied,"");
   element("drift-example").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
@@ -2029,7 +2035,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-last-strict").textContent,"5.333333");
   assert.equal(element("edge-exact-fraction").textContent,"16/3");
   assert.equal(element("edge-exact-decimal").textContent,"≈ 5.333333333…");
-  assert.match(element("edge-proof-text").textContent,/readings \[128\/3, 131\/3, 166\/3, 166\/3, 239\/3\]/);
+  assert.equal(element("edge-changes").children[0].textContent,"48 → 128/3 · −16/3");
+  assert.equal(element("edge-changes").children[3].textContent,"51 → 166/3 · +13/3");
+  assert.equal(element("edge-outcome").textContent,"Mean 166/3 · median 166/3 · both absolute errors 166/3.");
   assert.equal(element("edge-first-tie").textContent,"5.333334");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
@@ -2037,6 +2045,12 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("drift-witness").textContent,/Exact tie construction: interpolate the readings/);
   assert.match(element("drift-witness").textContent,/fraction 1\/14333335 of the path/);
   assert.match(address.at(-1),/eps=5\.333334$/);
+  await element("edge-copy").handlers.click();
+  assert.match(copied,/Exact threshold ε = 16\/3/);
+  assert.match(copied,/Reading 1: 48 → 128\/3 · −16\/3/);
+  assert.match(copied,/First six-decimal tie setting: 5\.333334/);
+  assert.match(copied,/Reproduce selectable setting: https:\/\/example\.test\/target-lens\.html\?.*&eps=5\.333334/);
+  assert.equal(element("edge-copy-status").textContent,"Exact certificate copied.");
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
