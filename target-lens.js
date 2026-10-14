@@ -600,8 +600,9 @@
       "No tie within this drift";
     $("sparse-proof").textContent=sparseReachable?
       sparse.count===0?"The fixed readings already admit an exact tie for a target in this interval. Zero moved readings is minimal.":
-        "All "+sparse.strictBelow+" subsets of fewer than "+sparse.count+
-        " movable readings keep a strict winner for every real adjustment in their boxes and every target in the range. The witness below uses the first successful subset of size "+sparse.count+".":
+        "Every subset with fewer than "+sparse.count+
+        " movable readings keeps a strict winner for every real adjustment in its box and every target in the range ("+
+        sparse.strictBelow+" subsets checked). The witness below uses the first successful subset of size "+sparse.count+".":
       "All 32 subsets of the five readings keep a strict winner at this drift, including the box where all five can move. Increase the drift or change the target range to find a tie.";
     $("sparse-witness").hidden=!sparseReachable;
     $("sparse-copy").disabled=!sparseReachable;
