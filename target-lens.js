@@ -343,6 +343,7 @@
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
   let cachedEdge={key:null,result:null};
+  let edgeProofCopy="";
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
   if(supplied===false) $("input-error").textContent="That shared view is invalid. Case A is loaded instead.";
@@ -516,12 +517,45 @@
     $("edge-proof").hidden=threshold.kind!=="edge";
     if(threshold.kind==="edge") {
       const proof=threshold.witness;
+      const denominator=BigInt(proof.denominator),target=BigInt(proof.targetNumerator);
+      const readingNumerators=proof.readingsNumerators.map(BigInt);
+      const meanNumerator=readingNumerators.reduce((total,value)=>total+value,0n);
+      const medianNumerator=[...readingNumerators].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+      const meanError=meanNumerator-5n*target,medianError=medianNumerator-target;
+      if((meanError<0n?-meanError:meanError)!==5n*(medianError<0n?-medianError:medianError))
+        throw new Error("The threshold witness does not tie absolute errors");
+      const equalError=fmtRational(meanError<0n?-meanError:meanError,5n*denominator);
+      const targetText=fmtRational(target,denominator);
+      const moves=readingNumerators.map((value,index)=>{
+        const starting=BigInt(Math.round(current.values[index]*TARGET_SCALE))*denominator/BigInt(TARGET_SCALE);
+        const change=value-starting;
+        const move=fmt(current.values[index])+" → "+fmtRational(value,denominator)+
+          " · "+(change<0n?"−":"+")+fmtRational(change<0n?-change:change,denominator);
+        $("edge-changes").children[index].textContent=move;
+        return "Reading "+(index+1)+": "+move;
+      });
       $("edge-proof-text").textContent="At exact drift "+threshold.numerator+"/"+threshold.denominator+
-        ", readings ["+proof.readingsNumerators.map(value=>fmtRational(value,proof.denominator)).join(", ")+
-        "] and target "+fmtRational(proof.targetNumerator,proof.denominator)+
-        (threshold.factor==="estimate"?" make the mean equal the median.":" put the target at the mean–median midpoint.")+
-        " Both absolute errors tie. All smaller drift boxes keep both factors away from zero.";
+        ", the five admissible changes below tie at target "+targetText+". Every smaller drift box keeps a strict "+
+        threshold.winner.toLowerCase()+" win.";
+      $("edge-outcome").textContent="Mean "+fmtRational(meanNumerator,5n*denominator)+
+        " · median "+fmtRational(medianNumerator,denominator)+" · both absolute errors "+equalError+".";
+      const proofUrl=new URL(viewUrl(),window.location.href);
+      proofUrl.searchParams.set("eps",fmt(edge.firstTieUnits/TARGET_SCALE));
+      edgeProofCopy=["Target Lens / exact continuous stability certificate",
+        "Starting readings: "+current.values.map(fmt).join(", "),
+        "Possible target range: ["+fmt(current.low)+", "+fmt(current.high)+"]",
+        "Model: each reading independently changes by at most ε within [0, 100]; target may be any real value in the range.",
+        "Strict winner below threshold: "+threshold.winner,
+        "Exact threshold ε = "+threshold.numerator+"/"+threshold.denominator,
+        "First zero factor: "+(threshold.factor==="estimate"?"mean − median":"mean + median − 2×target"),
+        ...moves,"Tie target: "+targetText,$("edge-outcome").textContent,
+        "Last six-decimal strict setting: "+fmt(edge.lastStrictUnits/TARGET_SCALE),
+        "First six-decimal tie setting: "+fmt(edge.firstTieUnits/TARGET_SCALE),
+        "Reproduce selectable setting: "+proofUrl.href].join("\n");
+    } else {
+      edgeProofCopy="";
     }
+    $("edge-copy-status").textContent="";
     $("drift-shortcut-status").textContent=drift.kind==="certified"?"Shortcut certifies "+drift.winner:
       drift.kind==="inconclusive"?"Shortcut inconclusive":"No strict baseline";
     $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
@@ -592,6 +626,15 @@
       render();
     });
   }
+  $("edge-copy").addEventListener("click",async()=>{
+    if(!edgeProofCopy) return;
+    try {
+      await navigator.clipboard.writeText(edgeProofCopy);
+      $("edge-copy-status").textContent="Exact certificate copied.";
+    } catch (_) {
+      $("edge-copy-status").textContent="Copy unavailable here. Use the witness above and the exact view link below.";
+    }
+  });
   $("drift-example").addEventListener("click",()=>{
     current={...PRESETS.a,values:[...PRESETS.a.values],target:0.5,low:0,high:1,epsilon:4,
       label:"Exact-proof example",key:null};

@@ -191,6 +191,13 @@
     .edge-proof { margin-top:14px; padding:12px 15px; border:1px solid #9ca686; border-radius:9px; background:#102c36; }
     .edge-proof summary { cursor:pointer; color:var(--mint); font-size:.84rem; font-weight:800; }
     .edge-proof p { margin:9px 0 0; color:#e7f2ed; font-size:.84rem; overflow-wrap:anywhere; }
+    .edge-changes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px 11px; margin:13px 0; padding:0; list-style:none; counter-reset:reading; }
+    .edge-changes li { counter-increment:reading; min-width:0; display:flex; gap:9px; align-items:baseline; padding:8px 10px; border:1px solid #547b78; border-radius:7px; background:#092632; color:#e9faf1; font:.82rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .edge-changes li::before { content:counter(reading,decimal-leading-zero); color:var(--gold); font-weight:800; }
+    .edge-proof #edge-outcome { color:var(--gold); font-weight:800; }
+    .edge-copy { margin-top:13px; padding:8px 12px; min-height:40px; border:1px solid var(--mint); border-radius:8px; background:#1c4b48; color:#eafff5; font-size:.8rem; font-weight:800; }
+    .edge-copy:hover { filter:brightness(1.13); }
+    #edge-copy-status { display:inline-block; margin-left:9px; color:var(--mint); font-size:.8rem; }
     .drift-shortcut { margin-top:13px; padding:12px 15px; border:1px solid #667a81; border-radius:11px; background:#0b202e; }
     .drift-shortcut summary { cursor:pointer; color:#d7eced; font-size:.84rem; font-weight:800; }
     .drift-shortcut summary::marker { color:var(--gold); }
@@ -217,7 +224,7 @@
     .note { color:var(--muted); font-size:.85rem; }
     footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; }
     @media(max-width:820px) { .hero,.under { grid-template-columns:1fr; } .hero { padding-top:28px; } .verdict-card { max-width:650px; } }
-    @media(max-width:600px) { .controls { grid-template-columns:1fr 1fr; } .controls .range-control { grid-column:1 / -1; } .controls button { white-space:normal; } .numbers,.witness-grid,.drift-measures,.drift-factors,.edge-pair { grid-template-columns:1fr; } .interval-controls { grid-template-columns:1fr 1fr; } .interval-controls button { grid-column:1 / -1; } .number { display:flex; justify-content:space-between; align-items:center; gap:8px; } .readings { gap:5px; } .readings li { font-size:1rem; padding:10px 2px; } .readings li::before { font-size:.45rem; } .region { font-size:.72rem; } .witness { min-height:0; } .drift-measures div { display:flex; justify-content:space-between; align-items:center; gap:8px; } }
+    @media(max-width:600px) { .controls { grid-template-columns:1fr 1fr; } .controls .range-control { grid-column:1 / -1; } .controls button { white-space:normal; } .numbers,.witness-grid,.drift-measures,.drift-factors,.edge-pair,.edge-changes { grid-template-columns:1fr; } .interval-controls { grid-template-columns:1fr 1fr; } .interval-controls button { grid-column:1 / -1; } .number { display:flex; justify-content:space-between; align-items:center; gap:8px; } .readings { gap:5px; } .readings li { font-size:1rem; padding:10px 2px; } .readings li::before { font-size:.45rem; } .region { font-size:.72rem; } .witness { min-height:0; } .drift-measures div { display:flex; justify-content:space-between; align-items:center; gap:8px; } }
     @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
@@ -331,7 +338,12 @@
             </div>
             <p id="edge-status" role="status"></p>
             <div class="edge-actions"><button id="edge-last-button" type="button">Inspect last guarantee ↗</button><button id="edge-first-button" type="button">Inspect first tie ↗</button></div>
-            <details class="edge-proof" id="edge-proof"><summary>Inspect the exact threshold witness</summary><p id="edge-proof-text"></p></details>
+            <details class="edge-proof" id="edge-proof"><summary>Inspect the exact threshold witness</summary>
+              <p id="edge-proof-text"></p>
+              <ol class="edge-changes" id="edge-changes" aria-label="Five exact reading changes"><li></li><li></li><li></li><li></li><li></li></ol>
+              <p id="edge-outcome"></p>
+              <button class="edge-copy" id="edge-copy" type="button">Copy exact certificate</button><span id="edge-copy-status" role="status"></span>
+            </details>
           </div>
           <details class="drift-shortcut"><summary>Inspect the simpler 2ε bound <span id="drift-shortcut-status">Shortcut certifies Median</span></summary>
             <div class="drift-measures" aria-label="Conservative stability calculation">
@@ -366,6 +378,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-continuous-edge"></script>
+  <script src="target-lens.js?v=20261014-proof-anatomy"></script>
 </body>
 </html>
