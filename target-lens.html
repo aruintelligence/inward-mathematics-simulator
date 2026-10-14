@@ -211,6 +211,25 @@
     .edge-copy { margin-top:13px; padding:8px 12px; min-height:40px; border:1px solid var(--mint); border-radius:8px; background:#1c4b48; color:#eafff5; font-size:.8rem; font-weight:800; }
     .edge-copy:hover { filter:brightness(1.13); }
     #edge-copy-status { display:inline-block; margin-left:9px; color:var(--mint); font-size:.8rem; }
+    .sparse-card { margin-top:16px; padding:clamp(17px,3vw,27px); border:1px solid #80bfb5; border-radius:18px; background:radial-gradient(circle at 95% 0%,#23665a70,transparent 48%),#0a2633; }
+    .sparse-heading { display:flex; align-items:start; justify-content:space-between; gap:16px; }
+    .sparse-heading h4 { margin:0; font-size:clamp(1.4rem,2.7vw,1.95rem); line-height:1.16; letter-spacing:-.035em; }
+    .sparse-intro { max-width:760px; margin:9px 0 17px; color:#d4e8e3; font-size:.88rem; }
+    .sparse-count { display:grid; place-items:center; flex:none; width:64px; height:64px; border:1px solid var(--mint); border-radius:18px; color:var(--mint); background:#073b38; font:800 2rem ui-monospace,SFMono-Regular,monospace; box-shadow:0 0 22px #5af0c627; }
+    .sparse-status { margin:0 0 9px; color:var(--mint); font-size:1.05rem; font-weight:800; }
+    .sparse-proof { margin:0; padding:13px 15px; border:1px solid #578f8e; border-radius:10px; background:#071f2c; color:#ecf7f2; font-size:.87rem; }
+    .sparse-witness { margin-top:15px; }
+    .sparse-witness > small { display:block; margin-bottom:8px; color:#c9e1dc; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .sparse-changes { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:0; padding:0; list-style:none; counter-reset:reading; }
+    .sparse-changes li { counter-increment:reading; min-width:0; padding:11px; border:1px solid #567676; border-radius:9px; background:#0c2834; color:#c6d8d9; font:.77rem/1.4 ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .sparse-changes li::before { content:"READING " counter(reading); display:block; margin-bottom:7px; color:#a9c4c3; font:800 .62rem system-ui,sans-serif; letter-spacing:.08em; }
+    .sparse-changes li[data-moved="true"] { border-color:#b1d782; background:#26463d; color:#f4ffe9; box-shadow:inset 0 0 0 1px #b1d78233; }
+    .sparse-changes li[data-moved="true"]::before { color:#d9f599; }
+    .sparse-outcome { margin:13px 0 0; color:var(--gold); font-size:.84rem; font-weight:750; }
+    .sparse-actions { margin-top:14px; }
+    .sparse-actions button { min-height:42px; padding:8px 13px; border:1px solid var(--mint); border-radius:8px; background:#1c4b48; color:#eafff5; font-size:.81rem; font-weight:800; }
+    .sparse-actions button:disabled { opacity:.48; cursor:default; }
+    #sparse-copy-status { margin-left:10px; color:var(--mint); font-size:.8rem; }
     .drift-shortcut { margin-top:13px; padding:12px 15px; border:1px solid #667a81; border-radius:11px; background:#0b202e; }
     .drift-shortcut summary { cursor:pointer; color:#d7eced; font-size:.84rem; font-weight:800; }
     .drift-shortcut summary::marker { color:var(--gold); }
@@ -237,7 +256,9 @@
     .note { color:var(--muted); font-size:.85rem; }
     footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; }
     @media(max-width:820px) { .hero,.under { grid-template-columns:1fr; } .hero { padding-top:28px; } .verdict-card { max-width:650px; } }
+    @media(max-width:820px) { .sparse-changes { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media(max-width:600px) { .controls { grid-template-columns:1fr 1fr; } .controls .range-control { grid-column:1 / -1; } .controls button { white-space:normal; } .numbers,.witness-grid,.drift-measures,.drift-factors,.edge-pair,.edge-route-grid,.edge-changes { grid-template-columns:1fr; } .interval-controls { grid-template-columns:1fr 1fr; } .interval-controls button { grid-column:1 / -1; } .number { display:flex; justify-content:space-between; align-items:center; gap:8px; } .readings { gap:5px; } .readings li { font-size:1rem; padding:10px 2px; } .readings li::before { font-size:.45rem; } .region { font-size:.72rem; } .witness { min-height:0; } .drift-measures div { display:flex; justify-content:space-between; align-items:center; gap:8px; } }
+    @media(max-width:440px) { .sparse-changes { grid-template-columns:1fr; } .sparse-count { width:54px; height:54px; } }
     @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
@@ -365,6 +386,19 @@
               <button class="edge-copy" id="edge-copy" type="button">Copy exact certificate</button><span id="edge-copy-status" role="status"></span>
             </details>
           </div>
+          <div class="sparse-card" aria-labelledby="sparse-title">
+            <p class="eyebrow">Minimum support / exact subset proof</p>
+            <div class="sparse-heading"><h4 id="sparse-title">How many readings must move?</h4><span class="sparse-count" id="sparse-count" aria-label="Minimum movable readings">—</span></div>
+            <p class="sparse-intro">Keep some readings fixed. For the drift and target range above, check every subset of the five readings, then construct a tie using the smallest possible number that may move.</p>
+            <p class="sparse-status" id="sparse-status" role="status"></p>
+            <p class="sparse-proof" id="sparse-proof"></p>
+            <div class="sparse-witness" id="sparse-witness" hidden>
+              <small>One exact tie witness · highlighted readings move</small>
+              <ol class="sparse-changes" id="sparse-changes" aria-label="Five readings in a minimum-support tie"><li></li><li></li><li></li><li></li><li></li></ol>
+              <p class="sparse-outcome" id="sparse-outcome"></p>
+            </div>
+            <div class="sparse-actions"><button id="sparse-copy" type="button">Copy subset certificate</button><span id="sparse-copy-status" role="status"></span></div>
+          </div>
           <details class="drift-shortcut"><summary>Inspect the simpler 2ε bound <span id="drift-shortcut-status">Shortcut certifies Median</span></summary>
             <div class="drift-measures" aria-label="Conservative stability calculation">
               <div><small>Smallest starting lead</small><strong id="drift-gap">2.6</strong></div>
@@ -374,7 +408,7 @@
             <p class="drift-proof-text" id="drift-proof-text">A positive lead remains throughout the target range.</p>
           </details>
           <code class="drift-identity">|mean − target|² − |median − target|² = (mean − median)(mean + median − 2×target)</code>
-          <p class="scope">The sum and median are monotone in every reading, giving exact bounds for the second factor. The first factor is optimized over all 30 choices of a median and two lower readings; within each ordering, its extrema occur at the limiting median values. If a factor crosses zero, the displayed rational fraction locates a tie along a path between its extrema. These are hypothetical ranges and stipulated reading limits, not measured uncertainty or a verified target.</p>
+          <p class="scope">The sum and median are monotone in every reading, giving exact bounds for the second factor. The first factor is optimized over all 30 choices of a median and two lower readings; within each ordering, its extrema occur at the limiting median values. The subset proof runs this exact certificate for all 32 choices of movable readings, freezing the others. If a factor crosses zero, the displayed rational fraction locates a tie along a path between its extrema. These are hypothetical ranges and stipulated reading limits, not measured uncertainty or a verified target.</p>
         </section>
       </section>
       <div class="under">
@@ -398,6 +432,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-route-witnesses"></script>
+  <script src="target-lens.js?v=20261014-minimum-support"></script>
 </body>
 </html>
