@@ -171,6 +171,18 @@
     .drift-factors strong { display:block; margin-top:5px; color:var(--gold); font:800 clamp(1rem,2vw,1.35rem) ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
     .drift-exact p { margin:12px 0 0; color:#e7f5ef; font-size:.9rem; }
     .drift-exact .drift-witness { padding-top:10px; border-top:1px solid #72958f; color:var(--gold); font-weight:700; }
+    .tie-window { margin-top:13px; padding:16px 17px; border:1px solid #6faaa1; border-radius:12px; background:linear-gradient(125deg,#103636,#152a38); }
+    .tie-window h4 { margin:0 0 5px; color:var(--mint); font-size:.77rem; letter-spacing:.12em; text-transform:uppercase; }
+    .tie-window strong { color:#effff8; font-size:1.07rem; }
+    .tie-window p { margin:7px 0 0; color:#dcece7; font-size:.84rem; line-height:1.5; }
+    .tie-window .tie-key { display:flex; flex-wrap:wrap; gap:8px 19px; margin:14px 0 7px; color:#e1f2ed; font-size:.76rem; font-weight:750; }
+    .tie-key span::before { content:""; display:inline-block; width:10px; height:10px; margin-right:7px; border-radius:3px; background:var(--mint); }
+    .tie-key span:last-child::before { background:var(--rose); }
+    .tie-track { position:relative; height:61px; border:1px solid #759994; border-radius:9px; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),#82a3a032 calc(10% - 1px),#82a3a032 10%),#082632; overflow:hidden; }
+    .tie-track span { position:absolute; height:15px; border-radius:5px; min-width:3px; }
+    .tie-track .tie-band { top:10px; left:var(--tie-start); width:calc(var(--tie-end) - var(--tie-start)); background:var(--mint); box-shadow:0 0 10px #79eac377; }
+    .tie-track .target-band { top:36px; left:var(--range-start); width:calc(var(--range-end) - var(--range-start)); background:var(--rose); }
+    .tie-scale { display:flex; justify-content:space-between; margin-top:4px; color:#bbd5d0; font:.7rem ui-monospace,SFMono-Regular,monospace; }
     .edge-card { margin-top:13px; padding:clamp(16px,3vw,24px); border:1px solid #d4a967; border-radius:14px; background:radial-gradient(circle at 88% 3%,#63513c 0,transparent 38%),linear-gradient(130deg,#1b353a,#142630); }
     .edge-card h4 { margin:0 0 5px; color:var(--gold); font-size:.76rem; letter-spacing:.13em; text-transform:uppercase; }
     .edge-card .edge-lead { margin:0 0 16px; color:#e8f4ed; font-size:1.08rem; font-weight:750; }
@@ -362,6 +374,14 @@
             <p id="drift-exact-text">The signs of both factors determine the verdict throughout the allowed region.</p>
             <p class="drift-witness" id="drift-witness" hidden></p>
           </div>
+          <div class="tie-window" aria-labelledby="tie-window-title">
+            <h4 id="tie-window-title">The reachable tie targets</h4>
+            <strong id="tie-window-range">A single target at zero drift</strong>
+            <p id="tie-window-proof"></p>
+            <div class="tie-key" aria-hidden="true"><span>Targets that can tie</span><span>Your selected range</span></div>
+            <div class="tie-track" id="tie-track" role="img" aria-label="Reachable tie targets and selected target range on a 0 to 100 scale"><span class="tie-band"></span><span class="target-band"></span></div>
+            <div class="tie-scale" aria-hidden="true"><span>0</span><span>50</span><span>100</span></div>
+          </div>
           <div class="edge-card" aria-labelledby="edge-title">
             <h4 id="edge-title">The exact stability threshold</h4>
             <p class="edge-lead">How far can every reading move before a tie is possible?</p>
@@ -432,6 +452,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-minimum-support"></script>
+  <script src="target-lens.js?v=20261014-tie-target-band-support"></script>
 </body>
 </html>
