@@ -407,6 +407,34 @@
     return {kind:"frontier",rows};
   }
 
+  function tieReachabilityEnvelope(values,selectedEpsilon) {
+    if(!Number.isFinite(selectedEpsilon)||selectedEpsilon<0||selectedEpsilon>100)
+      throw new RangeError("Invalid reading drift");
+    const {meanUnits,medianUnits}=estimateUnits(values);
+    // Distinct nonnegative estimates are strictly ordered at target zero,
+    // allowing the exact estimate-factor root to be found independently of
+    // the selected target interval.
+    const estimateRoute=meanUnits===medianUnits?null:
+      continuousStabilityThreshold(values,0,0).routes.estimate;
+    if(meanUnits!==medianUnits&&!estimateRoute)
+      throw new Error("Free readings must be able to make the estimates meet");
+    const switchEpsilon=estimateRoute?
+      Number(estimateRoute.numerator)/Number(estimateRoute.denominator):0;
+    const maxEpsilon=Math.min(100,Math.max(10,selectedEpsilon*1.15,switchEpsilon*1.15));
+    const stops=new Set([0,switchEpsilon]);
+    for(const value of values) for(const stop of [value,100-value])
+      if(stop>0&&stop<switchEpsilon) stops.add(stop);
+    const midpointBand=epsilon=>{
+      const low=values.map(value=>Math.max(0,value-epsilon));
+      const high=values.map(value=>Math.min(100,value+epsilon));
+      const midpoint=readings=>(readings.reduce((sum,value)=>sum+value,0)/5+
+        [...readings].sort((a,b)=>a-b)[2])/2;
+      return {epsilon,lower:midpoint(low),upper:midpoint(high)};
+    };
+    return {switchEpsilon,switchExact:estimateRoute,maxEpsilon,
+      knots:[...stops].sort((a,b)=>a-b).map(midpointBand)};
+  }
+
   function stabilityEdge(values,low,high) {
     const baseline=certifyJointUncertainty(values,low,high,0);
     if(baseline.kind!=="strict") return {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0};
@@ -422,7 +450,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,tieReachabilityEnvelope,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -751,6 +779,38 @@
       "; selected target range "+fmt(current.low)+" to "+fmt(current.high)+" on a 0 to 100 scale. "+
       (targetOverlap?"A tie is attainable.":"No tie is attainable at this drift."));
     if((exact.kind!=="strict")!==targetOverlap) throw new Error("Tie target band disagrees with the exact certificate");
+    const reach=tieReachabilityEnvelope(current.values,current.epsilon);
+    const plotX=value=>60+9.1*value;
+    const plotY=value=>320-280*value/reach.maxEpsilon;
+    const point=record=>plotX(record.target).toFixed(3)+" "+plotY(record.epsilon).toFixed(3);
+    const lowerPoints=reach.knots.map(knot=>({target:knot.lower,epsilon:knot.epsilon}));
+    const upperPoints=[...reach.knots].reverse().map(knot=>({target:knot.upper,epsilon:knot.epsilon}));
+    $("reach-map-band").setAttribute("d",reach.switchEpsilon===0?"":
+      "M "+point(lowerPoints[0])+" L "+[...lowerPoints.slice(1),...upperPoints].map(point).join(" L ")+" Z");
+    const switchY=plotY(reach.switchEpsilon),currentY=plotY(current.epsilon);
+    $("reach-map-all").setAttribute("y","40");
+    $("reach-map-all").setAttribute("height",Math.max(0,switchY-40).toFixed(3));
+    for(const [id,yPosition] of [["reach-map-switch-line",switchY],["reach-map-current-line",currentY],
+      ["reach-map-selection",currentY]]) {
+      $(id).setAttribute("y1",yPosition.toFixed(3));
+      $(id).setAttribute("y2",yPosition.toFixed(3));
+    }
+    $("reach-map-switch-line").setAttribute("visibility",reach.switchExact?"visible":"hidden");
+    $("reach-map-selection").setAttribute("x1",plotX(current.low).toFixed(3));
+    $("reach-map-selection").setAttribute("x2",plotX(current.high).toFixed(3));
+    $("reach-map-max").textContent=fmt(reach.maxEpsilon);
+    const switchLabel=reach.switchExact?reach.switchExact.numerator+
+      (reach.switchExact.denominator==="1"?"":"/"+reach.switchExact.denominator):"0";
+    $("reach-map-caption").textContent="The gold all-target region begins at exact ε = "+switchLabel+
+      ". The white line marks current ε = "+fmt(current.epsilon)+"; its rose segment is your "+
+      fmt(current.low)+"–"+fmt(current.high)+" target range. "+(targetOverlap?
+        "This range reaches a tie.":"This range is still strictly outside the tie region.")+
+      " Vertical scale: ε = 0 to "+fmt(reach.maxEpsilon)+".";
+    $("reach-map").setAttribute("aria-label","Target versus drift from ε 0 to "+fmt(reach.maxEpsilon)+
+      ". Midpoint ties fill a band until exact ε "+switchLabel+
+      "; from that drift onward every target can tie. Selected target range "+fmt(current.low)+
+      " to "+fmt(current.high)+" at ε "+fmt(current.epsilon)+". "+
+      (targetOverlap?"A tie is attainable.":"No tie is attainable at this setting."));
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
     $("edge-exact-fraction").textContent=threshold.kind==="edge"?
       threshold.numerator+"/"+threshold.denominator:"—";

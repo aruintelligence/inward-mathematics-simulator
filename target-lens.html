@@ -183,6 +183,19 @@
     .tie-track .tie-band { top:10px; left:var(--tie-start); width:calc(var(--tie-end) - var(--tie-start)); background:var(--mint); box-shadow:0 0 10px #79eac377; }
     .tie-track .target-band { top:36px; left:var(--range-start); width:calc(var(--range-end) - var(--range-start)); background:var(--rose); }
     .tie-scale { display:flex; justify-content:space-between; margin-top:4px; color:#bbd5d0; font:.7rem ui-monospace,SFMono-Regular,monospace; }
+    .reach-map-card { margin-top:17px; padding:12px 14px; border:1px solid #578d86; border-radius:10px; background:#092c36; }
+    .reach-map-card summary { color:#e8fff5; cursor:pointer; font-size:.88rem; font-weight:800; }
+    .reach-map-card summary::marker { color:var(--mint); }
+    .reach-map-card > p { margin:9px 0; color:#d7e9e3; font-size:.82rem; line-height:1.5; }
+    .reach-map-scroll { max-width:100%; margin-top:11px; overflow-x:auto; border:1px solid #5a8e8a; border-radius:9px; background:#08232e; }
+    .reach-map-scroll svg { display:block; min-width:610px; width:100%; height:auto; }
+    .reach-map-scroll text { fill:#d7e9e3; font:700 17px ui-monospace,SFMono-Regular,monospace; }
+    .reach-map-scroll .axis-label { fill:#eaf8f1; font:800 18px system-ui,sans-serif; }
+    .reach-map-key { display:flex; flex-wrap:wrap; gap:7px 20px; margin:11px 0 0; color:#d7eee5; font-size:.75rem; font-weight:750; }
+    .reach-map-key span::before { content:""; display:inline-block; width:12px; height:12px; margin-right:7px; border-radius:3px; vertical-align:-2px; background:#51dcb0; }
+    .reach-map-key span:nth-child(2)::before { background:#d9ae67; }
+    .reach-map-key span:nth-child(3)::before { background:var(--rose); }
+    .reach-map-card .reach-map-caption { margin-bottom:0; color:#f1f8ed; }
     .edge-card { margin-top:13px; padding:clamp(16px,3vw,24px); border:1px solid #d4a967; border-radius:14px; background:radial-gradient(circle at 88% 3%,#63513c 0,transparent 38%),linear-gradient(130deg,#1b353a,#142630); }
     .edge-card h4 { margin:0 0 5px; color:var(--gold); font-size:.76rem; letter-spacing:.13em; text-transform:uppercase; }
     .edge-card .edge-lead { margin:0 0 16px; color:#e8f4ed; font-size:1.08rem; font-weight:750; }
@@ -399,6 +412,24 @@
             <div class="tie-key" aria-hidden="true"><span>Targets that can tie</span><span>Your selected range</span></div>
             <div class="tie-track" id="tie-track" role="img" aria-label="Reachable tie targets and selected target range on a 0 to 100 scale"><span class="tie-band"></span><span class="target-band"></span></div>
             <div class="tie-scale" aria-hidden="true"><span>0</span><span>50</span><span>100</span></div>
+            <details class="reach-map-card" id="reach-map-card"><summary>See the full target × drift map</summary>
+              <p>The mint region contains midpoint ties as readings drift. At the exact gold boundary, an allowed arrangement can make mean = median, and then every target ties. The rose mark shows your selected range at the current drift.</p>
+              <div class="reach-map-scroll"><svg id="reach-map" viewBox="0 0 1000 365" role="img" aria-label="Reachable tie targets across reading drift">
+                <rect x="60" y="40" width="910" height="280" fill="#0b2935"></rect>
+                <path d="M 515 40 V 320 M 60 180 H 970" fill="none" stroke="#81a6a047" stroke-width="2"></path>
+                <rect id="reach-map-all" x="60" y="40" width="910" height="0" fill="#d9ae6770"></rect>
+                <path id="reach-map-band" fill="#51dcb077" stroke="#64e9ba" stroke-width="3"></path>
+                <line id="reach-map-switch-line" x1="60" x2="970" y1="320" y2="320" stroke="#ffcf7e" stroke-width="3" stroke-dasharray="9 7"></line>
+                <line id="reach-map-current-line" x1="60" x2="970" y1="320" y2="320" stroke="#effff8" stroke-width="2" stroke-dasharray="5 6"></line>
+                <line id="reach-map-selection" x1="60" x2="60" y1="320" y2="320" stroke="#ff9dab" stroke-width="9" stroke-linecap="round"></line>
+                <text id="reach-map-max" x="8" y="46">10</text><text x="35" y="325">0</text>
+                <text class="axis-label" x="8" y="181">ε ↑</text>
+                <text x="60" y="346">0</text><text x="505" y="346">50</text><text x="943" y="346">100</text>
+                <text class="axis-label" x="460" y="363">Target →</text>
+              </svg></div>
+              <div class="reach-map-key" aria-hidden="true"><span>Midpoint ties</span><span>Every target ties</span><span>Your target range</span></div>
+              <p class="reach-map-caption" id="reach-map-caption"></p>
+            </details>
           </div>
           <div class="edge-card" aria-labelledby="edge-title">
             <h4 id="edge-title">The exact stability threshold</h4>
@@ -481,6 +512,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=bdfdac26737b"></script>
+  <script src="target-lens.js?v=a355a63eb37d"></script>
 </body>
 </html>
