@@ -2411,6 +2411,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("reach-map-verdict").textContent,/Median is guaranteed for every allowed reading arrangement/);
   assert.equal(element("depth-label-0").textContent,"Tie at 53.3");
   assert.equal(element("depth-label-1").textContent,"Tie: 52.7–53.9");
+  assert.match(element("depth-track-1").attributes["aria-label"],/At most 1 reading may move/);
   assert.equal(element("depth-label-5").textContent,"Tie: 52.3–54.3");
   assert.equal(element("depth-track-5").dataset.kind,"band");
   assert.equal(element("depth-row-5").dataset.first,"false");
