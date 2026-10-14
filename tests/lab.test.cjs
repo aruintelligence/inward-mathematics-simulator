@@ -1660,7 +1660,7 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="edge-reference-detail"/);
   assert.match(html,/id="sparse-changes" aria-label="Five readings in a minimum-support tie"/);
   assert.match(html,/id="tie-track" role="img"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-tie-target-band-support-polish"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-tie-target-band-support-polish2"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -2108,7 +2108,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.equal(element("sparse-count").textContent,"5");
-  assert.match(element("sparse-proof").textContent,/31 subsets checked/);
+  assert.match(element("sparse-proof").textContent,/\(checked: 31\)/);
   assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["true","true","true","true","true"]);
   assert.match(element("sparse-outcome").textContent,/Target 52 · mean 55\.3 · median 48\.7 · equal absolute errors 3\.3/);
   await element("sparse-copy").handlers.click();
