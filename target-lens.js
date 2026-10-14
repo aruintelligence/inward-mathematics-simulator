@@ -272,43 +272,47 @@
     const reference=firstByFactor.reference,estimate=firstByFactor.estimate;
     const first=reference.numerator*estimate.denominator<=estimate.numerator*reference.denominator
       ?reference:estimate;
-    let divisor=first.numerator,rest=first.denominator;
-    while(rest!==0n) { const remainder=divisor%rest; divisor=rest; rest=remainder; }
-    const h=first.numerator/divisor,d=first.denominator/divisor,full=BigInt(scale)*d;
-    const lower=readings.map(value=>{
-      const raw=2n*BigInt(value)*d-h;
-      return raw<0n?0n:raw;
-    });
-    const upper=readings.map(value=>{
-      const raw=2n*BigInt(value)*d+h;
-      return raw>full?full:raw;
-    });
-    let tieReadings,targetNumerator;
-    if(first.factor==="reference") {
-      tieReadings=signReference>0?lower:upper;
-      targetNumerator=BigInt(signReference>0?highTarget:lowTarget)*d;
-    } else {
-      const {middle,below,above}=first.group;
-      if(signEstimate>0) {
-        const m=[middle,...above].reduce((value,index)=>upper[index]<value?upper[index]:value,full);
-        tieReadings=lower.map((value,index)=>index===middle?m:above.includes(index)&&value<m?m:value);
+    const witnessAt=root=>{
+      let divisor=root.numerator,rest=root.denominator;
+      while(rest!==0n) { const remainder=divisor%rest; divisor=rest; rest=remainder; }
+      const h=root.numerator/divisor,d=root.denominator/divisor,full=BigInt(scale)*d;
+      const lower=readings.map(value=>{
+        const raw=2n*BigInt(value)*d-h;
+        return raw<0n?0n:raw;
+      });
+      const upper=readings.map(value=>{
+        const raw=2n*BigInt(value)*d+h;
+        return raw>full?full:raw;
+      });
+      let tieReadings,targetNumerator;
+      if(root.factor==="reference") {
+        tieReadings=signReference>0?lower:upper;
+        targetNumerator=BigInt(signReference>0?highTarget:lowTarget)*d;
       } else {
-        const m=[middle,...below].reduce((value,index)=>lower[index]>value?lower[index]:value,0n);
-        tieReadings=upper.map((value,index)=>index===middle?m:below.includes(index)&&value>m?m:value);
+        const {middle,below,above}=root.group;
+        if(signEstimate>0) {
+          const m=[middle,...above].reduce((value,index)=>upper[index]<value?upper[index]:value,full);
+          tieReadings=lower.map((value,index)=>index===middle?m:above.includes(index)&&value<m?m:value);
+        } else {
+          const m=[middle,...below].reduce((value,index)=>lower[index]>value?lower[index]:value,0n);
+          tieReadings=upper.map((value,index)=>index===middle?m:below.includes(index)&&value>m?m:value);
+        }
+        targetNumerator=BigInt(lowTarget)*d;
       }
-      targetNumerator=BigInt(lowTarget)*d;
-    }
-    const tieSum=tieReadings.reduce((total,value)=>total+value,0n);
-    const tieMedian=[...tieReadings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
-    const tiedFactor=first.factor==="estimate"?tieSum-5n*tieMedian:
-      tieSum+5n*tieMedian-10n*targetNumerator;
-    if(tiedFactor!==0n) throw new Error("The continuous boundary lacks an exact witness");
+      const tieSum=tieReadings.reduce((total,value)=>total+value,0n);
+      const tieMedian=[...tieReadings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+      const tiedFactor=root.factor==="estimate"?tieSum-5n*tieMedian:
+        tieSum+5n*tieMedian-10n*targetNumerator;
+      if(tiedFactor!==0n) throw new Error("A factor boundary lacks an exact witness");
+      return {readingsNumerators:tieReadings.map(value=>value.toString()),
+        targetNumerator:targetNumerator.toString(),denominator:(d*BigInt(2*TARGET_SCALE)).toString()};
+    };
+    const routeWitnesses={estimate:witnessAt(estimate),reference:witnessAt(reference)};
     const {numerator,denominator}=routes[first.factor];
     const firstTieUnits=Number((BigInt(numerator)*BigInt(TARGET_SCALE)+BigInt(denominator)-1n)/BigInt(denominator));
     return {kind:"edge",winner:baseline.winner,factor:first.factor,
-      numerator,denominator,firstTieUnits,routes,
-      witness:{readingsNumerators:tieReadings.map(value=>value.toString()),
-        targetNumerator:targetNumerator.toString(),denominator:(d*BigInt(2*TARGET_SCALE)).toString()}};
+      numerator,denominator,firstTieUnits,routes,routeWitnesses,
+      witness:routeWitnesses[first.factor]};
   }
 
   function stabilityEdge(values,low,high) {
@@ -340,6 +344,20 @@
     while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
     numerator/=a; denominator/=a;
     return numerator+"/"+denominator;
+  }
+  function describeRouteWitness(route,witness) {
+    const denominator=BigInt(witness.denominator),target=BigInt(witness.targetNumerator);
+    const readings=witness.readingsNumerators.map(BigInt);
+    const sum=readings.reduce((total,value)=>total+value,0n);
+    const median=[...readings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+    const meanError=sum-5n*target,medianError=median-target;
+    const abs=value=>value<0n?-value:value;
+    if(abs(meanError)!==5n*abs(medianError)) throw new Error("A route witness does not tie errors");
+    return "At ε = "+route.numerator+(route.denominator==="1"?"":"/"+route.denominator)+
+      ": readings ["+readings.map(value=>fmtRational(value,denominator)).join(", ")+
+      "]; target "+fmtRational(target,denominator)+". Mean "+fmtRational(sum,5n*denominator)+
+      " · median "+fmtRational(median,denominator)+" · both absolute errors "+
+      fmtRational(abs(meanError),5n*denominator)+".";
   }
   function fmtThresholdApprox(numerator,denominator) {
     const n=BigInt(numerator),d=BigInt(denominator),digits=1000000000n;
@@ -521,6 +539,9 @@
       $("edge-"+factor+"-route").dataset.active=String(!!route&&
         BigInt(route.numerator)*BigInt(threshold.denominator)===
           BigInt(threshold.numerator)*BigInt(route.denominator));
+      $("edge-"+factor+"-detail").hidden=!route;
+      $("edge-"+factor+"-witness").textContent=route?
+        describeRouteWitness(route,threshold.routeWitnesses[factor]):"";
     }
     $("edge-first-tie").textContent=fmt(edge.firstTieUnits/TARGET_SCALE);
     $("edge-last-button").disabled=edge.kind!=="edge";
@@ -568,6 +589,8 @@
         "Exact threshold ε = "+threshold.numerator+"/"+threshold.denominator,
         "Mean meets median at ε = "+$("edge-estimate-threshold").textContent,
         "Target meets mean–median midpoint at ε = "+$("edge-reference-threshold").textContent,
+        "Estimate route witness: "+$("edge-estimate-witness").textContent,
+        "Reference route witness: "+$("edge-reference-witness").textContent,
         "First zero factor: "+(threshold.factor==="estimate"?"mean − median":"mean + median − 2×target"),
         ...moves,"Tie target: "+targetText,$("edge-outcome").textContent,
         "Last six-decimal strict setting: "+fmt(edge.lastStrictUnits/TARGET_SCALE),
