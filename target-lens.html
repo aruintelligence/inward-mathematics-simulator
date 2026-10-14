@@ -193,6 +193,9 @@
     .edge-route-grid span { color:#f0f7ee; font-size:.83rem; font-weight:700; }
     .edge-route-grid strong { color:var(--mint); font:800 1.15rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
     .edge-route-grid [data-active="true"] strong { color:var(--gold); }
+    .edge-route-grid details { grid-column:1 / -1; border-top:1px solid #68837b; margin-top:6px; padding-top:8px; }
+    .edge-route-grid summary { color:var(--mint); cursor:pointer; font-size:.76rem; font-weight:800; }
+    .edge-route-grid details p { margin:8px 0 0; color:#e1efe9; font-size:.78rem; line-height:1.5; overflow-wrap:anywhere; }
     .edge-actions { display:flex; flex-wrap:wrap; gap:9px; }
     .edge-actions button { min-height:41px; padding:7px 12px; border:1px solid #9da99e; border-radius:8px; background:#28494b; color:#f2fff9; font-size:.81rem; font-weight:800; }
     .edge-actions button:last-child { background:var(--gold); border-color:var(--gold); color:#302211; }
@@ -350,8 +353,8 @@
             <div class="edge-routes" aria-label="Two exact routes to a tie">
               <p>Two routes to a tie <span>· the earlier one sets the threshold</span></p>
               <div class="edge-route-grid">
-                <div id="edge-estimate-route"><small>01 · Estimate gap reaches zero</small><span>Mean meets median</span><strong id="edge-estimate-threshold">16/3</strong></div>
-                <div id="edge-reference-route"><small>02 · Reference gap reaches zero</small><span>Target meets midpoint</span><strong id="edge-reference-threshold">13/10</strong></div>
+                <div id="edge-estimate-route"><small>01 · Estimate gap reaches zero</small><span>Mean meets median</span><strong id="edge-estimate-threshold">16/3</strong><details id="edge-estimate-detail"><summary>Show exact readings and target</summary><p id="edge-estimate-witness"></p></details></div>
+                <div id="edge-reference-route"><small>02 · Reference gap reaches zero</small><span>Target meets midpoint</span><strong id="edge-reference-threshold">13/10</strong><details id="edge-reference-detail"><summary>Show exact readings and target</summary><p id="edge-reference-witness"></p></details></div>
               </div>
             </div>
             <div class="edge-actions"><button id="edge-last-button" type="button">Inspect last guarantee ↗</button><button id="edge-first-button" type="button">Inspect first tie ↗</button></div>
@@ -395,6 +398,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-two-routes"></script>
+  <script src="target-lens.js?v=20261014-route-witnesses"></script>
 </body>
 </html>

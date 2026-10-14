@@ -1656,7 +1656,9 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="edge-changes" aria-label="Five exact reading changes"/);
   assert.match(html,/id="edge-estimate-threshold">16\/3/);
   assert.match(html,/id="edge-reference-threshold">13\/10/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-two-routes"/);
+  assert.match(html,/id="edge-estimate-detail"/);
+  assert.match(html,/id="edge-reference-detail"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-route-witnesses"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1879,6 +1881,11 @@ test("continuous threshold has an exact rational tie witness and matches the inp
     ["16","3","estimate",5333334]);
   assert.deepEqual(far.routes,{estimate:near.routes.estimate,
     reference:{numerator:"75",denominator:"1"}});
+  const simultaneous=continuousStabilityThreshold([0,0,0,0,100],7.5,7.5);
+  assert.deepEqual(simultaneous.routes,{estimate:{numerator:"25",denominator:"1"},
+    reference:{numerator:"25",denominator:"1"}});
+  assert.equal(simultaneous.factor,"reference");
+  assert.notDeepEqual(simultaneous.routeWitnesses.estimate,simultaneous.routeWitnesses.reference);
   assert.deepEqual([continuousStabilityThreshold([0,0,0,0,100],0,0).numerator,
     continuousStabilityThreshold([0,0,0,0,0.0001],0,0).denominator],["25","40000"]);
   assert.deepEqual(continuousStabilityThreshold(a,0,100),{kind:"no-baseline"});
@@ -1910,7 +1917,23 @@ test("continuous threshold has an exact rational tie witness and matches the inp
       const rangeName=factor==="estimate"?"estimateRangeUnits":"referenceRangeUnits";
       assert.ok(before[rangeName][0]*before[rangeName][1]>0);
       assert.ok(at[rangeName][0]<=0&&at[rangeName][1]>=0);
+      const routeWitness=exact.routeWitnesses[factor],wDen=BigInt(routeWitness.denominator);
+      const values=routeWitness.readingsNumerators.map(BigInt),target=BigInt(routeWitness.targetNumerator);
+      for(let index=0;index<5;index++) {
+        assert.ok(values[index]>=0n&&values[index]<=100n*wDen);
+        const original=BigInt(Math.round(readings[index]*1e6))*wDen/1000000n;
+        const distance=values[index]>original?values[index]-original:original-values[index];
+        assert.ok(distance*routeD<=routeN*wDen);
+      }
+      assert.ok(target>=BigInt(Math.round(low*1e6))*wDen/1000000n);
+      assert.ok(target<=BigInt(Math.round(high*1e6))*wDen/1000000n);
+      const sum=values.reduce((total,value)=>total+value,0n);
+      const middle=[...values].sort((p,q)=>p<q?-1:p>q?1:0)[2];
+      assert.equal(factor==="estimate"?sum-5n*middle:sum+5n*middle-10n*target,0n);
+      const meanError=sum-5n*target,medianError=middle-target;
+      assert.equal(meanError<0n?-meanError:meanError,5n*(medianError<0n?-medianError:medianError));
     }
+    assert.deepEqual(exact.witness,exact.routeWitnesses[exact.factor]);
     const witness=exact.witness,wDen=BigInt(witness.denominator);
     const values=witness.readingsNumerators.map(BigInt),target=BigInt(witness.targetNumerator);
     for(let index=0;index<5;index++) {
@@ -1987,6 +2010,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-reference-threshold").textContent,"13/10");
   assert.equal(element("edge-reference-route").dataset.active,"true");
   assert.equal(element("edge-estimate-route").dataset.active,"false");
+  assert.match(element("edge-estimate-witness").textContent,/At ε = 16\/3: readings \[128\/3, 131\/3, 166\/3, 166\/3, 239\/3\]; target 48/);
+  assert.match(element("edge-reference-witness").textContent,/At ε = 13\/10: readings \[46\.7, 47\.7, 48\.7, 49\.7, 83\.7\]; target 52/);
   assert.equal(element("edge-exact-decimal").textContent,"= 1.3");
   assert.match(element("edge-proof-text").textContent,/five admissible changes below tie at target 52/);
   assert.equal(element("edge-changes").children[0].textContent,"48 → 46.7 · −1.3");
@@ -2045,6 +2070,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-exact-fraction").textContent,"—");
   assert.equal(element("edge-estimate-threshold").textContent,"—");
   assert.equal(element("edge-reference-threshold").textContent,"—");
+  assert.equal(element("edge-estimate-detail").hidden,true);
+  assert.equal(element("edge-reference-detail").hidden,true);
   assert.equal(element("edge-proof").hidden,true);
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
@@ -2060,6 +2087,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-estimate-threshold").textContent,"16/3");
   assert.equal(element("edge-reference-threshold").textContent,"75");
   assert.equal(element("edge-estimate-route").dataset.active,"true");
+  assert.equal(element("edge-estimate-detail").hidden,false);
+  assert.equal(element("edge-reference-witness").textContent,
+    "At ε = 75: readings [0, 0, 0, 0, 10]; target 1. Mean 2 · median 0 · both absolute errors 1.");
   assert.equal(element("edge-exact-decimal").textContent,"≈ 5.333333333…");
   assert.equal(element("edge-changes").children[0].textContent,"48 → 128/3 · −16/3");
   assert.equal(element("edge-changes").children[3].textContent,"51 → 166/3 · +13/3");
@@ -2075,6 +2105,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(copied,/Exact threshold ε = 16\/3/);
   assert.match(copied,/Mean meets median at ε = 16\/3/);
   assert.match(copied,/Target meets mean–median midpoint at ε = 75/);
+  assert.match(copied,/Reference route witness: At ε = 75: readings \[0, 0, 0, 0, 10\]; target 1/);
   assert.match(copied,/Reading 1: 48 → 128\/3 · −16\/3/);
   assert.match(copied,/First six-decimal tie setting: 5\.333334/);
   assert.match(copied,/Reproduce selectable setting: https:\/\/example\.test\/target-lens\.html\?.*&eps=5\.333334/);
