@@ -1651,7 +1651,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="interval-ruler" role="img"/);
   assert.match(html,/id="drift-input" type="number"/);
   assert.match(html,/id="drift-witness" hidden/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-exact-joint"/);
+  assert.match(html,/id="edge-first-button" type="button"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-stability-edge"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1810,6 +1811,39 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
   }
 });
 
+test("stability edge brackets the first attainable tie on adjacent six-decimal drifts", () => {
+  const {stabilityEdge,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  const near=stabilityEdge(values,48,52);
+  assert.deepEqual(near,{kind:"edge",winner:"Median",lastStrictUnits:1299999,firstTieUnits:1300000});
+  assert.equal(certifyJointUncertainty(values,48,52,near.lastStrictUnits/1e6).kind,"strict");
+  const first=certifyJointUncertainty(values,48,52,near.firstTieUnits/1e6);
+  assert.equal(first.kind,"tie-possible");
+  assert.deepEqual(first.witness.readings.map(n=>n/1e6),[46.7,47.7,48.7,49.7,83.7]);
+  assert.deepEqual(stabilityEdge(values,0,1),
+    {kind:"edge",winner:"Median",lastStrictUnits:5333333,firstTieUnits:5333334});
+  assert.deepEqual(stabilityEdge(values,0,100),
+    {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0});
+  assert.equal(stabilityEdge(PRESETS.c.values,48,52).kind,"no-baseline");
+  assert.throws(()=>stabilityEdge(values,10,0),RangeError);
+
+  let seed=18477;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<36;trial++) {
+    const readings=Array.from({length:5},()=>Math.round(roll()*100));
+    const t=Math.round(roll()*100);
+    const edge=stabilityEdge(readings,t,t);
+    if(edge.kind==="no-baseline") {
+      assert.notEqual(certifyJointUncertainty(readings,t,t,0).kind,"strict");
+      continue;
+    }
+    assert.equal(edge.firstTieUnits-edge.lastStrictUnits,1);
+    assert.equal(certifyJointUncertainty(readings,t,t,edge.lastStrictUnits/1e6).winner,edge.winner);
+    assert.notEqual(certifyJointUncertainty(readings,t,t,edge.firstTieUnits/1e6).kind,"strict");
+    assert.notEqual(certifyJointUncertainty(readings,t,t,100).kind,"strict");
+  }
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", () => {
   const elements=new Map(),address=[];
   function element(id) {
@@ -1834,6 +1868,14 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.equal(element("drift-estimate-range").textContent,"[5.2, 8]");
   assert.equal(element("drift-remaining").textContent,"0.6");
+  assert.equal(element("edge-last-strict").textContent,"1.299999");
+  assert.equal(element("edge-first-tie").textContent,"1.3");
+  element("edge-first-button").handlers.click();
+  assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.match(address.at(-1),/eps=1\.3$/);
+  element("edge-last-button").handlers.click();
+  assert.equal(element("drift-badge").textContent,"Median guaranteed");
+  assert.match(address.at(-1),/eps=1\.299999$/);
   element("drift-input").handlers.input({target:{value:"1.3"}});
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.match(element("drift-witness").textContent,/46\.7, 47\.7, 48\.7, 49\.7, 83\.7; target 52/);
@@ -1877,11 +1919,19 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("interval-ruler").attributes["aria-label"],/Mean and median coincide\./);
   assert.equal(element("interval-span").disabled,true);
   assert.equal(element("interval-tie-mark").hidden,true);
+  assert.equal(element("edge-last-strict").textContent,"—");
+  assert.equal(element("edge-first-tie").textContent,"0");
+  assert.equal(element("edge-first-button").disabled,true);
   element("drift-example").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
   assert.equal(element("drift-reference-range").textContent,"[96.6, 114.6]");
   assert.match(address.at(-1),/target=0\.5&lo=0&hi=1&eps=4$/);
+  assert.equal(element("edge-last-strict").textContent,"5.333333");
+  assert.equal(element("edge-first-tie").textContent,"5.333334");
+  element("edge-first-button").handlers.click();
+  assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.match(address.at(-1),/eps=5\.333334$/);
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
