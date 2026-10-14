@@ -789,7 +789,8 @@
       track.style.setProperty("--tie-end",(row.kind==="all"?100:row.upperNumerator/row.denominator)+"%");
       track.style.setProperty("--range-start",current.low+"%");
       track.style.setProperty("--range-end",current.high+"%");
-      track.setAttribute("aria-label","At most "+row.count+" readings move by ε = "+fmt(current.epsilon)+
+      track.setAttribute("aria-label","At most "+row.count+" "+(row.count===1?"reading":"readings")+
+        " may move by ε = "+fmt(current.epsilon)+
         ". "+(row.kind==="all"?"Every target can tie":"Tie targets "+low+" to "+high)+
         ". Selected range "+fmt(current.low)+" to "+fmt(current.high)+
         (intersects(row)?" intersects.":" is outside."));
