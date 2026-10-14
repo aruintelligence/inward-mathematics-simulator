@@ -9,6 +9,7 @@
   };
   const readingPattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/;
   const targetPattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,6})?$/;
+  const TARGET_SCALE=1000000;
 
   function validNumber(raw,pattern) {
     if(!pattern.test(raw)) return null;
@@ -25,21 +26,35 @@
     const target=validNumber(params.get("target"),targetPattern);
     return values.some(value=>value===null)||target===null?false:{values,target,label:"Shared case"};
   }
+  function estimateUnits(values) {
+    const readings=values.map(value=>Math.round(value*10000));
+    const sorted=[...readings].sort((a,b)=>a-b);
+    // The mean and median are exact on the six-decimal target grid.
+    return {meanUnits:readings.reduce((sum,value)=>sum+value,0)*20,medianUnits:sorted[2]*100};
+  }
   function evaluate(values,target) {
-    // The URL accepts at most four decimal places per reading. Integer units
-    // retain the exact mean and midpoint through the sixth decimal place.
-    const units=values.map(value=>Math.round(value*10000));
-    const sorted=[...units].sort((a,b)=>a-b);
-    const mean=units.reduce((sum,value)=>sum+value,0)/50000;
-    const median=sorted[2]/10000;
-    const boundary=(mean+median)/2;
-    const meanError=Math.abs(mean-target),medianError=Math.abs(median-target);
-    const sameEstimate=Math.abs(mean-median)<1e-9;
-    const winner=sameEstimate||Math.abs(meanError-medianError)<1e-8?"Equal":meanError<medianError?"Mean":"Median";
-    return {mean,median,boundary,meanError,medianError,winner,sameEstimate};
+    const {meanUnits,medianUnits}=estimateUnits(values),targetUnits=Math.round(target*TARGET_SCALE);
+    const meanErrorUnits=Math.abs(meanUnits-targetUnits),medianErrorUnits=Math.abs(medianUnits-targetUnits);
+    const sameEstimate=meanUnits===medianUnits;
+    return {mean:meanUnits/TARGET_SCALE,median:medianUnits/TARGET_SCALE,
+      boundary:(meanUnits+medianUnits)/(2*TARGET_SCALE),
+      meanError:meanErrorUnits/TARGET_SCALE,medianError:medianErrorUnits/TARGET_SCALE,
+      winner:meanErrorUnits===medianErrorUnits?"Equal":meanErrorUnits<medianErrorUnits?"Mean":"Median",
+      sameEstimate,estimateGap:(meanUnits-medianUnits)/TARGET_SCALE,
+      referenceGap:(meanUnits+medianUnits-2*targetUnits)/TARGET_SCALE};
+  }
+  function targetWitnesses(values) {
+    const {meanUnits,medianUnits}=estimateUnits(values);
+    if(meanUnits===medianUnits) return {sameEstimate:true,estimate:meanUnits/TARGET_SCALE,targets:[]};
+    const midpointUnits=(meanUnits+medianUnits)/2;
+    const targets=[meanUnits,midpointUnits,medianUnits].sort((a,b)=>a-b).map(targetUnits=>{
+      const target=targetUnits/TARGET_SCALE;
+      return {target,...evaluate(values,target)};
+    });
+    return {sameEstimate:false,targets};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -47,6 +62,7 @@
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,values:[...PRESETS.a.values],key:"a"};
+  let witnesses=targetWitnesses(current.values);
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
   if(supplied===false) $("input-error").textContent="That shared view is invalid. Case A is loaded instead.";
@@ -60,6 +76,7 @@
   function render() {
     const result=evaluate(current.values,current.target);
     const {mean,median,boundary,meanError,medianError,winner,sameEstimate}=result;
+    witnesses=targetWitnesses(current.values);
     $("case-label").textContent=current.label;
     [...$("readings").children].forEach((item,index)=>{item.textContent=fmt(current.values[index]);});
     $("target-range").value=fmt(current.target);
@@ -110,6 +127,28 @@
       "; median "+fmt(median)+" has absolute error "+fmt(medianError)+" against hypothetical target "+fmt(current.target)+
       ". "+(sameEstimate?"Both estimates coincide.":"They tie at target "+fmt(boundary)+"."));
 
+    $("witness-title").textContent=sameEstimate?"One estimate. Every target ties.":"Three targets. Three exact verdicts.";
+    $("witness-intro").textContent=sameEstimate
+      ?"Mean and median both equal "+fmt(mean)+". No target in 0–100 can favor one over the other while the readings stay fixed."
+      :"The readings stay fixed. Set the target exactly at either estimate to make it win, or at their midpoint to force a tie.";
+    $("witness-grid").hidden=sameEstimate;
+    $("witness-all-tie").hidden=!sameEstimate;
+    if(sameEstimate) $("witness-all-tie").textContent="For every target t, |"+fmt(mean)+" − t| = |"+fmt(median)+" − t|. Even moving the reference to 0 or 100 preserves the tie.";
+    else witnesses.targets.forEach((step,index)=>{
+      const button=$("witness-"+index);
+      button.dataset.winner=step.winner;
+      button.setAttribute("aria-pressed",String(Math.round(current.target*TARGET_SCALE)===Math.round(step.target*TARGET_SCALE)));
+      button.setAttribute("aria-label","Set hypothetical target to "+fmt(step.target)+" for "+(step.winner==="Equal"?"an exact tie":step.winner.toLowerCase()+" closer"));
+      button.querySelector("small").textContent=step.winner==="Equal"?"Exact midpoint tie":step.winner+" wins at its value";
+      button.querySelector("strong").textContent=fmt(step.target);
+      button.querySelector("span").textContent="Mean error "+fmt(step.meanError)+" · median error "+fmt(step.medianError);
+    });
+    $("proof-factors").textContent=sameEstimate
+      ?"Mean − median = 0, so the squared-error difference is zero for every target."
+      :"At target "+fmt(current.target)+": (mean − median) = "+fmt(result.estimateGap)+
+        ", and (mean + median − 2×target) = "+fmt(result.referenceGap)+
+        ". Their product is "+(winner==="Equal"?"zero (a tie).":winner==="Mean"?"negative (mean closer).":"positive (median closer).");
+
     $("open-view").href=viewUrl();
     $("share-status").textContent="";
     updateAddress();
@@ -130,6 +169,7 @@
     if(validNumber(event.target.value,targetPattern)===null) event.target.value=fmt(current.target);
   });
   $("jump-tie").addEventListener("click",()=>setTarget(fmt(evaluate(current.values,current.target).boundary)));
+  document.querySelectorAll(".witness").forEach((button,index)=>button.addEventListener("click",()=>setTarget(fmt(witnesses.targets[index].target))));
   document.querySelectorAll(".preset").forEach(button=>button.addEventListener("click",()=>{
     const selected=button.dataset.case;
     current={...PRESETS[selected],values:[...PRESETS[selected].values],key:selected};

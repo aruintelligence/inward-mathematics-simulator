@@ -1590,6 +1590,92 @@ test("target lens finds the exact crossover and handles a permanent tie", () => 
   assert.match(fs.readFileSync(path.join(__dirname,"..","worksheet.html"),"utf8"),/href="target-lens\.html\?values=/);
 });
 
+test("target witnesses construct both strict winners and a tie with exact integer arithmetic", () => {
+  const {PRESETS,evaluate,targetWitnesses}=require("../target-lens.js");
+  for(const key of ["a","b"]) {
+    const {values}=PRESETS[key],witness=targetWitnesses(values);
+    assert.equal(witness.sameEstimate,false);
+    assert.deepEqual(witness.targets.map(item=>item.winner),["Median","Equal","Mean"]);
+    assert.ok(witness.targets[0].target<witness.targets[1].target&&witness.targets[1].target<witness.targets[2].target);
+    for(const item of witness.targets) {
+      assert.deepEqual([item.meanError,item.medianError],
+        [evaluate(values,item.target).meanError,evaluate(values,item.target).medianError]);
+      if(item.winner==="Mean") assert.equal(item.meanError,0);
+      if(item.winner==="Median") assert.equal(item.medianError,0);
+      if(item.winner==="Equal") assert.equal(item.meanError,item.medianError);
+    }
+  }
+  const tied=targetWitnesses(PRESETS.c.values);
+  assert.equal(tied.sameEstimate,true);
+  assert.deepEqual(tied.targets,[]);
+  for(const target of [0,31.000001,100]) assert.equal(evaluate(PRESETS.c.values,target).winner,"Equal");
+  const meanBelowMedian=targetWitnesses([0,50,51,52,53]);
+  assert.deepEqual(meanBelowMedian.targets.map(item=>item.winner),["Mean","Equal","Median"]);
+  const narrow=[0,0,0,0,0.0001];
+  assert.deepEqual(targetWitnesses(narrow).targets.map(item=>item.target),[0,0.00001,0.00002]);
+  assert.equal(evaluate(narrow,0.000009).winner,"Median");
+  assert.equal(evaluate(narrow,0.00001).winner,"Equal");
+  assert.equal(evaluate(narrow,0.000011).winner,"Mean");
+});
+
+test("the target-lens factorization matches exact squared errors across fractional cases", () => {
+  const {evaluate,targetWitnesses}=require("../target-lens.js");
+  let seed=939391;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<1000;trial++) {
+    const values=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const target=Math.floor(roll()*100000001)/1000000;
+    const result=evaluate(values,target),readings=values.map(value=>Math.round(value*10000));
+    const meanUnits=readings.reduce((sum,value)=>sum+value,0)*20;
+    const medianUnits=[...readings].sort((a,b)=>a-b)[2]*100,targetUnits=Math.round(target*1000000);
+    const left=BigInt(meanUnits-targetUnits)**2n-BigInt(medianUnits-targetUnits)**2n;
+    const right=BigInt(meanUnits-medianUnits)*BigInt(meanUnits+medianUnits-2*targetUnits);
+    assert.equal(left,right);
+    assert.equal(result.winner,left===0n?"Equal":left<0n?"Mean":"Median");
+    const witnesses=targetWitnesses(values);
+    if(witnesses.sameEstimate) assert.equal(meanUnits,medianUnits);
+    else assert.deepEqual(new Set(witnesses.targets.map(item=>item.winner)),new Set(["Mean","Median","Equal"]));
+  }
+  const html=fs.readFileSync(path.join(__dirname,"..","target-lens.html"),"utf8");
+  assert.match(html,/id="witness-grid" role="group"/);
+  assert.match(html,/\.witness-grid\[hidden\],\.witness-all-tie\[hidden\] \{ display:none; \}/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-witness"/);
+});
+
+test("target witness buttons move the live reference and collapse into an all-target tie", () => {
+  const elements=new Map(),address=[];
+  function element(id) {
+    if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
+      style:{setProperty(){}},children:id==="readings"?Array.from({length:5},()=>({textContent:""})):[],parts:{},
+      addEventListener(name,callback){this.handlers[name]=callback;},setAttribute(name,value){this.attributes[name]=value;},
+      querySelector(selector){return this.parts[selector]??=({textContent:""});}});
+    return elements.get(id);
+  }
+  const witnesses=Array.from({length:3},(_,index)=>element("witness-"+index));
+  const presets=["a","b","c"].map(key=>({...element("preset-"+key),dataset:{case:key}}));
+  const document={getElementById:element,querySelectorAll(selector){return selector===".witness"?witnesses:selector===".preset"?presets:[];}};
+  const window={location:{search:"",href:"https://example.test/target-lens.html"},history:{replaceState(_state,_title,url){address.push(url);}}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","target-lens.js"),"utf8"),
+    {document,window,URL,URLSearchParams,navigator:{clipboard:{async writeText(){}}}},{timeout:1500});
+  assert.equal(element("witness-grid").hidden,false);
+  assert.equal(element("witness-0").parts.strong.textContent,"50");
+  assert.equal(element("witness-1").parts.strong.textContent,"53.3");
+  assert.equal(element("witness-2").parts.strong.textContent,"56.6");
+  witnesses[2].handlers.click();
+  assert.equal(element("hero-target").textContent,"56.6");
+  assert.equal(element("verdict").textContent,"Mean is closer.");
+  assert.equal(element("witness-2").attributes["aria-pressed"],"true");
+  assert.match(address.at(-1),/target=56\.6$/);
+  witnesses[1].handlers.click();
+  assert.equal(element("verdict").textContent,"Equal absolute error.");
+  assert.match(element("proof-factors").textContent,/zero \(a tie\)/);
+  presets[2].handlers.click();
+  assert.equal(element("witness-grid").hidden,true);
+  assert.equal(element("witness-all-tie").hidden,false);
+  assert.match(element("witness-all-tie").textContent,/every target/);
+  assert.match(element("proof-factors").textContent,/zero for every target/);
+});
+
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
   const atlas=loadAtlas("?start=42&offset=0&fifth=50");
   const lab=loadLab("?seed=42&fifth=50");
