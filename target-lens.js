@@ -260,22 +260,29 @@
     return {kind:"frontier",rows};
   }
 
-  function continuousStabilityThreshold(values,low,high) {
-    const baseline=certifyJointUncertainty(values,low,high,0);
+  function continuousStabilityThreshold(values,low,high,movableMask=31) {
+    const baseline=certifyJointUncertainty(values,low,high,0,movableMask);
     if(baseline.kind!=="strict") return {kind:"no-baseline"};
     const readings=values.map(value=>Math.round(value*TARGET_SCALE));
     const max=100*TARGET_SCALE,scale=2*max;
     const stops=new Set([0,scale]);
-    for(const value of readings) { stops.add(2*value); stops.add(2*(max-value)); }
-    for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) stops.add(Math.abs(readings[i]-readings[j]));
+    for(let i=0;i<5;i++) if(movableMask&(1<<i)) {
+      stops.add(2*readings[i]); stops.add(2*(max-readings[i]));
+    }
+    for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) {
+      const a=!!(movableMask&(1<<i)),b=!!(movableMask&(1<<j));
+      if(a||b) stops.add(Math.abs(readings[i]-readings[j])*(a&&b?1:2));
+    }
     const landmarks=[...stops].sort((a,b)=>a-b);
     const signEstimate=Math.sign(baseline.estimateRangeUnits[0]);
     const signReference=Math.sign(baseline.referenceRangeUnits[0]);
     const lowTarget=2*Math.round(low*TARGET_SCALE),highTarget=2*Math.round(high*TARGET_SCALE);
     const median=readings=>[...readings].sort((a,b)=>a-b)[2];
     const sum=readings=>readings.reduce((total,value)=>total+value,0);
-    const bounds=h=>({lower:readings.map(value=>Math.max(0,2*value-h)),
-      upper:readings.map(value=>Math.min(scale,2*value+h))});
+    const bounds=h=>({lower:readings.map((value,index)=>Math.max(0,2*value-
+      ((movableMask>>index)&1)*h)),
+      upper:readings.map((value,index)=>Math.min(scale,2*value+
+        ((movableMask>>index)&1)*h))});
     const groups=[];
     for(let middle=0;middle<5;middle++) {
       const other=[0,1,2,3,4].filter(index=>index!==middle);
@@ -321,30 +328,30 @@
       for(const group of groups)
         consider(h0,h1,estimateAt(box0,group),estimateAt(box1,group),"estimate",group);
     }
-    if(!firstByFactor.estimate||!firstByFactor.reference)
-      throw new Error("Both tie mechanisms must be attainable by radius 100");
+    if(!firstByFactor.estimate&&!firstByFactor.reference)
+      return {kind:"unreachable",winner:baseline.winner};
     const physicalFraction=root=>{
       let numerator=root.numerator,denominator=root.denominator*BigInt(2*TARGET_SCALE);
       let a=numerator,b=denominator;
       while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
       return {numerator:(numerator/a).toString(),denominator:(denominator/a).toString()};
     };
-    const routes={estimate:physicalFraction(firstByFactor.estimate),
-      reference:physicalFraction(firstByFactor.reference)};
+    const routes={estimate:firstByFactor.estimate?physicalFraction(firstByFactor.estimate):null,
+      reference:firstByFactor.reference?physicalFraction(firstByFactor.reference):null};
     // The reference route wins an exact simultaneous tie, matching the scan order.
     const reference=firstByFactor.reference,estimate=firstByFactor.estimate;
-    const first=reference.numerator*estimate.denominator<=estimate.numerator*reference.denominator
-      ?reference:estimate;
+    const first=!estimate?reference:!reference?estimate:
+      reference.numerator*estimate.denominator<=estimate.numerator*reference.denominator?reference:estimate;
     const witnessAt=root=>{
       let divisor=root.numerator,rest=root.denominator;
       while(rest!==0n) { const remainder=divisor%rest; divisor=rest; rest=remainder; }
       const h=root.numerator/divisor,d=root.denominator/divisor,full=BigInt(scale)*d;
-      const lower=readings.map(value=>{
-        const raw=2n*BigInt(value)*d-h;
+      const lower=readings.map((value,index)=>{
+        const raw=2n*BigInt(value)*d-((movableMask>>index)&1? h:0n);
         return raw<0n?0n:raw;
       });
-      const upper=readings.map(value=>{
-        const raw=2n*BigInt(value)*d+h;
+      const upper=readings.map((value,index)=>{
+        const raw=2n*BigInt(value)*d+((movableMask>>index)&1? h:0n);
         return raw>full?full:raw;
       });
       let tieReadings,targetNumerator;
@@ -370,12 +377,34 @@
       return {readingsNumerators:tieReadings.map(value=>value.toString()),
         targetNumerator:targetNumerator.toString(),denominator:(d*BigInt(2*TARGET_SCALE)).toString()};
     };
-    const routeWitnesses={estimate:witnessAt(estimate),reference:witnessAt(reference)};
+    const routeWitnesses={estimate:estimate?witnessAt(estimate):null,
+      reference:reference?witnessAt(reference):null};
     const {numerator,denominator}=routes[first.factor];
     const firstTieUnits=Number((BigInt(numerator)*BigInt(TARGET_SCALE)+BigInt(denominator)-1n)/BigInt(denominator));
     return {kind:"edge",winner:baseline.winner,factor:first.factor,
       numerator,denominator,firstTieUnits,routes,routeWitnesses,
       witness:routeWitnesses[first.factor]};
+  }
+
+  function continuousSupportFrontier(values,low,high) {
+    if(certifyJointUncertainty(values,low,high,0,0).kind!=="strict")
+      return {kind:"baseline-tie",rows:[]};
+    const rows=[];
+    for(let count=1;count<=5;count++) {
+      let best=null;
+      for(let mask=1;mask<32;mask++) {
+        let bits=mask,population=0;
+        while(bits) {population+=bits&1; bits>>=1;}
+        if(population!==count) continue;
+        const edge=continuousStabilityThreshold(values,low,high,mask);
+        if(edge.kind!=="edge") continue;
+        const numerator=BigInt(edge.numerator),denominator=BigInt(edge.denominator);
+        if(best===null||numerator*BigInt(best.denominator)<BigInt(best.numerator)*denominator)
+          best={count,mask,...edge};
+      }
+      rows.push(best??{count,kind:"unreachable",mask:null});
+    }
+    return {kind:"frontier",rows};
   }
 
   function stabilityEdge(values,low,high) {
@@ -393,7 +422,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -593,10 +622,12 @@
     if(cachedEdge.key!==edgeKey) cachedEdge={key:edgeKey,
       result:stabilityEdge(current.values,current.low,current.high),
       threshold:continuousStabilityThreshold(current.values,current.low,current.high),
-      frontier:supportFrontier(current.values,current.low,current.high)};
+      frontier:supportFrontier(current.values,current.low,current.high),
+      exactFrontier:continuousSupportFrontier(current.values,current.low,current.high)};
     const edge=cachedEdge.result;
     const threshold=cachedEdge.threshold;
     const frontier=cachedEdge.frontier;
+    const exactFrontier=cachedEdge.exactFrontier;
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -674,17 +705,28 @@
     $("frontier-rows").hidden=frontier.kind!=="frontier";
     $("frontier-proof").textContent=frontier.kind==="baseline-tie"
       ?"The fixed readings already tie at a target in this range. No reading change is needed."
-      :"For each finite row, every subset of that size is strict one input step below its threshold, across every real reading adjustment and target in the range. Nested boxes exclude all smaller selectable settings; the listed subset ties at the threshold. Unreachable rows stay strict through ε = 100. More movable readings can only bring the first tie earlier.";
+      :"For every subset, the two tie factors are affine between finitely many reading clipping and median-order landmarks. Their first exact rational zero gives a boundary witness; all earlier real drifts stay strict. Independent six-decimal box checks find the adjacent selectable settings. Unreachable rows stay strict through ε = 100. More movable readings can only bring the first tie earlier.";
     if(frontier.kind==="frontier") for(const row of frontier.rows) {
-      const {count,firstTieUnits,mask}=row,reachable=firstTieUnits!==null;
+      const {count,firstTieUnits}=row,reachable=firstTieUnits!==null;
+      const exactRow=exactFrontier.rows[count-1];
+      if(reachable!==(exactRow.kind==="edge")||reachable&&firstTieUnits!==exactRow.firstTieUnits)
+        throw new Error("Continuous and selectable support frontiers disagree");
       const selected=reachable&&Math.round(current.epsilon*TARGET_SCALE)>=firstTieUnits;
       const item=$("frontier-row-"+count);
       item.dataset.reached=String(selected);
       item.dataset.current=String(selected&&count===sparse.count);
-      $("frontier-threshold-"+count).textContent=reachable?"ε = "+fmt(firstTieUnits/TARGET_SCALE):"No tie through ε = 100";
+      $("frontier-exact-"+count).textContent=reachable?
+        "Exact ε = "+exactRow.numerator+(exactRow.denominator==="1"?"":"/"+exactRow.denominator):"No continuous tie";
+      $("frontier-threshold-"+count).textContent=reachable?
+        "First selectable ε = "+fmt(firstTieUnits/TARGET_SCALE):"No tie through ε = 100";
       $("frontier-selection-"+count).textContent=reachable?
-        "Witness subset: "+Array.from({length:5},(_,index)=>index+1).filter(index=>mask&(1<<(index-1))).join(", "):
+        "Exact witness subset: "+Array.from({length:5},(_,index)=>index+1).filter(index=>exactRow.mask&(1<<(index-1))).join(", "):
         "No subset of this size can force a tie";
+      $("frontier-detail-"+count).hidden=!reachable;
+      $("frontier-witness-"+count).textContent=reachable?
+        (exactRow.factor==="estimate"?"Mean meets median. ":"Target meets the mean–median midpoint. ")+
+        describeRouteWitness(exactRow,exactRow.witness)+
+        " All smaller real ε are strict for every subset of this size.":"";
       $("frontier-button-"+count).disabled=!reachable;
     }
     const tieTargets=exact.tieTargets,allTieTargets=tieTargets.kind==="all";

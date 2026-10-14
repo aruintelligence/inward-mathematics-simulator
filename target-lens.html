@@ -251,8 +251,12 @@
     .frontier-row[data-reached="true"] { border-color:#91c7ab; background:#143a3a; }
     .frontier-row[data-current="true"] { border-color:var(--gold); box-shadow:inset 0 0 0 1px #e0bb7855; }
     .frontier-row > span { color:#d8ebe7; font-size:.8rem; font-weight:800; }
-    .frontier-row strong { display:block; color:var(--mint); font:800 .98rem ui-monospace,SFMono-Regular,monospace; }
-    .frontier-row small { display:block; margin-top:3px; color:#bfd8d4; font-size:.73rem; }
+    .frontier-row strong { display:block; color:var(--gold); font:800 1.05rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .frontier-row .frontier-grid { display:block; margin-top:4px; color:var(--mint); font:.81rem ui-monospace,SFMono-Regular,monospace; }
+    .frontier-row small { display:block; margin-top:4px; color:#bfd8d4; font-size:.73rem; }
+    .frontier-row details { grid-column:1 / -1; border-top:1px solid #608782; padding-top:8px; }
+    .frontier-row details summary { color:var(--mint); font-size:.76rem; }
+    .frontier-row details p { margin:7px 0 0; color:#d9ece5; font-size:.78rem; line-height:1.5; overflow-wrap:anywhere; }
     .frontier-row button { min-height:36px; padding:6px 11px; border:1px solid #8bd8c4; border-radius:7px; background:#19514d; color:#e8fff4; font-size:.76rem; font-weight:800; }
     .frontier-row button:hover:not(:disabled) { filter:brightness(1.15); }
     .frontier-row button:disabled { opacity:.45; cursor:default; }
@@ -433,13 +437,13 @@
             </div>
             <div class="sparse-actions"><button id="sparse-copy" type="button">Copy subset certificate</button><span id="sparse-copy-status" role="status"></span></div>
             <details class="frontier-card" id="frontier-card"><summary>Explore the reading–drift frontier</summary>
-              <p>How much drift is needed if at most one, two, three, four, or all five readings may change? Each threshold is the first selectable six-decimal setting that permits a tie.</p>
+              <p>How much drift is needed if at most one, two, three, four, or all five readings may change? The gold fraction is the exact continuous boundary; the mint value is the first selectable six-decimal setting. Open a row to inspect its rational tie witness.</p>
               <div class="frontier-rows" id="frontier-rows">
-                <div class="frontier-row" id="frontier-row-1"><span>At most 1</span><div><strong id="frontier-threshold-1"></strong><small id="frontier-selection-1"></small></div><button id="frontier-button-1" type="button">Inspect ↗</button></div>
-                <div class="frontier-row" id="frontier-row-2"><span>At most 2</span><div><strong id="frontier-threshold-2"></strong><small id="frontier-selection-2"></small></div><button id="frontier-button-2" type="button">Inspect ↗</button></div>
-                <div class="frontier-row" id="frontier-row-3"><span>At most 3</span><div><strong id="frontier-threshold-3"></strong><small id="frontier-selection-3"></small></div><button id="frontier-button-3" type="button">Inspect ↗</button></div>
-                <div class="frontier-row" id="frontier-row-4"><span>At most 4</span><div><strong id="frontier-threshold-4"></strong><small id="frontier-selection-4"></small></div><button id="frontier-button-4" type="button">Inspect ↗</button></div>
-                <div class="frontier-row" id="frontier-row-5"><span>At most 5</span><div><strong id="frontier-threshold-5"></strong><small id="frontier-selection-5"></small></div><button id="frontier-button-5" type="button">Inspect ↗</button></div>
+                <div class="frontier-row" id="frontier-row-1"><span>At most 1</span><div><strong id="frontier-exact-1"></strong><span class="frontier-grid" id="frontier-threshold-1"></span><small id="frontier-selection-1"></small></div><button id="frontier-button-1" type="button">Open grid setting ↗</button><details id="frontier-detail-1"><summary>Inspect exact witness</summary><p id="frontier-witness-1"></p></details></div>
+                <div class="frontier-row" id="frontier-row-2"><span>At most 2</span><div><strong id="frontier-exact-2"></strong><span class="frontier-grid" id="frontier-threshold-2"></span><small id="frontier-selection-2"></small></div><button id="frontier-button-2" type="button">Open grid setting ↗</button><details id="frontier-detail-2"><summary>Inspect exact witness</summary><p id="frontier-witness-2"></p></details></div>
+                <div class="frontier-row" id="frontier-row-3"><span>At most 3</span><div><strong id="frontier-exact-3"></strong><span class="frontier-grid" id="frontier-threshold-3"></span><small id="frontier-selection-3"></small></div><button id="frontier-button-3" type="button">Open grid setting ↗</button><details id="frontier-detail-3"><summary>Inspect exact witness</summary><p id="frontier-witness-3"></p></details></div>
+                <div class="frontier-row" id="frontier-row-4"><span>At most 4</span><div><strong id="frontier-exact-4"></strong><span class="frontier-grid" id="frontier-threshold-4"></span><small id="frontier-selection-4"></small></div><button id="frontier-button-4" type="button">Open grid setting ↗</button><details id="frontier-detail-4"><summary>Inspect exact witness</summary><p id="frontier-witness-4"></p></details></div>
+                <div class="frontier-row" id="frontier-row-5"><span>At most 5</span><div><strong id="frontier-exact-5"></strong><span class="frontier-grid" id="frontier-threshold-5"></span><small id="frontier-selection-5"></small></div><button id="frontier-button-5" type="button">Open grid setting ↗</button><details id="frontier-detail-5"><summary>Inspect exact witness</summary><p id="frontier-witness-5"></p></details></div>
               </div>
               <p id="frontier-proof"></p>
             </details>
@@ -477,6 +481,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=282197066448"></script>
+  <script src="target-lens.js?v=bdfdac26737b"></script>
 </body>
 </html>
