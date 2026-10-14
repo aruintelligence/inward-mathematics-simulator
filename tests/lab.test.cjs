@@ -2174,6 +2174,47 @@ test("continuous support frontier has exact rational boundaries and admissible w
   assert.ok(checked>100);
 });
 
+test("target-by-drift envelope follows exact midpoint bounds and the all-target switch", () => {
+  const {tieReachabilityEnvelope,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  const near=tieReachabilityEnvelope(values,1.3);
+  assert.deepEqual(near.switchExact,{numerator:"16",denominator:"3"});
+  assert.equal(near.maxEpsilon,10);
+  assert.deepEqual(near.knots.map(knot=>knot.epsilon),[0,16/3]);
+  assert.deepEqual([near.knots[0].lower,near.knots[0].upper],[53.3,53.3]);
+  assert.equal(certifyJointUncertainty(values,0,1,5.333333).tieTargets.kind,"band");
+  assert.equal(certifyJointUncertainty(values,0,1,5.333334).tieTargets.kind,"all");
+  const clipped=tieReachabilityEnvelope([2,5,10,11,100],4);
+  assert.deepEqual(clipped.knots.map(knot=>knot.epsilon),[0,2,5,10,11,17.5]);
+  assert.deepEqual(tieReachabilityEnvelope(PRESETS.c.values,40).switchExact,null);
+  assert.equal(tieReachabilityEnvelope(PRESETS.c.values,40).switchEpsilon,0);
+  let seed=51397;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<65;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const envelope=tieReachabilityEnvelope(readings,Math.floor(roll()*101));
+    assert.ok(envelope.maxEpsilon>=envelope.switchEpsilon);
+    assert.equal(envelope.knots[0].epsilon,0);
+    assert.equal(envelope.knots.at(-1).epsilon,envelope.switchEpsilon);
+    for(const epsilon of [0,0.25,1,3,12,35,100]) {
+      const exact=certifyJointUncertainty(readings,0,0,epsilon).tieTargets;
+      if(epsilon+1e-8>=envelope.switchEpsilon) {
+        assert.equal(exact.kind,"all");
+        continue;
+      }
+      assert.equal(exact.kind,"band");
+      const segment=envelope.knots.findIndex(knot=>knot.epsilon>=epsilon);
+      const first=envelope.knots[Math.max(0,segment-1)],last=envelope.knots[segment];
+      const fraction=first===last?0:(epsilon-first.epsilon)/(last.epsilon-first.epsilon);
+      const lower=first.lower+(last.lower-first.lower)*fraction;
+      const upper=first.upper+(last.upper-first.upper)*fraction;
+      assert.ok(Math.abs(lower-exact.lowerNumerator/exact.denominator)<1e-6);
+      assert.ok(Math.abs(upper-exact.upperNumerator/exact.denominator)<1e-6);
+    }
+  }
+  assert.throws(()=>tieReachabilityEnvelope(values,-1),RangeError);
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
   let copied="",scrolled="";
@@ -2202,6 +2243,10 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("tie-window-range").textContent,"Tie targets: 52.3 to 54.3");
   assert.match(element("tie-window-proof").textContent,/selected target range stays outside this band/);
   assert.match(element("tie-track").attributes["aria-label"],/No tie is attainable/);
+  assert.match(element("reach-map-band").attributes.d,/^M /);
+  assert.equal(element("reach-map-max").textContent,"10");
+  assert.match(element("reach-map-caption").textContent,/exact ε = 16\/3/);
+  assert.match(element("reach-map").attributes["aria-label"],/No tie is attainable/);
   assert.equal(element("drift-remaining").textContent,"0.6");
   assert.equal(element("edge-last-strict").textContent,"1.299999");
   assert.equal(element("edge-exact-fraction").textContent,"13/10");
@@ -2336,6 +2381,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.equal(element("tie-window-range").textContent,"Every target from 0 to 100 can tie");
   assert.match(element("tie-window-proof").textContent,/coincident estimates extend ties to all targets/);
+  assert.match(element("reach-map-caption").textContent,/This range reaches a tie/);
   assert.equal(element("drift-estimate-range").textContent,"[-0.0000008, 11.4666672]");
   assert.match(element("drift-witness").textContent,/Exact tie construction: interpolate the readings/);
   assert.match(element("drift-witness").textContent,/fraction 1\/14333335 of the path/);
