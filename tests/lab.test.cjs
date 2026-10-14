@@ -1658,7 +1658,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="edge-reference-threshold">13\/10/);
   assert.match(html,/id="edge-estimate-detail"/);
   assert.match(html,/id="edge-reference-detail"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-route-witnesses"/);
+  assert.match(html,/id="sparse-changes" aria-label="Five readings in a minimum-support tie"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-minimum-support"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1979,12 +1980,71 @@ test("interior tie paths produce exact rational witnesses within fractional read
   assert.ok(count>100);
 });
 
+test("minimum movable readings has exact subset exclusions and admissible rational witnesses", () => {
+  const {PRESETS,minimumTieSupport,certifyJointUncertainty}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  for(const [low,high,epsilon,kind,count,mask,strictBelow] of [
+    [48,52,1,"unreachable",null,null,32],
+    [48,52,1.3,"tie",5,31,31],
+    [48,52,4,"tie",2,5,6],
+    [48,52,10,"tie",1,4,1],
+    [0,1,5.333334,"tie",5,31,31],
+    [0,1,10,"tie",3,7,16],
+    [0,100,0,"tie",0,0,0]
+  ]) {
+    const result=minimumTieSupport(values,low,high,epsilon);
+    assert.deepEqual([result.kind,result.count,result.mask,result.strictBelow],[kind,count,mask,strictBelow]);
+    if(kind==="unreachable") continue;
+    const certificate=result.certificate,witness=certificate.witness;
+    if(!witness) { assert.equal(count,0); continue; }
+    let readingNumerators,targetNumerator,denominator;
+    if(witness.path) {
+      const {from,to,targetFromUnits,targetToUnits,numerator,denominator:rawDenominator}=witness.path;
+      const n=BigInt(numerator),d=BigInt(rawDenominator);
+      readingNumerators=from.map((value,index)=>BigInt(value)*d+BigInt(to[index]-value)*n);
+      targetNumerator=BigInt(targetFromUnits)*d+BigInt(targetToUnits-targetFromUnits)*n;
+      denominator=d;
+    } else {
+      readingNumerators=witness.readings.map(BigInt);
+      targetNumerator=BigInt(witness.targetUnits);
+      denominator=1n;
+    }
+    for(let index=0;index<5;index++) {
+      const original=BigInt(Math.round(values[index]*1e6))*denominator;
+      const delta=readingNumerators[index]-original;
+      assert.ok((result.mask&(1<<index))||delta===0n,"frozen reading cannot change");
+      assert.ok((delta<0n?-delta:delta)<=BigInt(Math.round(epsilon*1e6))*denominator);
+      assert.ok(readingNumerators[index]>=0n&&readingNumerators[index]<=100000000n*denominator);
+    }
+    assert.ok(targetNumerator>=BigInt(Math.round(low*1e6))*denominator);
+    assert.ok(targetNumerator<=BigInt(Math.round(high*1e6))*denominator);
+    const sum=readingNumerators.reduce((a,b)=>a+b,0n);
+    const median=[...readingNumerators].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+    assert.equal((sum-5n*median)*(sum+5n*median-10n*targetNumerator),0n);
+  }
+  let seed=72451;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<45;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*101));
+    const low=Math.floor(roll()*91),high=low+Math.floor(roll()*(101-low));
+    const epsilon=Math.floor(roll()*21);
+    const result=minimumTieSupport(readings,low,high,epsilon);
+    for(let mask=0;mask<32;mask++) {
+      const size=mask.toString(2).replace(/0/g,"").length;
+      if(result.count!==null&&size>=result.count) continue;
+      assert.equal(certifyJointUncertainty(readings,low,high,epsilon,mask).kind,"strict");
+    }
+  }
+  assert.throws(()=>minimumTieSupport(values,48,52,-1),RangeError);
+  assert.throws(()=>certifyJointUncertainty(values,48,52,1,32),RangeError);
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
   let copied="";
   function element(id) {
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
-      style:{setProperty(){}},children:id==="readings"||id==="edge-changes"?Array.from({length:5},()=>({textContent:""})):[],parts:{},
+      style:{setProperty(){}},children:id==="readings"||id==="edge-changes"||id==="sparse-changes"?Array.from({length:5},()=>({textContent:"",dataset:{}})):[],parts:{},
       addEventListener(name,callback){this.handlers[name]=callback;},setAttribute(name,value){this.attributes[name]=value;},
       querySelector(selector){return this.parts[selector]??=({textContent:""});}});
     return elements.get(id);
@@ -2017,8 +2077,17 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-changes").children[0].textContent,"48 → 46.7 · −1.3");
   assert.equal(element("edge-outcome").textContent,"Mean 55.3 · median 48.7 · both absolute errors 3.3.");
   assert.equal(element("edge-first-tie").textContent,"1.3");
+  assert.equal(element("sparse-status").textContent,"No tie within this drift");
+  assert.match(element("sparse-proof").textContent,/All 32 subsets/);
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.equal(element("sparse-count").textContent,"5");
+  assert.equal(element("sparse-proof").textContent.includes("All 31 subsets"),true);
+  assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["true","true","true","true","true"]);
+  assert.match(element("sparse-outcome").textContent,/Target 52 · mean 55\.3 · median 48\.7 · equal absolute errors 3\.3/);
+  await element("sparse-copy").handlers.click();
+  assert.match(copied,/Minimum movable readings: 5 of 5/);
+  assert.match(copied,/All smaller subsets certified strict: 31/);
   assert.match(address.at(-1),/eps=1\.3$/);
   element("edge-last-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
@@ -2029,6 +2098,14 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
   assert.match(element("drift-proof-text").textContent,/does not prove that a reversal is possible/);
   assert.match(address.at(-1),/eps=1\.3$/);
+  element("drift-input").handlers.input({target:{value:"4"}});
+  assert.equal(element("sparse-count").textContent,"2");
+  assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["true","false","true","false","false"]);
+  assert.match(element("sparse-outcome").textContent,/Target 52 · mean 55 · median 49 · equal absolute errors 3/);
+  element("drift-input").handlers.input({target:{value:"10"}});
+  assert.equal(element("sparse-count").textContent,"1");
+  assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["false","false","true","false","false"]);
+  assert.match(element("sparse-changes").children[2].textContent,/50 → 122\/3/);
   element("drift-input").handlers.input({target:{value:"0.9"}});
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   element("drift-input").handlers.input({target:{value:"0.0000001"}});
@@ -2075,6 +2152,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-proof").hidden,true);
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
+  copied="";
   await element("edge-copy").handlers.click();
   assert.equal(copied,"");
   element("drift-example").handlers.click();

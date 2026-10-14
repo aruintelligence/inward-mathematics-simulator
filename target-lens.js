@@ -142,12 +142,15 @@
     throw new Error("No tie on the continuous extremizer path");
   }
 
-  function certifyJointUncertainty(values,low,high,epsilon) {
+  function certifyJointUncertainty(values,low,high,epsilon,movableMask=31) {
     certifyInterval(values,low,high);
     if(!Number.isFinite(epsilon)||epsilon<0||epsilon>100) throw new RangeError("Invalid reading drift");
+    if(!Number.isInteger(movableMask)||movableMask<0||movableMask>31) throw new RangeError("Invalid movable readings");
     const driftUnits=Math.round(epsilon*TARGET_SCALE);
-    const lower=values.map(value=>Math.max(0,Math.round(value*TARGET_SCALE)-driftUnits));
-    const upper=values.map(value=>Math.min(100*TARGET_SCALE,Math.round(value*TARGET_SCALE)+driftUnits));
+    const lower=values.map((value,index)=>Math.max(0,Math.round(value*TARGET_SCALE)-
+      ((movableMask>>index)&1)*driftUnits));
+    const upper=values.map((value,index)=>Math.min(100*TARGET_SCALE,Math.round(value*TARGET_SCALE)+
+      ((movableMask>>index)&1)*driftUnits));
     const median=readings=>[...readings].sort((a,b)=>a-b)[2];
     const sum=readings=>readings.reduce((total,value)=>total+value,0);
     let minEstimate=null,maxEstimate=null;
@@ -195,6 +198,28 @@
       tieFactor:estimateCanTie?"estimate":referenceCanTie?"reference":null,
       estimateExtremizers:{minimum:minEstimate.readings,maximum:maxEstimate.readings},
       lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
+  }
+
+  function minimumTieSupport(values,low,high,epsilon) {
+    // Enumerate all 2^5 choices. Each call certifies an entire continuous
+    // box, so a strict result excludes every real perturbation of that subset.
+    // Increasing support order proves minimality without assuming that the
+    // extremal witness moves every reading in its chosen box.
+    let strictBelow=0;
+    for(let count=0;count<=5;count++) {
+      let checkedAtCount=0;
+      for(let mask=0;mask<32;mask++) {
+        let bits=mask,population=0;
+        while(bits) { population+=bits&1; bits>>=1; }
+        if(population!==count) continue;
+        checkedAtCount++;
+        const certificate=certifyJointUncertainty(values,low,high,epsilon,mask);
+        if(certificate.kind!=="strict") return {kind:"tie",count,mask,strictBelow,
+          checkedAtCount,certificate};
+      }
+      strictBelow+=checkedAtCount;
+    }
+    return {kind:"unreachable",strictBelow,checkedAtCount:0,count:null,mask:null,certificate:null};
   }
 
   function continuousStabilityThreshold(values,low,high) {
@@ -330,7 +355,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -365,12 +390,39 @@
     const decimal=scaled/digits+"."+String(scaled%digits).padStart(9,"0");
     return n*digits%d===0n?"= "+decimal.replace(/0+$/g,"").replace(/\.$/,""):"≈ "+decimal+"…";
   }
+  function sparseWitness(result,values) {
+    const certificate=result.certificate,witness=certificate.witness;
+    let readings,target,denominator;
+    if(witness?.path) {
+      const {from,to,targetFromUnits,targetToUnits}=witness.path;
+      const n=BigInt(witness.path.numerator),d=BigInt(witness.path.denominator);
+      readings=from.map((value,index)=>BigInt(value)*d+BigInt(to[index]-value)*n);
+      target=BigInt(targetFromUnits)*d+BigInt(targetToUnits-targetFromUnits)*n;
+      denominator=d*BigInt(TARGET_SCALE);
+    } else if(witness) {
+      readings=witness.readings.map(BigInt);
+      target=BigInt(witness.targetUnits);
+      denominator=BigInt(TARGET_SCALE);
+    } else {
+      // A permanent tie at zero drift has no stored path to interpolate.
+      const {meanUnits,medianUnits}=estimateUnits(values);
+      readings=values.map(value=>BigInt(Math.round(value*TARGET_SCALE)));
+      target=BigInt(meanUnits===medianUnits?certificate.lowUnits:(meanUnits+medianUnits)/2);
+      denominator=BigInt(TARGET_SCALE);
+    }
+    const sum=readings.reduce((total,value)=>total+value,0n);
+    const middle=[...readings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+    if((sum-5n*middle)*(sum+5n*middle-10n*target)!==0n)
+      throw new Error("Sparse witness does not tie absolute errors");
+    return {readings,target,denominator,sum,middle};
+  }
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
   let cachedEdge={key:null,result:null};
   let edgeProofCopy="";
+  let sparseProofCopy="";
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
   if(supplied===false) $("input-error").textContent="That shared view is invalid. Case A is loaded instead.";
@@ -527,6 +579,52 @@
         " of the path. At that exact fraction the "+(exact.tieFactor==="estimate"?"mean equals the median":"target is the mean–median midpoint")+"; both errors tie."
       :"Exact tie witness: readings "+exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
         "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
+    const sparse=minimumTieSupport(current.values,current.low,current.high,current.epsilon);
+    const sparseReachable=sparse.kind==="tie";
+    $("sparse-count").textContent=sparseReachable?String(sparse.count):"—";
+    $("sparse-status").textContent=sparseReachable?
+      sparse.count===0?"Already ties without moving readings":
+        sparse.count+" of 5 readings can force a tie":
+      "No tie within this drift";
+    $("sparse-proof").textContent=sparseReachable?
+      sparse.count===0?"The fixed readings already admit an exact tie for a target in this interval. Zero moved readings is minimal.":
+        "All "+sparse.strictBelow+" subsets of fewer than "+sparse.count+
+        " movable readings keep a strict winner for every real adjustment in their boxes and every target in the range. The witness below uses the first successful subset of size "+sparse.count+".":
+      "All 32 subsets of the five readings keep a strict winner at this drift, including the box where all five can move. Increase the drift or change the target range to find a tie.";
+    $("sparse-witness").hidden=!sparseReachable;
+    $("sparse-copy").disabled=!sparseReachable;
+    if(sparseReachable) {
+      const proof=sparseWitness(sparse,current.values),{readings,target,denominator,sum,middle}=proof;
+      const moves=readings.map((value,index)=>{
+        const original=BigInt(Math.round(current.values[index]*TARGET_SCALE))*
+          denominator/BigInt(TARGET_SCALE);
+        const delta=value-original;
+        const move=fmt(current.values[index])+" → "+fmtRational(value,denominator)+
+          (delta===0n?" · fixed":" · "+(delta<0n?"−":"+")+fmtRational(delta<0n?-delta:delta,denominator));
+        const item=$("sparse-changes").children[index];
+        item.textContent=move;
+        item.dataset.moved=String(delta!==0n);
+        return "Reading "+(index+1)+": "+move;
+      });
+      const error=sum-5n*target,absError=error<0n?-error:error;
+      const outcome="Target "+fmtRational(target,denominator)+" · mean "+
+        fmtRational(sum,5n*denominator)+" · median "+fmtRational(middle,denominator)+
+        " · equal absolute errors "+fmtRational(absError,5n*denominator)+".";
+      $("sparse-outcome").textContent=outcome;
+      sparseProofCopy=["Target Lens / minimum moved readings certificate",
+        "Starting readings: "+current.values.map(fmt).join(", "),
+        "Possible target range: ["+fmt(current.low)+", "+fmt(current.high)+"]",
+        "Maximum change per movable reading ε = "+fmt(current.epsilon),
+        "Model: selected readings may change continuously and independently within ε and [0, 100]; other readings remain fixed; target may be any real in the range.",
+        "Minimum movable readings: "+sparse.count+" of 5",
+        "All smaller subsets certified strict: "+sparse.strictBelow,
+        "Selected reading indices: "+(sparse.count?Array.from({length:5},(_,index)=>index+1).filter(index=>sparse.mask&(1<<(index-1))).join(", "):"none"),
+        "Tie factor: "+(sparse.certificate.tieFactor==="estimate"||sparse.certificate.kind==="all-tie"
+          ?"mean − median":"mean + median − 2×target"),
+        ...moves,outcome,
+        "Reproduce view: "+new URL(viewUrl(),window.location.href).href].join("\n");
+    } else sparseProofCopy="";
+    $("sparse-copy-status").textContent="";
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
     $("edge-exact-fraction").textContent=threshold.kind==="edge"?
       threshold.numerator+"/"+threshold.denominator:"—";
@@ -677,6 +775,15 @@
       $("edge-copy-status").textContent="Exact certificate copied.";
     } catch (_) {
       $("edge-copy-status").textContent="Copy unavailable here. Use the witness above and the exact view link below.";
+    }
+  });
+  $("sparse-copy").addEventListener("click",async()=>{
+    if(!sparseProofCopy) return;
+    try {
+      await navigator.clipboard.writeText(sparseProofCopy);
+      $("sparse-copy-status").textContent="Minimum-support certificate copied.";
+    } catch (_) {
+      $("sparse-copy-status").textContent="Copy unavailable here. Use the witness and exact view link below.";
     }
   });
   $("drift-example").addEventListener("click",()=>{
