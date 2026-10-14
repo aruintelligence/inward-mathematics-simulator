@@ -460,6 +460,24 @@
       knots:[...stops].sort((a,b)=>a-b).map(midpointBand)};
   }
 
+  function classifyReachMap(values,low,high,certificate) {
+    const {meanUnits,medianUnits}=estimateUnits(values);
+    const belowWinner=meanUnits===medianUnits?null:meanUnits>medianUnits?"Median":"Mean";
+    const aboveWinner=belowWinner==="Median"?"Mean":belowWinner==="Mean"?"Median":null;
+    const band=certificate.tieTargets;
+    // Below the first estimate-factor zero, its sign cannot change inside the
+    // connected reading box. The reference factor is positive below every
+    // attainable midpoint and negative above every attainable midpoint.
+    const side=band.kind==="all"?null:
+      10*Math.round(high*TARGET_SCALE)<band.lowerNumerator?"below":
+      10*Math.round(low*TARGET_SCALE)>band.upperNumerator?"above":null;
+    const selectedWinner=side==="below"?belowWinner:side==="above"?aboveWinner:null;
+    if((certificate.kind==="strict")!==!!selectedWinner||
+      selectedWinner&&selectedWinner!==certificate.winner)
+      throw new Error("Winner regions disagree with the exact certificate");
+    return {belowWinner,aboveWinner,side,selectedWinner};
+  }
+
   function stabilityEdge(values,low,high) {
     const baseline=certifyJointUncertainty(values,low,high,0);
     if(baseline.kind!=="strict") return {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0};
@@ -475,7 +493,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -836,6 +854,7 @@
       (targetOverlap?"A tie is attainable.":"No tie is attainable at this drift."));
     if((exact.kind!=="strict")!==targetOverlap) throw new Error("Tie target band disagrees with the exact certificate");
     const reach=tieReachabilityEnvelope(current.values,current.epsilon);
+    const winnerMap=classifyReachMap(current.values,current.low,current.high,exact);
     const plotX=value=>60+9.1*value;
     const plotY=value=>320-280*value/reach.maxEpsilon;
     const point=record=>plotX(record.target).toFixed(3)+" "+plotY(record.epsilon).toFixed(3);
@@ -843,6 +862,18 @@
     const upperPoints=[...reach.knots].reverse().map(knot=>({target:knot.upper,epsilon:knot.epsilon}));
     $("reach-map-band").setAttribute("d",reach.switchEpsilon===0?"":
       "M "+point(lowerPoints[0])+" L "+[...lowerPoints.slice(1),...upperPoints].map(point).join(" L ")+" Z");
+    for(const [side,edge,axisTarget,winner] of [["below","lower",0,winnerMap.belowWinner],
+      ["above","upper",100,winnerMap.aboveWinner]]) {
+      const path=reach.switchEpsilon===0?"":
+        "M "+point({target:axisTarget,epsilon:0})+" L "+
+        reach.knots.map(knot=>point({target:knot[edge],epsilon:knot.epsilon})).join(" L ")+
+        " L "+point({target:axisTarget,epsilon:reach.switchEpsilon})+" Z";
+      $("reach-map-"+side).setAttribute("d",path);
+      $("reach-map-"+side).setAttribute("data-winner",winner||"");
+      $("reach-map-"+side+"-label").textContent=winner?
+        winner+" guaranteed · "+side+" tie band":"No strict region · "+side;
+      $("reach-map-"+side+"-label").setAttribute("data-winner",winner||"");
+    }
     const switchY=plotY(reach.switchEpsilon),currentY=plotY(current.epsilon);
     $("reach-map-all").setAttribute("y","40");
     $("reach-map-all").setAttribute("height",Math.max(0,switchY-40).toFixed(3));
@@ -866,16 +897,24 @@
     $("reach-map-max").textContent=fmt(reach.maxEpsilon);
     const switchLabel=reach.switchExact?reach.switchExact.numerator+
       (reach.switchExact.denominator==="1"?"":"/"+reach.switchExact.denominator):"0";
+    $("reach-map-verdict").textContent=winnerMap.selectedWinner?
+      winnerMap.selectedWinner+" is guaranteed for every allowed reading arrangement and target in your selected range at ε = "+
+        fmt(current.epsilon)+".":
+      "A tie is attainable in your selected range at ε = "+fmt(current.epsilon)+".";
+    $("reach-map-verdict").setAttribute("data-winner",winnerMap.selectedWinner||"Equal");
     $("reach-map-caption").textContent="The gold all-target region begins at exact ε = "+switchLabel+
       ". The white line marks current ε = "+fmt(current.epsilon)+"; its rose segment is your "+
       fmt(current.low)+"–"+fmt(current.high)+" target range. "+(targetOverlap?
-        "This range reaches a tie.":"This range is still strictly outside the tie region.")+
+        "This range reaches a tie.":"The full range lies "+winnerMap.side+" the tie band, where "+
+          winnerMap.selectedWinner.toLowerCase()+" is strictly closer.")+
       " Vertical scale: ε = 0 to "+fmt(reach.maxEpsilon)+".";
     $("reach-map").setAttribute("aria-label","Target versus drift from ε 0 to "+fmt(reach.maxEpsilon)+
-      ". Midpoint ties fill a band until exact ε "+switchLabel+
+      ". "+(winnerMap.belowWinner?winnerMap.belowWinner+" is guaranteed below the midpoint tie band; "+
+        winnerMap.aboveWinner+" is guaranteed above it. ":"")+"Midpoint ties fill a band until exact ε "+switchLabel+
       "; from that drift onward every target can tie. Selected target range "+fmt(current.low)+
       " to "+fmt(current.high)+" at ε "+fmt(current.epsilon)+". "+
-      (targetOverlap?"A tie is attainable.":"No tie is attainable at this setting.")+
+      (targetOverlap?"A tie is attainable.":winnerMap.selectedWinner+
+        " is guaranteed throughout the selected range. No tie is attainable at this setting.")+
       " The first tie at exact target "+fmt(current.target)+" is at ε "+
       (pointEdge.kind==="edge"?pointEdge.numerator+"/"+pointEdge.denominator:"0")+".");
     $("point-target").textContent=fmt(current.target);

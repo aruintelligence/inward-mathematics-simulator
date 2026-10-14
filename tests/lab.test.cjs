@@ -2265,6 +2265,41 @@ test("target-by-drift envelope follows exact midpoint bounds and the all-target 
   assert.throws(()=>tieReachabilityEnvelope(values,-1),RangeError);
 });
 
+test("winner map certifies both open sides and excludes attainable tie boundaries", () => {
+  const {classifyReachMap,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
+  const classify=(values,low,high,epsilon)=>
+    classifyReachMap(values,low,high,certifyJointUncertainty(values,low,high,epsilon));
+  const values=PRESETS.a.values;
+  assert.deepEqual(classify(values,48,52,1),
+    {belowWinner:"Median",aboveWinner:"Mean",side:"below",selectedWinner:"Median"});
+  assert.deepEqual(classify(values,55,56,1),
+    {belowWinner:"Median",aboveWinner:"Mean",side:"above",selectedWinner:"Mean"});
+  for(const [low,high] of [[52.3,52.3],[54.3,54.3],[52.3,54.3],[52,52.3],[54.3,55]]) {
+    const result=classify(values,low,high,1);
+    assert.equal(result.side,null,`an attainable boundary at ${low}–${high} cannot be strict`);
+    assert.equal(result.selectedWinner,null);
+  }
+  assert.deepEqual(classify([0,50,50,50,50],0,20,0),
+    {belowWinner:"Mean",aboveWinner:"Median",side:"below",selectedWinner:"Mean"});
+  assert.equal(classify([0,50,50,50,50],80,100,0).selectedWinner,"Median");
+  assert.equal(classify(values,0,1,5.333334).selectedWinner,null);
+  assert.deepEqual(classify(PRESETS.c.values,0,1,0),
+    {belowWinner:null,aboveWinner:null,side:null,selectedWinner:null});
+
+  let seed=23861;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<50;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const epsilon=Math.floor(roll()*10000001)/1000000;
+    for(const [low,high] of [[0,0],[100,100],[25,75]]) {
+      const certificate=certifyJointUncertainty(readings,low,high,epsilon);
+      const result=classifyReachMap(readings,low,high,certificate);
+      assert.equal(!!result.selectedWinner,certificate.kind==="strict");
+      if(result.selectedWinner) assert.equal(result.selectedWinner,certificate.winner);
+    }
+  }
+});
+
 test("exact point threshold inverts the reachability curves across targets", () => {
   const {tieReachabilityEnvelope,continuousStabilityThreshold,PRESETS}=require("../target-lens.js");
   const firstByCurve=(envelope,target)=>{
@@ -2333,6 +2368,12 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("tie-window-proof").textContent,/selected target range stays outside this band/);
   assert.match(element("tie-track").attributes["aria-label"],/No tie is attainable/);
   assert.match(element("reach-map-band").attributes.d,/^M /);
+  assert.match(element("reach-map-below").attributes.d,/^M 60\.000 320\.000 L /);
+  assert.match(element("reach-map-above").attributes.d,/^M 970\.000 320\.000 L /);
+  assert.equal(element("reach-map-below").attributes["data-winner"],"Median");
+  assert.equal(element("reach-map-above").attributes["data-winner"],"Mean");
+  assert.equal(element("reach-map-below-label").textContent,"Median guaranteed · below tie band");
+  assert.match(element("reach-map-verdict").textContent,/Median is guaranteed for every allowed reading arrangement/);
   assert.equal(element("reach-map-max").textContent,"10");
   assert.match(element("reach-map-caption").textContent,/exact ε = 16\/3/);
   assert.match(element("reach-map").attributes["aria-label"],/No tie is attainable/);
@@ -2457,6 +2498,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("interval-error").textContent,/low ≤ high/);
   assert.match(address.at(-1),/lo=53\.3&hi=53\.3&eps=0\.9$/);
   presets[2].handlers.click();
+  assert.equal(element("reach-map-below").attributes.d,"");
+  assert.equal(element("reach-map-above").attributes.d,"");
+  assert.match(element("reach-map-verdict").textContent,/A tie is attainable/);
   assert.equal(element("witness-grid").hidden,true);
   assert.equal(element("witness-all-tie").hidden,false);
   assert.match(element("witness-all-tie").textContent,/every target/);
