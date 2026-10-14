@@ -37,6 +37,47 @@ test("portable Target Lens receipts verify offline and reject altered mathematic
   assert.throws(()=>verify(badRange),/outside drift box/);
 });
 
+test("browser proof inspector uses the same verifier and refuses a changed witness", async () => {
+  const html=fs.readFileSync(path.join(__dirname,"..","verify-proof.html"),"utf8");
+  const core=fs.readFileSync(path.join(__dirname,"..","tools","target-lens-proof-core.js"));
+  const version=html.match(/<script src="tools\/target-lens-proof-core\.js\?v=([a-f0-9]{12})"><\/script>/);
+  assert.ok(version,"the inspector must load its verifier with a content-derived key");
+  assert.equal(version[1],crypto.createHash("sha256").update(core).digest("hex").slice(0,12));
+  const elements=new Map();
+  const element=id=>{
+    if(!elements.has(id)) elements.set(id,{value:"",textContent:"",dataset:{},hidden:false,handlers:{},
+      addEventListener(type,callback){this.handlers[type]=callback;}});
+    return elements.get(id);
+  };
+  const window={};
+  const context={window,document:{getElementById:element},BigInt,Number,JSON};
+  vm.runInNewContext(core.toString(),context,{timeout:1000});
+  const script=html.match(/<script>\s*([\s\S]*?)<\/script>/);
+  assert.ok(script,"the inspector must initialize its controls");
+  vm.runInNewContext(script[1],context,{timeout:1000});
+  const {proofReceipt}=require("../target-lens.js");
+  const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
+  element("receipt-json").value=JSON.stringify(receipt);
+  element("receipt-json").handlers.input();
+  element("verify-button").handlers.click();
+  assert.equal(element("result").hidden,false);
+  assert.equal(element("conclusion").textContent,"A tie is attainable");
+  assert.match(element("witness-note").textContent,/9\/40/);
+  assert.equal(element("status").dataset.state,"success");
+  receipt.claim.witness.path.numerator="10";
+  element("receipt-json").value=JSON.stringify(receipt);
+  element("receipt-json").handlers.input();
+  element("verify-button").handlers.click();
+  assert.equal(element("result").hidden,true);
+  assert.equal(element("status").dataset.state,"error");
+  assert.match(element("status").textContent,/Witness does not tie/);
+  const strict=proofReceipt([48,49,50,51,85],0,1,4,0.5);
+  await element("receipt-file").handlers.change({target:{files:[{name:"strict.json",size:900,async text(){return JSON.stringify(strict);}}]}});
+  element("verify-button").handlers.click();
+  assert.equal(element("conclusion").textContent,"Median wins throughout");
+  assert.equal(element("status").dataset.state,"success");
+});
+
 function loadLab(search="",hash="") {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/);

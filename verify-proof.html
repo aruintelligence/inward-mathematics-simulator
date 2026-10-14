@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081621">
+  <title>Proof Inspector | Inward Mathematics™</title>
+  <meta name="description" content="Verify a Target Lens proof receipt locally in your browser with exact integer arithmetic.">
+  <link rel="canonical" href="https://aruintelligence.github.io/inward-mathematics-simulator/verify-proof.html">
+  <style>
+    :root {color-scheme:dark;--bg:#081621;--surface:#112b39;--surface2:#0d2230;--line:#446473;--text:#eff8f7;--muted:#c2d4d7;--mint:#60ebc3;--gold:#ffcf83;--rose:#ff9ba8}
+    * {box-sizing:border-box}
+    body {margin:0;min-width:320px;background:radial-gradient(circle at 75% 0,#145c50 0,transparent 39%),radial-gradient(circle at 4% 58%,#164059 0,transparent 42%),var(--bg);color:var(--text);font:17px/1.52 system-ui,-apple-system,Segoe UI,sans-serif}
+    a {color:var(--mint)}
+    a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible {outline:3px solid var(--gold);outline-offset:3px}
+    .wrap {width:min(1080px,calc(100% - 36px));margin:auto}
+    .skip {position:absolute;top:-80px;left:18px;background:var(--gold);color:#17232a;padding:10px;border-radius:8px;z-index:4}.skip:focus {top:10px}
+    header {padding:24px 0;border-bottom:1px solid #ffffff1d}
+    nav {display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+    nav strong {font-size:.84rem;letter-spacing:.12em}
+    nav a {color:var(--text);text-decoration:none;font-size:.92rem}
+    nav a:hover {color:var(--mint)}
+    .hero {padding:66px 0 38px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(270px,.7fr);align-items:end;gap:30px}
+    .eyebrow {color:var(--mint);font-size:.75rem;font-weight:850;letter-spacing:.19em;text-transform:uppercase;margin:0 0 12px}
+    h1 {font-size:clamp(3.1rem,7vw,6.3rem);line-height:.98;letter-spacing:-.065em;margin:0;max-width:750px}
+    h1 em {font-style:normal;color:var(--gold)}
+    .lead {max-width:690px;color:#d5e3e4;font-size:1.18rem;margin:24px 0 0}
+    .seal {border:1px solid #72b0a2;border-radius:24px;padding:24px;background:radial-gradient(circle at 88% 7%,#286b59,#123945 65%,#102536);box-shadow:0 24px 65px #0005}
+    .seal .icon {display:block;color:var(--mint);font:600 3rem/1 ui-monospace,monospace;margin-bottom:18px}
+    .seal strong {display:block;font-size:1.3rem;line-height:1.2}
+    .seal p {color:var(--muted);margin:10px 0 0;font-size:.91rem}
+    .card {border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#123a45,var(--surface2));padding:clamp(20px,4vw,36px);box-shadow:0 22px 60px #0004}
+    h2 {font-size:clamp(1.7rem,3vw,2.5rem);line-height:1.13;letter-spacing:-.035em;margin:0 0 10px}
+    .intro {color:var(--muted);margin:0 0 23px}
+    .controls {display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0}
+    button,.file-label {display:inline-flex;align-items:center;justify-content:center;min-height:46px;border-radius:10px;padding:10px 16px;font:800 .95rem system-ui,sans-serif;cursor:pointer}
+    button {border:1px solid var(--mint);background:var(--mint);color:#062820}
+    button:hover,.file-label:hover {filter:brightness(1.12)}
+    .file-label {border:1px solid #629993;background:#22434d;color:var(--text)}
+    .file-label input {position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
+    .file-label:focus-within {outline:3px solid var(--gold);outline-offset:3px}
+    .file-name {color:var(--muted);font-size:.9rem;overflow-wrap:anywhere}
+    details {margin-top:15px}
+    summary {color:var(--mint);cursor:pointer;font-weight:750}
+    textarea {display:block;width:100%;min-height:160px;margin:14px 0 0;padding:15px;border:1px solid #659097;border-radius:12px;background:#071d2b;color:var(--text);font:13px/1.48 ui-monospace,SFMono-Regular,monospace;resize:vertical}
+    .status {min-height:27px;font-weight:750;color:var(--muted)}
+    .status[data-state="error"] {color:var(--rose)}
+    .status[data-state="success"] {color:var(--mint)}
+    .result {margin:26px 0 0;border:1px solid #68ad99;border-radius:18px;background:#0c2d38;padding:clamp(18px,3vw,26px)}
+    .result h3 {font-size:1.65rem;letter-spacing:-.03em;margin:0 0 8px}
+    .result p {color:var(--muted);margin:6px 0 17px}
+    .measures {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .measure {border:1px solid #49717b;background:#0b2330;padding:15px;border-radius:11px;overflow-wrap:anywhere}
+    .measure small {display:block;color:var(--muted);font-size:.8rem;margin-bottom:4px}
+    .measure strong {font:700 .98rem/1.35 ui-monospace,SFMono-Regular,monospace}
+    .scope {margin:32px 0 55px;border-left:3px solid var(--gold);padding:5px 0 5px 20px;color:var(--muted)}
+    .scope strong {color:var(--text)}
+    footer {border-top:1px solid #ffffff28;padding:22px 0 35px;font-size:.83rem;color:var(--muted)}
+    @media(max-width:720px) {.hero {grid-template-columns:1fr;padding-top:45px}.seal {max-width:460px}.measures {grid-template-columns:1fr}}
+    @media(prefers-reduced-motion:reduce) {* {scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#inspector">Skip to verifier</a>
+  <header><nav class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="target-lens.html">Make a receipt in Target Lens ↗</a></nav></header>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="title">
+      <div><p class="eyebrow">Proof inspector / exact arithmetic</p><h1 id="title">Bring the claim.<br><em>Check the math.</em></h1><p class="lead">A Target Lens receipt is a portable claim about five readings and a range of possible targets. This page recomputes its bounds and checks any tie witness in your browser.</p></div>
+      <div class="seal"><span class="icon" aria-hidden="true">(x − m)(x + m − 2t)</span><strong>One equation.<br>Every allowed configuration.</strong><p>Five reading intervals, one target interval, exact integer arithmetic.</p></div>
+    </section>
+    <section class="card" id="inspector" aria-labelledby="inspector-title">
+      <p class="eyebrow">01 / Inspect a receipt</p><h2 id="inspector-title">Verify a JSON proof receipt</h2>
+      <p class="intro">Download a receipt from Target Lens, then choose it here or paste its JSON. The file stays on this device; verification does not upload it.</p>
+      <div class="controls"><label class="file-label">Choose JSON receipt<input id="receipt-file" type="file" accept=".json,application/json"></label><span class="file-name" id="file-name">No file selected</span><button id="verify-button" type="button">Verify receipt →</button></div>
+      <details id="paste-details"><summary>Or paste receipt JSON</summary><label for="receipt-json">Receipt JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste the complete Target Lens proof receipt here"></textarea></details>
+      <p class="status" id="status" role="status" aria-live="polite">Ready to inspect.</p>
+      <div class="result" id="result" hidden>
+        <p class="eyebrow">02 / Independently checked</p><h3 id="conclusion"></h3><p id="explanation"></p>
+        <div class="measures"><div class="measure"><small>Five original readings</small><strong id="readings"></strong></div><div class="measure"><small>Target interval · allowed drift</small><strong id="domain"></strong></div><div class="measure"><small>Mean − median factor</small><strong id="estimate-factor"></strong></div><div class="measure"><small>Mean + median − 2 × target factor</small><strong id="reference-factor"></strong></div></div>
+        <p id="witness-note"></p>
+      </div>
+    </section>
+    <p class="scope"><strong>What verification means.</strong> The inspector checks the claimed exact extrema, strict winner or attainable tie, tie-target band, and any tie witness against the stated bounds. It does not authenticate where the five numbers came from, validate the target, or establish performance on real populations. <a href="tools/target-lens-proof-core.js">Inspect the verifier source</a> or run it offline with Node.</p>
+  </main>
+  <footer><div class="wrap">Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</div></footer>
+  <script src="tools/target-lens-proof-core.js?v=574194b568fd"></script>
+  <script>
+  (()=>{
+    "use strict";
+    const $=id=>document.getElementById(id);
+    let fileText="";
+    const number=units=>String(Number((units/1000000).toFixed(6)));
+    const factor=units=>String(Number((units/5000000).toFixed(7)));
+    const range=(values,format)=>"["+values.map(format).join(", ")+"]";
+    const reset=()=>{$("result").hidden=true;};
+    const status=(message,state)=>{$("status").textContent=message;$("status").dataset.state=state;};
+    $("receipt-file").addEventListener("change",async event=>{
+      reset();
+      const file=event.target.files?.[0];
+      fileText="";
+      $("receipt-json").value="";
+      $("file-name").textContent=file?file.name:"No file selected";
+      if(!file) return status("Choose a receipt or paste JSON.","error");
+      if(file.size>1000000) return status("Receipt exceeds the 1 MB limit.","error");
+      try {fileText=await file.text();status("Receipt loaded. Select Verify receipt.","");}
+      catch (_) {status("Could not read this file.","error");}
+    });
+    $("receipt-json").addEventListener("input",()=>{reset();fileText="";$("receipt-file").value="";$("file-name").textContent="Using pasted JSON";status("Ready to verify pasted JSON.","");});
+    $("verify-button").addEventListener("click",()=>{
+      reset();
+      const source=$("receipt-json").value.trim()||fileText;
+      if(!source) return status("Choose a receipt or paste its JSON first.","error");
+      if(source.length>1000000) return status("Receipt exceeds the 1 MB limit.","error");
+      try {
+        const receipt=JSON.parse(source);
+        const verdict=window.TargetLensVerifier.verify(receipt);
+        const claim=receipt.claim,inputs=receipt.inputs;
+        $("conclusion").textContent=verdict.kind==="strict"?verdict.winner+" wins throughout":verdict.kind==="all-tie"?"Every configuration ties":"A tie is attainable";
+        $("explanation").textContent=verdict.kind==="strict"?"Both factor ranges stay away from zero. Their signs certify the same strict winner for every allowed reading and target.":verdict.kind==="all-tie"?"The estimates coincide throughout the allowed readings, so every target ties.":"The exact witness ties the two absolute errors within the stated reading and target bounds.";
+        $("readings").textContent=inputs.readings.map(number).join(" · ");
+        $("domain").textContent=number(inputs.low)+" to "+number(inputs.high)+" · ε = "+number(inputs.drift);
+        $("estimate-factor").textContent=range(claim.estimateRange,factor);
+        $("reference-factor").textContent=range(claim.referenceRange,factor);
+        $("witness-note").textContent=verdict.kind==="tie-possible"?(claim.witness.path?"Rational path witness checked at fraction "+claim.witness.path.numerator+"/"+claim.witness.path.denominator+" between admissible endpoints.":"Exact endpoint tie witness checked inside the allowed box."):"The universal conclusion follows from the complete factor bounds; no single witness is needed.";
+        $("result").hidden=false;
+        status("Verified. The receipt's mathematical claim matches its inputs.","success");
+      } catch(error) {status("Could not verify: "+error.message,"error");}
+    });
+  })();
+  </script>
+</body>
+</html>
