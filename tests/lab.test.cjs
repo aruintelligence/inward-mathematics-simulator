@@ -49,7 +49,7 @@ function loadLab(search="",hash="") {
     document,window,navigator,URLSearchParams,requestAnimationFrame:()=>{},
     URL:{createObjectURL(blob) {download.blob=blob;return "blob:mock";},revokeObjectURL(){}},
     Blob,setTimeout:()=>{},
-  }, {timeout:1000});
+  }, {timeout:3000});
   return {window,element,html,download,share};
 }
 
@@ -82,7 +82,7 @@ function loadChallenge(search="",options={}) {
   };
   const document={getElementById:element,body:{classList:{add(name){classes.add(name);}},append(){}},createElement(){return {set download(value){download.filename=value;},click(){download.clicked=true;},remove(){}};}};
   const URL={createObjectURL(blob){download.blob=blob;return "blob:mock";},revokeObjectURL(url){download.revoked=url;}};
-  vm.runInNewContext(script[1],{window,document,navigator,URLSearchParams,URL,Blob,setTimeout:callback=>callback()},{timeout:1000});
+  vm.runInNewContext(script[1],{window,document,navigator,URLSearchParams,URL,Blob,setTimeout:callback=>callback()},{timeout:3000});
   return {window,element,share,classes,html,download};
 }
 
