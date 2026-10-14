@@ -187,11 +187,12 @@
     ruler.style.setProperty("--low",current.low+"%");
     ruler.style.setProperty("--high",current.high+"%");
     ruler.setAttribute("aria-label","Possible target range "+fmt(current.low)+" to "+fmt(current.high)+
-      "; "+$("interval-badge").textContent+". "+(sameEstimate?"Every target ties.":"Exact crossover "+fmt(boundary)+"."));
+      "; "+$("interval-badge").textContent+". "+(sameEstimate?"Mean and median coincide.":"Exact crossover "+fmt(boundary)+"."));
     $("interval-tie-mark").hidden=sameEstimate;
     $("interval-tie-label").textContent=sameEstimate?"Estimates coincide":"Tie at "+fmt(boundary);
-    $("interval-endpoints").textContent="At "+fmt(current.low)+": "+certificate.lower+
-      ". At "+fmt(current.high)+": "+certificate.upper+".";
+    $("interval-endpoints").textContent=current.low===current.high
+      ?"At "+fmt(current.low)+": "+certificate.lower+"."
+      :"At "+fmt(current.low)+": "+certificate.lower+". At "+fmt(current.high)+": "+certificate.upper+".";
     $("interval-proof-text").textContent=certificate.kind==="all-tie"
       ?"The mean and median are the same, so every target in this entire range ties."
       :certificate.kind==="tie-only"

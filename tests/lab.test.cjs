@@ -1646,7 +1646,7 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="witness-grid" role="group"/);
   assert.match(html,/\.witness-grid\[hidden\],\.witness-all-tie\[hidden\] \{ display:none; \}/);
   assert.match(html,/id="interval-ruler" role="img"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-interval"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-interval-polish"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1744,6 +1744,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("interval-badge").textContent,"Median or tie");
   element("interval-low").handlers.input({target:{value:"53.3"}});
   assert.equal(element("interval-badge").textContent,"Exact tie only");
+  assert.equal(element("interval-endpoints").textContent,"At 53.3: Equal.");
   assert.match(address.at(-1),/lo=53\.3&hi=53\.3$/);
   element("interval-low").handlers.input({target:{value:"70"}});
   assert.match(element("interval-error").textContent,/low ≤ high/);
@@ -1754,6 +1755,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("witness-all-tie").textContent,/every target/);
   assert.match(element("proof-factors").textContent,/zero for every target/);
   assert.equal(element("interval-badge").textContent,"Every target ties");
+  assert.match(element("interval-ruler").attributes["aria-label"],/Mean and median coincide\./);
   assert.equal(element("interval-span").disabled,true);
   assert.equal(element("interval-tie-mark").hidden,true);
 });

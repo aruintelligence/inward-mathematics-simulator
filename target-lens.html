@@ -142,7 +142,7 @@
     .interval-ruler { position:relative; height:48px; overflow:hidden; border:1px solid #79a8a7; border-radius:10px; background:linear-gradient(to right,#135b50 0 var(--break),#6b4a29 var(--break) 100%); }
     .interval-ruler[data-left="Mean"] { background:linear-gradient(to right,#6b4a29 0 var(--break),#135b50 var(--break) 100%); }
     .interval-ruler[data-kind="all-tie"] { background:#155072; }
-    .interval-window { position:absolute; top:6px; bottom:6px; left:var(--low); width:calc(var(--high) - var(--low)); min-width:7px; border:3px solid #ffdc9b; border-radius:5px; background:#fff2ca4d; box-shadow:0 0 16px #ffcb78aa; }
+    .interval-window { position:absolute; top:6px; bottom:6px; left:clamp(0px,min(var(--low),calc(var(--high) - 7px)),calc(100% - 7px)); width:max(7px,calc(var(--high) - var(--low))); border:3px solid #ffdc9b; border-radius:5px; background:#fff2ca4d; box-shadow:0 0 16px #ffcb78aa; }
     .interval-tie-mark { position:absolute; left:var(--break); top:0; bottom:0; width:2px; transform:translateX(-1px); background:#e9f8ff; box-shadow:0 0 8px #fff; }
     .interval-scale { display:flex; justify-content:space-between; gap:12px; margin:6px 0 14px; color:#c4e1e9; font-size:.75rem; }
     .interval-proof-text { margin:0; padding:15px 17px; border:1px solid #5e8c96; border-radius:11px; background:#08202f; color:#f0f8f4; font-size:.92rem; }
@@ -248,7 +248,7 @@
           <div class="interval-scale" aria-hidden="true"><span>0</span><span id="interval-tie-label">Tie at 53.3</span><span>100</span></div>
           <p class="interval-proof-text" id="interval-proof-text">The entire range stays below the crossover.</p>
           <p class="interval-endpoints" id="interval-endpoints">At 48: Median. At 52: Median.</p>
-          <p class="scope">For distinct estimates, the squared-error difference has one zero, at their midpoint; coincident estimates tie everywhere. This certifies the full continuous interval from exact six-decimal endpoints, without assuming a probability distribution or verifying any target.</p>
+          <p class="scope">For distinct estimates, the squared-error difference has one zero, at their midpoint; coincident estimates tie everywhere. Very narrow bands are widened on the ruler for visibility; the certificate uses exact six-decimal endpoints and assumes no probability distribution or verified target.</p>
         </section>
       </section>
       <div class="under">
@@ -272,6 +272,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-interval"></script>
+  <script src="target-lens.js?v=20261014-interval-polish"></script>
 </body>
 </html>
