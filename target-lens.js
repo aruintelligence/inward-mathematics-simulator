@@ -229,6 +229,35 @@
     return {kind:"unreachable",strictBelow,checkedAtCount:0,count:null,mask:null,certificate:null};
   }
 
+  function supportTieAtlas(values,epsilon) {
+    if(!Number.isFinite(epsilon)||epsilon<0||epsilon>100) throw new RangeError("Invalid reading drift");
+    const denominator=10*TARGET_SCALE;
+    const rows=Array.from({length:6},(_,count)=>({count,kind:"band",
+      lowerNumerator:Infinity,upperNumerator:-Infinity,denominator}));
+    // Every subset box contains the unperturbed readings. Its continuous
+    // midpoint image is an interval through the baseline midpoint, so the
+    // union for a support budget has no gaps. A coincident-estimate witness
+    // anywhere in that union extends its tie set to every target.
+    for(let mask=0;mask<32;mask++) {
+      let bits=mask,count=0;
+      while(bits) {count+=bits&1; bits>>=1;}
+      const tie=certifyJointUncertainty(values,0,0,epsilon,mask).tieTargets;
+      const row=rows[count];
+      row.lowerNumerator=Math.min(row.lowerNumerator,tie.lowerNumerator);
+      row.upperNumerator=Math.max(row.upperNumerator,tie.upperNumerator);
+      if(tie.kind==="all") row.kind="all";
+    }
+    // A box with fewer than k movable readings is contained in a box with
+    // exactly k, giving the same attainable set for "at most k".
+    for(let count=1;count<=5;count++) {
+      const previous=rows[count-1],row=rows[count];
+      if(row.lowerNumerator>previous.lowerNumerator||row.upperNumerator<previous.upperNumerator||
+        previous.kind==="all"&&row.kind!=="all")
+        throw new Error("Support tie sets must be nested");
+    }
+    return rows;
+  }
+
   function supportFrontier(values,low,high) {
     // A k-reading box contains every smaller-support box after adding fixed
     // readings to its mask. Checking every mask of size k therefore certifies
@@ -493,7 +522,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportTieAtlas,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -565,6 +594,7 @@
   let witnesses=targetWitnesses(current.values);
   let cachedEdge={key:null,result:null};
   let cachedPoint={key:null,result:null};
+  let cachedDepth={key:null,rows:null};
   let edgeProofCopy="";
   let sparseProofCopy="";
   const supplied=parseView(window.location.search);
@@ -737,6 +767,40 @@
         "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
     const sparse=minimumTieSupport(current.values,current.low,current.high,current.epsilon);
     const sparseReachable=sparse.kind==="tie";
+    const depthKey=current.values.map(value=>Math.round(value*TARGET_SCALE)).join(",")+"|"+
+      Math.round(current.epsilon*TARGET_SCALE);
+    if(cachedDepth.key!==depthKey) cachedDepth={key:depthKey,
+      rows:supportTieAtlas(current.values,current.epsilon)};
+    const depth=cachedDepth.rows;
+    const intersects=row=>row.kind==="all"||
+      Math.round(current.low*TARGET_SCALE)*10<=row.upperNumerator&&
+      Math.round(current.high*TARGET_SCALE)*10>=row.lowerNumerator;
+    const firstDepth=depth.find(intersects);
+    if((!!firstDepth)!==sparseReachable||firstDepth&&firstDepth.count!==sparse.count||
+      depth[5].kind!==exact.tieTargets.kind||
+      depth[5].lowerNumerator!==exact.tieTargets.lowerNumerator||
+      depth[5].upperNumerator!==exact.tieTargets.upperNumerator)
+      throw new Error("Tie depth atlas disagrees with the exact certificates");
+    for(const row of depth) {
+      const low=fmtTieTarget(row.lowerNumerator),high=fmtTieTarget(row.upperNumerator);
+      const track=$("depth-track-"+row.count),label=$("depth-label-"+row.count);
+      track.dataset.kind=row.kind;
+      track.style.setProperty("--tie-start",(row.kind==="all"?0:row.lowerNumerator/row.denominator)+"%");
+      track.style.setProperty("--tie-end",(row.kind==="all"?100:row.upperNumerator/row.denominator)+"%");
+      track.style.setProperty("--range-start",current.low+"%");
+      track.style.setProperty("--range-end",current.high+"%");
+      track.setAttribute("aria-label","At most "+row.count+" readings move by ε = "+fmt(current.epsilon)+
+        ". "+(row.kind==="all"?"Every target can tie":"Tie targets "+low+" to "+high)+
+        ". Selected range "+fmt(current.low)+" to "+fmt(current.high)+
+        (intersects(row)?" intersects.":" is outside."));
+      label.textContent=row.kind==="all"?"Every target can tie":
+        low===high?"Tie at "+low:"Tie: "+low+"–"+high;
+      $("depth-row-"+row.count).dataset.first=String(firstDepth===row);
+    }
+    $("depth-conclusion").textContent=firstDepth?
+      "The selected range first reaches a tie with at most "+firstDepth.count+
+        " movable reading"+(firstDepth.count===1?"":"s")+". Every smaller budget is strictly excluded.":
+      "The selected range cannot tie even when all five readings may move by this drift.";
     $("sparse-count").textContent=sparseReachable?String(sparse.count):"—";
     $("sparse-status").textContent=sparseReachable?
       sparse.count===0?"Already ties without moving readings":
