@@ -229,6 +229,37 @@
     return {kind:"unreachable",strictBelow,checkedAtCount:0,count:null,mask:null,certificate:null};
   }
 
+  function supportFrontier(values,low,high) {
+    // A k-reading box contains every smaller-support box after adding fixed
+    // readings to its mask. Checking every mask of size k therefore certifies
+    // the first tie with at most k movable readings.
+    const baseline=certifyJointUncertainty(values,low,high,0,0);
+    if(baseline.kind!=="strict") return {kind:"baseline-tie",rows:[]};
+    const rows=[];
+    let previous=100*TARGET_SCALE;
+    for(let count=1;count<=5;count++) {
+      let best=null,bestMask=null;
+      for(let mask=1;mask<32;mask++) {
+        let bits=mask,population=0;
+        while(bits) {population+=bits&1; bits>>=1;}
+        if(population!==count) continue;
+        const canTie=units=>certifyJointUncertainty(values,low,high,units/TARGET_SCALE,mask).kind!=="strict";
+        const upper=best===null?previous:best;
+        if(!canTie(upper)) continue;
+        let strict=0,tie=upper;
+        while(tie-strict>1) {
+          const middle=Math.floor((strict+tie)/2);
+          if(canTie(middle)) tie=middle;
+          else strict=middle;
+        }
+        if(best===null||tie<best) {best=tie; bestMask=mask;}
+      }
+      rows.push({count,firstTieUnits:best,mask:bestMask});
+      if(best!==null) previous=best;
+    }
+    return {kind:"frontier",rows};
+  }
+
   function continuousStabilityThreshold(values,low,high) {
     const baseline=certifyJointUncertainty(values,low,high,0);
     if(baseline.kind!=="strict") return {kind:"no-baseline"};
@@ -362,7 +393,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -561,9 +592,11 @@
       Math.round(current.low*TARGET_SCALE)+"|"+Math.round(current.high*TARGET_SCALE);
     if(cachedEdge.key!==edgeKey) cachedEdge={key:edgeKey,
       result:stabilityEdge(current.values,current.low,current.high),
-      threshold:continuousStabilityThreshold(current.values,current.low,current.high)};
+      threshold:continuousStabilityThreshold(current.values,current.low,current.high),
+      frontier:supportFrontier(current.values,current.low,current.high)};
     const edge=cachedEdge.result;
     const threshold=cachedEdge.threshold;
+    const frontier=cachedEdge.frontier;
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -638,6 +671,22 @@
         "Reproduce view: "+new URL(viewUrl(),window.location.href).href].join("\n");
     } else sparseProofCopy="";
     $("sparse-copy-status").textContent="";
+    $("frontier-rows").hidden=frontier.kind!=="frontier";
+    $("frontier-proof").textContent=frontier.kind==="baseline-tie"
+      ?"The fixed readings already tie at a target in this range. No reading change is needed."
+      :"For each finite row, every subset of that size is strict one input step below its threshold, across every real reading adjustment and target in the range. Nested boxes exclude all smaller selectable settings; the listed subset ties at the threshold. Unreachable rows stay strict through ε = 100. More movable readings can only bring the first tie earlier.";
+    if(frontier.kind==="frontier") for(const row of frontier.rows) {
+      const {count,firstTieUnits,mask}=row,reachable=firstTieUnits!==null;
+      const selected=reachable&&Math.round(current.epsilon*TARGET_SCALE)>=firstTieUnits;
+      const item=$("frontier-row-"+count);
+      item.dataset.reached=String(selected);
+      item.dataset.current=String(selected&&count===sparse.count);
+      $("frontier-threshold-"+count).textContent=reachable?"ε = "+fmt(firstTieUnits/TARGET_SCALE):"No tie through ε = 100";
+      $("frontier-selection-"+count).textContent=reachable?
+        "Witness subset: "+Array.from({length:5},(_,index)=>index+1).filter(index=>mask&(1<<(index-1))).join(", "):
+        "No subset of this size can force a tie";
+      $("frontier-button-"+count).disabled=!reachable;
+    }
     const tieTargets=exact.tieTargets,allTieTargets=tieTargets.kind==="all";
     const bandLow=fmtTieTarget(tieTargets.lowerNumerator),bandHigh=fmtTieTarget(tieTargets.upperNumerator);
     const targetOverlap=allTieTargets||
@@ -803,6 +852,14 @@
       render();
     });
   }
+  for(let count=1;count<=5;count++) $("frontier-button-"+count).addEventListener("click",()=>{
+    const row=cachedEdge.frontier.rows[count-1];
+    if(row?.firstTieUnits===null||!row) return;
+    current.epsilon=row.firstTieUnits/TARGET_SCALE;
+    $("drift-error").textContent="";
+    render();
+    $("sparse-witness").scrollIntoView({block:"center"});
+  });
   $("edge-copy").addEventListener("click",async()=>{
     if(!edgeProofCopy) return;
     try {
