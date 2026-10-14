@@ -10,21 +10,30 @@
   const readingPattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,4})?$/;
   const targetPattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,6})?$/;
   const TARGET_SCALE=1000000;
+  const DEFAULT_RADIUS=2;
 
   function validNumber(raw,pattern) {
     if(!pattern.test(raw)) return null;
     const value=Number(raw);
     return Number.isFinite(value)&&value>=0&&value<=100?value:null;
   }
+  function defaultInterval(target) {
+    return {low:Math.round(Math.max(0,target-DEFAULT_RADIUS)*TARGET_SCALE)/TARGET_SCALE,
+      high:Math.round(Math.min(100,target+DEFAULT_RADIUS)*TARGET_SCALE)/TARGET_SCALE};
+  }
   function parseView(search) {
     const params=new URLSearchParams(search);
-    if(!params.has("values")&&!params.has("target")) return null;
+    if(!["values","target","lo","hi"].some(key=>params.has(key))) return null;
     if(params.getAll("values").length!==1||params.getAll("target").length!==1) return false;
+    const hasLow=params.has("lo"),hasHigh=params.has("hi");
+    if(hasLow!==hasHigh||params.getAll("lo").length>1||params.getAll("hi").length>1) return false;
     const raw=params.get("values").split(",");
     if(raw.length!==5) return false;
     const values=raw.map(part=>validNumber(part,readingPattern));
     const target=validNumber(params.get("target"),targetPattern);
-    return values.some(value=>value===null)||target===null?false:{values,target,label:"Shared case"};
+    if(values.some(value=>value===null)||target===null) return false;
+    const interval=hasLow?{low:validNumber(params.get("lo"),targetPattern),high:validNumber(params.get("hi"),targetPattern)}:defaultInterval(target);
+    return interval.low===null||interval.high===null||interval.low>interval.high?false:{values,target,...interval,label:"Shared case"};
   }
   function estimateUnits(values) {
     const readings=values.map(value=>Math.round(value*10000));
@@ -53,22 +62,36 @@
     });
     return {sameEstimate:false,targets};
   }
+  function certifyInterval(values,low,high) {
+    if(!Number.isFinite(low)||!Number.isFinite(high)||low<0||high>100||low>high) throw new RangeError("Invalid target interval");
+    const {meanUnits,medianUnits}=estimateUnits(values);
+    const boundaryUnits=(meanUnits+medianUnits)/2;
+    const lower=evaluate(values,low).winner,upper=evaluate(values,high).winner;
+    const sameEstimate=meanUnits===medianUnits;
+    const kind=sameEstimate?"all-tie":lower===upper?(lower==="Equal"?"tie-only":"robust"):
+      lower==="Equal"||upper==="Equal"?"touches":"crosses";
+    const winner=kind==="robust"?lower:kind==="touches"?(lower==="Equal"?upper:lower):null;
+    const margin=kind==="robust"?Math.min(Math.abs(Math.round(low*TARGET_SCALE)-boundaryUnits),
+      Math.abs(Math.round(high*TARGET_SCALE)-boundaryUnits))/TARGET_SCALE:0;
+    return {kind,winner,lower,upper,low,high,boundary:boundaryUnits/TARGET_SCALE,margin,sameEstimate};
+  }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
-  let current={...PRESETS.a,values:[...PRESETS.a.values],key:"a"};
+  let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
   if(supplied===false) $("input-error").textContent="That shared view is invalid. Case A is loaded instead.";
 
   function viewUrl() {
-    return "target-lens.html?values="+encodeURIComponent(current.values.map(fmt).join(","))+"&target="+fmt(current.target);
+    return "target-lens.html?values="+encodeURIComponent(current.values.map(fmt).join(","))+"&target="+fmt(current.target)+
+      "&lo="+fmt(current.low)+"&hi="+fmt(current.high);
   }
   function updateAddress() {
     try { window.history.replaceState(null,"",viewUrl()); } catch (_) { /* Local file views still work. */ }
@@ -149,6 +172,38 @@
         ", and (mean + median − 2×target) = "+fmt(result.referenceGap)+
         ". Their product is "+(winner==="Equal"?"zero (a tie).":winner==="Mean"?"negative (mean closer).":"positive (median closer).");
 
+    const certificate=certifyInterval(current.values,current.low,current.high);
+    if(document.activeElement!==$("interval-low")) $("interval-low").value=fmt(current.low);
+    if(document.activeElement!==$("interval-high")) $("interval-high").value=fmt(current.high);
+    $("interval-span").disabled=sameEstimate;
+    $("interval-badge").dataset.kind=certificate.kind;
+    $("interval-badge").textContent=certificate.kind==="all-tie"?"Every target ties":
+      certificate.kind==="tie-only"?"Exact tie only":certificate.kind==="crosses"?"Both winners possible":
+        certificate.kind==="touches"?certificate.winner+" or tie":certificate.winner+" throughout";
+    const ruler=$("interval-ruler");
+    ruler.dataset.kind=certificate.kind;
+    ruler.dataset.left=left;
+    ruler.style.setProperty("--break",certificate.boundary+"%");
+    ruler.style.setProperty("--low",current.low+"%");
+    ruler.style.setProperty("--high",current.high+"%");
+    ruler.setAttribute("aria-label","Possible target range "+fmt(current.low)+" to "+fmt(current.high)+
+      "; "+$("interval-badge").textContent+". "+(sameEstimate?"Every target ties.":"Exact crossover "+fmt(boundary)+"."));
+    $("interval-tie-mark").hidden=sameEstimate;
+    $("interval-tie-label").textContent=sameEstimate?"Estimates coincide":"Tie at "+fmt(boundary);
+    $("interval-endpoints").textContent="At "+fmt(current.low)+": "+certificate.lower+
+      ". At "+fmt(current.high)+": "+certificate.upper+".";
+    $("interval-proof-text").textContent=certificate.kind==="all-tie"
+      ?"The mean and median are the same, so every target in this entire range ties."
+      :certificate.kind==="tie-only"
+        ?"This single target is the exact crossover. Both errors tie here."
+        :certificate.kind==="robust"
+          ?"The entire range stays on one side of the only crossover at "+fmt(boundary)+
+            ". "+certificate.winner+" is strictly closer at every target in it; the nearest endpoint is "+fmt(certificate.margin)+" from a tie."
+          :certificate.kind==="touches"
+            ?"The range touches the crossover at "+fmt(boundary)+". "+certificate.winner+" is strictly closer at every other target in it."
+            :"The range crosses "+fmt(boundary)+". Its endpoints prove a strict "+certificate.lower.toLowerCase()+
+              " win and a strict "+certificate.upper.toLowerCase()+" win, with a tie between them. No one strict winner covers the range.";
+
     $("open-view").href=viewUrl();
     $("share-status").textContent="";
     updateAddress();
@@ -170,10 +225,34 @@
   });
   $("jump-tie").addEventListener("click",()=>setTarget(fmt(evaluate(current.values,current.target).boundary)));
   document.querySelectorAll(".witness").forEach((button,index)=>button.addEventListener("click",()=>setTarget(fmt(witnesses.targets[index].target))));
+  function setIntervalEnd(key,raw) {
+    const parsed=validNumber(String(raw),targetPattern);
+    if(parsed===null||key==="low"&&parsed>current.high||key==="high"&&parsed<current.low) {
+      $("interval-error").textContent="Use bounds from 0 to 100, at most six decimal places, with low ≤ high.";
+      return;
+    }
+    $("interval-error").textContent="";
+    current[key]=parsed;
+    render();
+  }
+  for(const [id,key] of [["interval-low","low"],["interval-high","high"]]) {
+    $(id).addEventListener("input",event=>setIntervalEnd(key,event.target.value));
+    $(id).addEventListener("change",event=>{
+      event.target.value=fmt(current[key]);
+    });
+  }
+  $("interval-span").addEventListener("click",()=>{
+    const {mean,median}=evaluate(current.values,current.target);
+    current.low=Math.min(mean,median);
+    current.high=Math.max(mean,median);
+    $("interval-error").textContent="";
+    render();
+  });
   document.querySelectorAll(".preset").forEach(button=>button.addEventListener("click",()=>{
     const selected=button.dataset.case;
-    current={...PRESETS[selected],values:[...PRESETS[selected].values],key:selected};
+    current={...PRESETS[selected],...defaultInterval(PRESETS[selected].target),values:[...PRESETS[selected].values],key:selected};
     $("input-error").textContent="";
+    $("interval-error").textContent="";
     render();
   }));
   $("copy-view").addEventListener("click",async()=>{
