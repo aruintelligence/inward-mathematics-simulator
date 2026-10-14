@@ -197,6 +197,111 @@
       lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
   }
 
+  function continuousStabilityThreshold(values,low,high) {
+    const baseline=certifyJointUncertainty(values,low,high,0);
+    if(baseline.kind!=="strict") return {kind:"no-baseline"};
+    const readings=values.map(value=>Math.round(value*TARGET_SCALE));
+    const max=100*TARGET_SCALE,scale=2*max;
+    const stops=new Set([0,scale]);
+    for(const value of readings) { stops.add(2*value); stops.add(2*(max-value)); }
+    for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) stops.add(Math.abs(readings[i]-readings[j]));
+    const landmarks=[...stops].sort((a,b)=>a-b);
+    const signEstimate=Math.sign(baseline.estimateRangeUnits[0]);
+    const signReference=Math.sign(baseline.referenceRangeUnits[0]);
+    const lowTarget=2*Math.round(low*TARGET_SCALE),highTarget=2*Math.round(high*TARGET_SCALE);
+    const median=readings=>[...readings].sort((a,b)=>a-b)[2];
+    const sum=readings=>readings.reduce((total,value)=>total+value,0);
+    const bounds=h=>({lower:readings.map(value=>Math.max(0,2*value-h)),
+      upper:readings.map(value=>Math.min(scale,2*value+h))});
+    const groups=[];
+    for(let middle=0;middle<5;middle++) {
+      const other=[0,1,2,3,4].filter(index=>index!==middle);
+      for(let a=0;a<3;a++) for(let b=a+1;b<4;b++) {
+        const below=[other[a],other[b]];
+        groups.push({middle,below,above:other.filter(index=>!below.includes(index))});
+      }
+    }
+    const estimateAt=(box,group)=>{
+      const {lower,upper}=box,{middle,below,above}=group;
+      const lowest=Math.max(lower[middle],...below.map(index=>lower[index]));
+      const highest=Math.min(upper[middle],...above.map(index=>upper[index]));
+      if(lowest>highest) return null;
+      if(signEstimate>0) return signEstimate*(below.reduce((total,index)=>total+lower[index],0)+
+        above.reduce((total,index)=>total+Math.max(lower[index],highest),0)-4*highest);
+      return signEstimate*(above.reduce((total,index)=>total+upper[index],0)+
+        below.reduce((total,index)=>total+Math.min(upper[index],lowest),0)-4*lowest);
+    };
+    const referenceAt=box=>signReference*(signReference>0
+      ?sum(box.lower)+5*median(box.lower)-10*highTarget
+      :sum(box.upper)+5*median(box.upper)-10*lowTarget);
+    let first=null;
+    const consider=(h0,h1,f0,f1,factor,group=null)=>{
+      if(f0===null||f1===null) return;
+      let numerator,denominator;
+      if(f0<=0) { numerator=BigInt(h0); denominator=1n; }
+      else if(f1<=0) {
+        numerator=BigInt(h0)*BigInt(f0-f1)+BigInt(h1-h0)*BigInt(f0);
+        denominator=BigInt(f0-f1);
+      } else return;
+      if(first===null||numerator*first.denominator<first.numerator*denominator)
+        first={numerator,denominator,factor,group};
+    };
+    // Work in half-millionth reading units: every clipping, ordering, and
+    // median feasibility change lies at a reading endpoint or a half-gap.
+    // Within consecutive landmarks each of the 30 order assignments and
+    // each reference extreme is affine in the drift radius.
+    for(let index=1;index<landmarks.length;index++) {
+      const h0=landmarks[index-1],h1=landmarks[index];
+      const box0=bounds(h0),box1=bounds(h1);
+      consider(h0,h1,referenceAt(box0),referenceAt(box1),"reference");
+      for(const group of groups)
+        consider(h0,h1,estimateAt(box0,group),estimateAt(box1,group),"estimate",group);
+    }
+    if(first===null) throw new Error("A tie must be attainable by radius 100");
+    let divisor=first.numerator,rest=first.denominator;
+    while(rest!==0n) { const remainder=divisor%rest; divisor=rest; rest=remainder; }
+    first.numerator/=divisor;
+    first.denominator/=divisor;
+    const h=first.numerator,d=first.denominator,full=BigInt(scale)*d;
+    const lower=readings.map(value=>{
+      const raw=2n*BigInt(value)*d-h;
+      return raw<0n?0n:raw;
+    });
+    const upper=readings.map(value=>{
+      const raw=2n*BigInt(value)*d+h;
+      return raw>full?full:raw;
+    });
+    let tieReadings,targetNumerator;
+    if(first.factor==="reference") {
+      tieReadings=signReference>0?lower:upper;
+      targetNumerator=BigInt(signReference>0?highTarget:lowTarget)*d;
+    } else {
+      const {middle,below,above}=first.group;
+      if(signEstimate>0) {
+        const m=[middle,...above].reduce((value,index)=>upper[index]<value?upper[index]:value,full);
+        tieReadings=lower.map((value,index)=>index===middle?m:above.includes(index)&&value<m?m:value);
+      } else {
+        const m=[middle,...below].reduce((value,index)=>lower[index]>value?lower[index]:value,0n);
+        tieReadings=upper.map((value,index)=>index===middle?m:below.includes(index)&&value>m?m:value);
+      }
+      targetNumerator=BigInt(lowTarget)*d;
+    }
+    const tieSum=tieReadings.reduce((total,value)=>total+value,0n);
+    const tieMedian=[...tieReadings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+    const tiedFactor=first.factor==="estimate"?tieSum-5n*tieMedian:
+      tieSum+5n*tieMedian-10n*targetNumerator;
+    if(tiedFactor!==0n) throw new Error("The continuous boundary lacks an exact witness");
+    let numerator=first.numerator,denominator=first.denominator*BigInt(2*TARGET_SCALE);
+    let a=numerator,b=denominator;
+    while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
+    numerator/=a; denominator/=a;
+    const firstTieUnits=Number((numerator*BigInt(TARGET_SCALE)+denominator-1n)/denominator);
+    return {kind:"edge",winner:baseline.winner,factor:first.factor,
+      numerator:numerator.toString(),denominator:denominator.toString(),firstTieUnits,
+      witness:{readingsNumerators:tieReadings.map(value=>value.toString()),
+        targetNumerator:targetNumerator.toString(),denominator:(d*BigInt(2*TARGET_SCALE)).toString()}};
+  }
+
   function stabilityEdge(values,low,high) {
     const baseline=certifyJointUncertainty(values,low,high,0);
     if(baseline.kind!=="strict") return {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0};
@@ -212,12 +317,27 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,stabilityEdge};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
   const fmtFactor=units=>(units/(5*TARGET_SCALE)).toFixed(7).replace(/0+$/g,"").replace(/\.$/,"");
+  function fmtRational(rawNumerator,rawDenominator) {
+    let numerator=BigInt(rawNumerator),denominator=BigInt(rawDenominator);
+    if(numerator*BigInt(TARGET_SCALE)%denominator===0n)
+      return fmt(Number(numerator*BigInt(TARGET_SCALE)/denominator)/TARGET_SCALE);
+    let a=numerator,b=denominator;
+    while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
+    numerator/=a; denominator/=a;
+    return numerator+"/"+denominator;
+  }
+  function fmtThresholdApprox(numerator,denominator) {
+    const n=BigInt(numerator),d=BigInt(denominator),digits=1000000000n;
+    const scaled=n*digits/d;
+    const decimal=scaled/digits+"."+String(scaled%digits).padStart(9,"0");
+    return n*digits%d===0n?"= "+decimal.replace(/0+$/g,"").replace(/\.$/,""):"≈ "+decimal+"…";
+  }
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
@@ -347,8 +467,11 @@
     const exact=certifyJointUncertainty(current.values,current.low,current.high,current.epsilon);
     const edgeKey=current.values.map(value=>Math.round(value*TARGET_SCALE)).join(",")+"|"+
       Math.round(current.low*TARGET_SCALE)+"|"+Math.round(current.high*TARGET_SCALE);
-    if(cachedEdge.key!==edgeKey) cachedEdge={key:edgeKey,result:stabilityEdge(current.values,current.low,current.high)};
+    if(cachedEdge.key!==edgeKey) cachedEdge={key:edgeKey,
+      result:stabilityEdge(current.values,current.low,current.high),
+      threshold:continuousStabilityThreshold(current.values,current.low,current.high)};
     const edge=cachedEdge.result;
+    const threshold=cachedEdge.threshold;
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -377,13 +500,28 @@
       :"Exact tie witness: readings "+exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
         "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
+    $("edge-exact-fraction").textContent=threshold.kind==="edge"?
+      threshold.numerator+"/"+threshold.denominator:"—";
+    $("edge-exact-decimal").textContent=threshold.kind==="edge"?
+      fmtThresholdApprox(threshold.numerator,threshold.denominator):"";
     $("edge-first-tie").textContent=fmt(edge.firstTieUnits/TARGET_SCALE);
     $("edge-last-button").disabled=edge.kind!=="edge";
     $("edge-first-button").disabled=edge.kind!=="edge";
     $("edge-status").textContent=edge.kind==="edge"
       ?"For every allowed set of readings and target, "+edge.winner+" is strictly closer through "+fmt(edge.lastStrictUnits/TARGET_SCALE)+
-        ". At "+fmt(edge.firstTieUnits/TARGET_SCALE)+" a tie is possible. These adjacent settings differ by 0.000001; the exact continuous threshold lies between them."
+        ". The exact continuous threshold is "+threshold.numerator+"/"+threshold.denominator+
+        "; "+(threshold.factor==="estimate"?"mean − median":"mean + median − 2×target")+
+        " first reaches zero there. The first selectable tie setting is "+fmt(edge.firstTieUnits/TARGET_SCALE)+"."
       :"The target range already permits a tie at zero drift. Narrow it to find a strict stability edge.";
+    $("edge-proof").hidden=threshold.kind!=="edge";
+    if(threshold.kind==="edge") {
+      const proof=threshold.witness;
+      $("edge-proof-text").textContent="At exact drift "+threshold.numerator+"/"+threshold.denominator+
+        ", readings ["+proof.readingsNumerators.map(value=>fmtRational(value,proof.denominator)).join(", ")+
+        "] and target "+fmtRational(proof.targetNumerator,proof.denominator)+
+        (threshold.factor==="estimate"?" make the mean equal the median.":" put the target at the mean–median midpoint.")+
+        " Both absolute errors tie. All smaller drift boxes keep both factors away from zero.";
+    }
     $("drift-shortcut-status").textContent=drift.kind==="certified"?"Shortcut certifies "+drift.winner:
       drift.kind==="inconclusive"?"Shortcut inconclusive":"No strict baseline";
     $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
