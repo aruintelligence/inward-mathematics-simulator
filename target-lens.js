@@ -521,6 +521,7 @@
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
   let cachedEdge={key:null,result:null};
+  let cachedPoint={key:null,result:null};
   let edgeProofCopy="";
   let sparseProofCopy="";
   const supplied=parseView(window.location.search);
@@ -656,6 +657,12 @@
     const threshold=cachedEdge.threshold;
     const frontier=cachedEdge.frontier;
     const exactFrontier=cachedEdge.exactFrontier;
+    const pointKey=current.values.map(fmt).join(",")+"|"+fmt(current.target);
+    if(cachedPoint.key!==pointKey) cachedPoint={key:pointKey,
+      result:continuousStabilityThreshold(current.values,current.target,current.target)};
+    const pointEdge=cachedPoint.result;
+    if(pointEdge.kind!=="edge"&&pointEdge.kind!=="no-baseline")
+      throw new Error("Every target must tie when all five readings can move by 100");
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -798,6 +805,15 @@
     $("reach-map-switch-line").setAttribute("visibility",reach.switchExact?"visible":"hidden");
     $("reach-map-selection").setAttribute("x1",plotX(current.low).toFixed(3));
     $("reach-map-selection").setAttribute("x2",plotX(current.high).toFixed(3));
+    const pointEpsilon=pointEdge.kind==="edge"?
+      Number(pointEdge.numerator)/Number(pointEdge.denominator):0;
+    const pointX=plotX(current.target).toFixed(3),pointY=plotY(pointEpsilon).toFixed(3);
+    for(const id of ["reach-map-point-line","reach-map-point-dot"])
+      $(id).setAttribute(id.endsWith("line")?"x1":"cx",pointX);
+    $("reach-map-point-line").setAttribute("x2",pointX);
+    $("reach-map-point-line").setAttribute("y1","320");
+    $("reach-map-point-line").setAttribute("y2",pointY);
+    $("reach-map-point-dot").setAttribute("cy",pointY);
     $("reach-map-max").textContent=fmt(reach.maxEpsilon);
     const switchLabel=reach.switchExact?reach.switchExact.numerator+
       (reach.switchExact.denominator==="1"?"":"/"+reach.switchExact.denominator):"0";
@@ -810,7 +826,29 @@
       ". Midpoint ties fill a band until exact ε "+switchLabel+
       "; from that drift onward every target can tie. Selected target range "+fmt(current.low)+
       " to "+fmt(current.high)+" at ε "+fmt(current.epsilon)+". "+
-      (targetOverlap?"A tie is attainable.":"No tie is attainable at this setting."));
+      (targetOverlap?"A tie is attainable.":"No tie is attainable at this setting.")+
+      " The first tie at exact target "+fmt(current.target)+" is at ε "+
+      (pointEdge.kind==="edge"?pointEdge.numerator+"/"+pointEdge.denominator:"0")+".");
+    $("point-target").textContent=fmt(current.target);
+    $("point-exact").textContent=pointEdge.kind==="edge"?
+      pointEdge.numerator+"/"+pointEdge.denominator:"0 · already tied";
+    $("point-grid").textContent="First selectable ε = "+
+      (pointEdge.kind==="edge"?fmt(pointEdge.firstTieUnits/TARGET_SCALE):"0");
+    const rangeExact=threshold.kind==="edge"?
+      threshold.numerator+"/"+threshold.denominator:"0";
+    const inside=current.target>=current.low&&current.target<=current.high;
+    $("point-proof").textContent=(pointEdge.kind==="edge"
+      ?"Every smaller continuous drift keeps "+pointEdge.winner.toLowerCase()+
+        " strictly closer at target "+fmt(current.target)+". At the exact threshold, "+
+        (pointEdge.factor==="estimate"?"mean can meet median":"that target can meet the mean–median midpoint")+"."
+      :"The fixed readings already tie at this exact target.")+
+      " Your selected "+fmt(current.low)+"–"+fmt(current.high)+
+      " range first ties at ε = "+rangeExact+". "+(inside
+        ?"It can use any target inside the range, so it can tie no later than this single target."
+        :"That range does not contain this exact target.");
+    $("point-witness").hidden=pointEdge.kind!=="edge";
+    $("point-witness-text").textContent=pointEdge.kind==="edge"?
+      describeRouteWitness({numerator:pointEdge.numerator,denominator:pointEdge.denominator},pointEdge.witness):"";
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
     $("edge-exact-fraction").textContent=threshold.kind==="edge"?
       threshold.numerator+"/"+threshold.denominator:"—";
@@ -954,6 +992,19 @@
       render();
     });
   }
+  $("point-open").addEventListener("click",()=>{
+    const point=cachedPoint.result;
+    current.low=current.target;
+    current.high=current.target;
+    current.epsilon=point.kind==="edge"?point.firstTieUnits/TARGET_SCALE:0;
+    $("interval-error").textContent="";
+    $("drift-error").textContent="";
+    render();
+    if(point.kind==="edge") {
+      $("edge-proof").open=true;
+      $("edge-proof").scrollIntoView({block:"center"});
+    } else $("tie-window").scrollIntoView({block:"center"});
+  });
   for(let count=1;count<=5;count++) $("frontier-button-"+count).addEventListener("click",()=>{
     const row=cachedEdge.frontier.rows[count-1];
     if(row?.firstTieUnits===null||!row) return;
