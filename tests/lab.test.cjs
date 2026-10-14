@@ -1652,7 +1652,7 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="drift-input" type="number"/);
   assert.match(html,/id="drift-witness" hidden/);
   assert.match(html,/id="edge-first-button" type="button"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-stability-edge"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-constructive-tie"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1802,7 +1802,21 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
     assert.deepEqual(exact.estimateRangeUnits.map(n=>n/1000000),[minD,maxD]);
     assert.deepEqual(exact.referenceRangeUnits.map(n=>n/1000000),[minB,maxB]);
     assert.equal(exact.kind==="strict",(minD>0||maxD<0)&&(minB>0||maxB<0));
-    if(exact.witness) {
+    if(exact.witness?.path) {
+      const {from,to,targetFromUnits,targetToUnits,numerator,denominator}=exact.witness.path;
+      const n=BigInt(numerator),d=BigInt(denominator);
+      assert.ok(n>=0n&&n<=d&&d>0n);
+      const readings=from.map((value,index)=>BigInt(value)*d+BigInt(to[index]-value)*n);
+      const target=BigInt(targetFromUnits)*d+BigInt(targetToUnits-targetFromUnits)*n;
+      for(let index=0;index<5;index++) {
+        assert.ok(readings[index]>=BigInt(exact.lowerReadings[index])*d);
+        assert.ok(readings[index]<=BigInt(exact.upperReadings[index])*d);
+      }
+      assert.ok(target>=BigInt(exact.lowUnits)*d&&target<=BigInt(exact.highUnits)*d);
+      const total=readings.reduce((sum,value)=>sum+value,0n);
+      const middle=[...readings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+      assert.equal((total-5n*middle)*(total+5n*middle-10n*target),0n);
+    } else if(exact.witness) {
       const readings=exact.witness.readings.map(n=>n/1000000),target=exact.witness.targetUnits/1000000;
       const mean=readings.reduce((sum,value)=>sum+value,0)/5;
       const median=[...readings].sort((x,y)=>x-y)[2];
@@ -1822,6 +1836,10 @@ test("stability edge brackets the first attainable tie on adjacent six-decimal d
   assert.deepEqual(first.witness.readings.map(n=>n/1e6),[46.7,47.7,48.7,49.7,83.7]);
   assert.deepEqual(stabilityEdge(values,0,1),
     {kind:"edge",winner:"Median",lastStrictUnits:5333333,firstTieUnits:5333334});
+  const interior=certifyJointUncertainty(values,0,1,5.333334);
+  assert.deepEqual([interior.tieFactor,interior.witness.path.numerator,interior.witness.path.denominator],
+    ["estimate","1","14333335"]);
+  assert.equal(certifyJointUncertainty(values,0,100,0).witness.path!==undefined,true);
   assert.deepEqual(stabilityEdge(values,0,100),
     {kind:"no-baseline",winner:null,lastStrictUnits:null,firstTieUnits:0});
   assert.equal(stabilityEdge(PRESETS.c.values,48,52).kind,"no-baseline");
@@ -1842,6 +1860,34 @@ test("stability edge brackets the first attainable tie on adjacent six-decimal d
     assert.notEqual(certifyJointUncertainty(readings,t,t,edge.firstTieUnits/1e6).kind,"strict");
     assert.notEqual(certifyJointUncertainty(readings,t,t,100).kind,"strict");
   }
+});
+
+test("interior tie paths produce exact rational witnesses within fractional reading boxes", () => {
+  const {certifyJointUncertainty}=require("../target-lens.js");
+  let seed=11235813,count=0;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<200;trial++) {
+    const values=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const a=Math.floor(roll()*100000001)/1e6,b=Math.floor(roll()*100000001)/1e6;
+    const low=Math.min(a,b),high=Math.max(a,b),epsilon=Math.floor(roll()*10000001)/1e6;
+    const exact=certifyJointUncertainty(values,low,high,epsilon);
+    if(!exact.witness?.path) continue;
+    count++;
+    const {from,to,targetFromUnits,targetToUnits,numerator,denominator}=exact.witness.path;
+    const n=BigInt(numerator),d=BigInt(denominator);
+    assert.ok(n>=0n&&n<=d&&d>0n);
+    const readings=from.map((value,index)=>BigInt(value)*d+BigInt(to[index]-value)*n);
+    for(let index=0;index<5;index++) {
+      assert.ok(readings[index]>=BigInt(exact.lowerReadings[index])*d);
+      assert.ok(readings[index]<=BigInt(exact.upperReadings[index])*d);
+    }
+    const target=BigInt(targetFromUnits)*d+BigInt(targetToUnits-targetFromUnits)*n;
+    assert.ok(target>=BigInt(exact.lowUnits)*d&&target<=BigInt(exact.highUnits)*d);
+    const sum=readings.reduce((total,value)=>total+value,0n);
+    const median=[...readings].sort((x,y)=>x<y?-1:x>y?1:0)[2];
+    assert.equal((sum-5n*median)*(sum+5n*median-10n*target),0n);
+  }
+  assert.ok(count>100);
 });
 
 test("target witnesses and interval controls update the verdict, certificate, and exact link", () => {
@@ -1931,6 +1977,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-tie").textContent,"5.333334");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.equal(element("drift-estimate-range").textContent,"[-0.0000008, 11.4666672]");
+  assert.match(element("drift-witness").textContent,/Exact tie construction: interpolate the readings/);
+  assert.match(element("drift-witness").textContent,/fraction 1\/14333335 of the path/);
   assert.match(address.at(-1),/eps=5\.333334$/);
 });
 

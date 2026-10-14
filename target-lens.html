@@ -334,7 +334,7 @@
             <p class="drift-proof-text" id="drift-proof-text">A positive lead remains throughout the target range.</p>
           </details>
           <code class="drift-identity">|mean − target|² − |median − target|² = (mean − median)(mean + median − 2×target)</code>
-          <p class="scope">The sum and median are monotone in every reading, giving exact bounds for the second factor. The first factor is optimized over all 30 choices of a median and two lower readings; within each ordering, its extrema occur at the limiting median values. A zero in either factor gives a tie by continuity. These are hypothetical ranges and stipulated reading limits, not measured uncertainty or a verified target.</p>
+          <p class="scope">The sum and median are monotone in every reading, giving exact bounds for the second factor. The first factor is optimized over all 30 choices of a median and two lower readings; within each ordering, its extrema occur at the limiting median values. If a factor crosses zero, the displayed rational fraction locates a tie along a path between its extrema. These are hypothetical ranges and stipulated reading limits, not measured uncertainty or a verified target.</p>
         </section>
       </section>
       <div class="under">
@@ -358,6 +358,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-stability-edge"></script>
+  <script src="target-lens.js?v=20261014-constructive-tie"></script>
 </body>
 </html>
