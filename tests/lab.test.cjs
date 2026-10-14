@@ -1652,7 +1652,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="drift-input" type="number"/);
   assert.match(html,/id="drift-witness" hidden/);
   assert.match(html,/id="edge-first-button" type="button"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-constructive-tie"/);
+  assert.match(html,/id="edge-exact-fraction">13\/10/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-continuous-edge"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1862,6 +1863,53 @@ test("stability edge brackets the first attainable tie on adjacent six-decimal d
   }
 });
 
+test("continuous threshold has an exact rational tie witness and matches the input grid", () => {
+  const {continuousStabilityThreshold,stabilityEdge,PRESETS}=require("../target-lens.js");
+  const a=PRESETS.a.values;
+  const near=continuousStabilityThreshold(a,48,52);
+  assert.deepEqual([near.numerator,near.denominator,near.factor,near.firstTieUnits],
+    ["13","10","reference",1300000]);
+  const far=continuousStabilityThreshold(a,0,1);
+  assert.deepEqual([far.numerator,far.denominator,far.factor,far.firstTieUnits],
+    ["16","3","estimate",5333334]);
+  assert.deepEqual([continuousStabilityThreshold([0,0,0,0,100],0,0).numerator,
+    continuousStabilityThreshold([0,0,0,0,0.0001],0,0).denominator],["25","40000"]);
+  assert.deepEqual(continuousStabilityThreshold(a,0,100),{kind:"no-baseline"});
+  assert.throws(()=>continuousStabilityThreshold(a,10,0),RangeError);
+
+  let seed=42217,certified=0;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<250;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const x=Math.floor(roll()*100000001)/1e6,y=Math.floor(roll()*100000001)/1e6;
+    const low=Math.min(x,y),high=Math.max(x,y);
+    const exact=continuousStabilityThreshold(readings,low,high);
+    const grid=stabilityEdge(readings,low,high);
+    assert.equal(exact.kind,grid.kind);
+    if(exact.kind!=="edge") continue;
+    certified++;
+    assert.equal(exact.firstTieUnits,grid.firstTieUnits);
+    const n=BigInt(exact.numerator),d=BigInt(exact.denominator);
+    assert.ok(n>0n&&d>0n);
+    assert.ok(BigInt(grid.lastStrictUnits)*d<n*1000000n);
+    assert.ok(n*1000000n<=BigInt(grid.firstTieUnits)*d);
+    const witness=exact.witness,wDen=BigInt(witness.denominator);
+    const values=witness.readingsNumerators.map(BigInt),target=BigInt(witness.targetNumerator);
+    for(let index=0;index<5;index++) {
+      assert.ok(values[index]>=0n&&values[index]<=100n*wDen);
+      const original=BigInt(Math.round(readings[index]*1000000))*wDen/1000000n;
+      const distance=values[index]>original?values[index]-original:original-values[index];
+      assert.ok(distance*d<=n*wDen);
+    }
+    assert.ok(target>=BigInt(Math.round(low*1000000))*wDen/1000000n);
+    assert.ok(target<=BigInt(Math.round(high*1000000))*wDen/1000000n);
+    const sum=values.reduce((total,value)=>total+value,0n);
+    const median=[...values].sort((p,q)=>p<q?-1:p>q?1:0)[2];
+    assert.equal(exact.factor==="estimate"?sum-5n*median:sum+5n*median-10n*target,0n);
+  }
+  assert.ok(certified>100);
+});
+
 test("interior tie paths produce exact rational witnesses within fractional reading boxes", () => {
   const {certifyJointUncertainty}=require("../target-lens.js");
   let seed=11235813,count=0;
@@ -1915,6 +1963,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("drift-estimate-range").textContent,"[5.2, 8]");
   assert.equal(element("drift-remaining").textContent,"0.6");
   assert.equal(element("edge-last-strict").textContent,"1.299999");
+  assert.equal(element("edge-exact-fraction").textContent,"13/10");
+  assert.equal(element("edge-exact-decimal").textContent,"= 1.3");
+  assert.match(element("edge-proof-text").textContent,/readings \[46\.7, 47\.7, 48\.7, 49\.7, 83\.7\] and target 52/);
   assert.equal(element("edge-first-tie").textContent,"1.3");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
@@ -1966,6 +2017,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("interval-span").disabled,true);
   assert.equal(element("interval-tie-mark").hidden,true);
   assert.equal(element("edge-last-strict").textContent,"—");
+  assert.equal(element("edge-exact-fraction").textContent,"—");
+  assert.equal(element("edge-proof").hidden,true);
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
   element("drift-example").handlers.click();
@@ -1974,6 +2027,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("drift-reference-range").textContent,"[96.6, 114.6]");
   assert.match(address.at(-1),/target=0\.5&lo=0&hi=1&eps=4$/);
   assert.equal(element("edge-last-strict").textContent,"5.333333");
+  assert.equal(element("edge-exact-fraction").textContent,"16/3");
+  assert.equal(element("edge-exact-decimal").textContent,"≈ 5.333333333…");
+  assert.match(element("edge-proof-text").textContent,/readings \[128\/3, 131\/3, 166\/3, 166\/3, 239\/3\]/);
   assert.equal(element("edge-first-tie").textContent,"5.333334");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
