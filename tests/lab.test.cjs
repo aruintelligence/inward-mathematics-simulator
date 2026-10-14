@@ -1659,7 +1659,8 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="edge-estimate-detail"/);
   assert.match(html,/id="edge-reference-detail"/);
   assert.match(html,/id="sparse-changes" aria-label="Five readings in a minimum-support tie"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-minimum-support"/);
+  assert.match(html,/id="tie-track" role="img"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-tie-target-band-support"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
@@ -1775,6 +1776,16 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
   const tie=certifyJointUncertainty(values,48,52,1.3);
   assert.deepEqual([tie.kind,tie.tieFactor,tie.witness.readings.map(n=>n/1000000),tie.witness.targetUnits/1000000],
     ["tie-possible","reference",[46.7,47.7,48.7,49.7,83.7],52]);
+  assert.deepEqual([tie.tieTargets.kind,tie.tieTargets.lowerNumerator/tie.tieTargets.denominator,
+    tie.tieTargets.upperNumerator/tie.tieTargets.denominator],["band",52,54.6]);
+  const allTargets=certifyJointUncertainty(values,0,1,5.333334);
+  assert.equal(allTargets.tieTargets.kind,"all");
+  assert.equal(certifyJointUncertainty(values,0,1,4).tieTargets.kind,"band");
+  assert.deepEqual(certifyJointUncertainty(values,48,52,0).tieTargets,
+    {kind:"band",lowerNumerator:533000000,upperNumerator:533000000,denominator:10000000});
+  assert.deepEqual(certifyJointUncertainty([0,0,0,0,0.000001],0,0.000001,0).tieTargets,
+    {kind:"band",lowerNumerator:1,upperNumerator:1,denominator:10000000});
+  assert.equal(certifyJointUncertainty(PRESETS.c.values,0,100,0).tieTargets.kind,"all");
   assert.equal(certifyJointUncertainty(PRESETS.c.values,0,100,0).kind,"all-tie");
   assert.equal(certifyJointUncertainty(values,0,100,0).kind,"tie-possible");
   assert.deepEqual(certifyJointUncertainty([0,0,0,0,0.0001],0,0.000001,0.000001).estimateRangeUnits,[96,102]);
@@ -1789,7 +1800,7 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
     const exact=certifyJointUncertainty(base,low,high,epsilon);
     const lo=base.map(value=>Math.max(0,value-epsilon));
     const hi=base.map(value=>value+epsilon);
-    let minD=Infinity,maxD=-Infinity,minB=Infinity,maxB=-Infinity;
+    let minD=Infinity,maxD=-Infinity,minB=Infinity,maxB=-Infinity,minMidpoint=Infinity,maxMidpoint=-Infinity;
     const visit=(index,readings)=>{
       if(index<5) {
         for(let value=lo[index];value<=hi[index];value++) visit(index+1,[...readings,value]);
@@ -1799,6 +1810,9 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
       const middle=[...readings].sort((x,y)=>x-y)[2];
       const D=total-5*middle;
       minD=Math.min(minD,D);maxD=Math.max(maxD,D);
+      const midpointNumerator=total+5*middle;
+      minMidpoint=Math.min(minMidpoint,midpointNumerator);
+      maxMidpoint=Math.max(maxMidpoint,midpointNumerator);
       for(const target of [low,high]) {
         const B=total+5*middle-10*target;
         minB=Math.min(minB,B);maxB=Math.max(maxB,B);
@@ -1808,6 +1822,15 @@ test("exact joint certificate matches exhaustive five-reading boxes and finds ti
     visit(0,[]);
     assert.deepEqual(exact.estimateRangeUnits.map(n=>n/1000000),[minD,maxD]);
     assert.deepEqual(exact.referenceRangeUnits.map(n=>n/1000000),[minB,maxB]);
+    assert.deepEqual([exact.tieTargets.lowerNumerator/1000000,exact.tieTargets.upperNumerator/1000000],
+      [minMidpoint,maxMidpoint]);
+    assert.equal(exact.tieTargets.kind,(minD<=0&&maxD>=0)?"all":"band");
+    for(const target of [0,low,high,10]) {
+      const within=exact.tieTargets.kind==="all"||
+        target*exact.tieTargets.denominator>=exact.tieTargets.lowerNumerator&&
+        target*exact.tieTargets.denominator<=exact.tieTargets.upperNumerator;
+      assert.equal(certifyJointUncertainty(base,target,target,epsilon).kind!=="strict",within);
+    }
     assert.equal(exact.kind==="strict",(minD>0||maxD<0)&&(minB>0||maxB<0));
     if(exact.witness?.path) {
       const {from,to,targetFromUnits,targetToUnits,numerator,denominator}=exact.witness.path;
@@ -2063,6 +2086,9 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(element("interval-proof-text").textContent,/nearest endpoint is 1\.3 from a tie/);
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.equal(element("drift-estimate-range").textContent,"[5.2, 8]");
+  assert.equal(element("tie-window-range").textContent,"Tie targets: 52.3 to 54.3");
+  assert.match(element("tie-window-proof").textContent,/selected target range stays outside this band/);
+  assert.match(element("tie-track").attributes["aria-label"],/No tie is attainable/);
   assert.equal(element("drift-remaining").textContent,"0.6");
   assert.equal(element("edge-last-strict").textContent,"1.299999");
   assert.equal(element("edge-exact-fraction").textContent,"13/10");
@@ -2094,6 +2120,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(address.at(-1),/eps=1\.299999$/);
   element("drift-input").handlers.input({target:{value:"1.3"}});
   assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.equal(element("tie-window-range").textContent,"Tie targets: 52 to 54.6");
+  assert.match(element("tie-window-proof").textContent,/selected target range meets this band/);
   assert.match(element("drift-witness").textContent,/46\.7, 47\.7, 48\.7, 49\.7, 83\.7; target 52/);
   assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
   assert.match(element("drift-proof-text").textContent,/does not prove that a reversal is possible/);
@@ -2157,6 +2185,7 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(copied,"");
   element("drift-example").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
+  assert.equal(element("tie-window-range").textContent,"Tie targets: 49.3 to 57.3");
   assert.equal(element("drift-shortcut-status").textContent,"Shortcut inconclusive");
   assert.equal(element("drift-reference-range").textContent,"[96.6, 114.6]");
   assert.match(address.at(-1),/target=0\.5&lo=0&hi=1&eps=4$/);
@@ -2175,6 +2204,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-tie").textContent,"5.333334");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
+  assert.equal(element("tie-window-range").textContent,"Every target from 0 to 100 can tie");
+  assert.match(element("tie-window-proof").textContent,/coincident estimates extend ties to all targets/);
   assert.equal(element("drift-estimate-range").textContent,"[-0.0000008, 11.4666672]");
   assert.match(element("drift-witness").textContent,/Exact tie construction: interpolate the readings/);
   assert.match(element("drift-witness").textContent,/fraction 1\/14333335 of the path/);

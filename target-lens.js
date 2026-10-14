@@ -182,6 +182,13 @@
     const referenceRangeUnits=[minReference,maxReference];
     const estimateCanTie=minEstimate.units<=0&&maxEstimate.units>=0;
     const referenceCanTie=minReference<=0&&maxReference>=0;
+    // Midpoint(x)=(sum(x)+5*median(x))/10 is continuous and monotone in
+    // every reading. The image of a connected reading box is therefore the
+    // entire interval between its all-low and all-high midpoint values.
+    // If mean=median is attainable, that one configuration ties every target.
+    const tieTargets={kind:estimateCanTie?"all":"band",
+      lowerNumerator:sum(lower)+5*median(lower),
+      upperNumerator:sum(upper)+5*median(upper),denominator:10*TARGET_SCALE};
     const kind=minEstimate.units===0&&maxEstimate.units===0?"all-tie":
       estimateCanTie||referenceCanTie?"tie-possible":"strict";
     const winner=kind==="strict"?
@@ -194,7 +201,7 @@
     if(kind==="tie-possible"&&!witness) witness={path:estimateCanTie?
       interpolateTiePath(minEstimate.readings,maxEstimate.readings,Math.round(low*TARGET_SCALE),Math.round(low*TARGET_SCALE),"estimate"):
       interpolateTiePath(lower,upper,Math.round(high*TARGET_SCALE),Math.round(low*TARGET_SCALE),"reference")};
-    return {kind,winner,estimateRangeUnits,referenceRangeUnits,
+    return {kind,winner,estimateRangeUnits,referenceRangeUnits,tieTargets,
       tieFactor:estimateCanTie?"estimate":referenceCanTie?"reference":null,
       estimateExtremizers:{minimum:minEstimate.readings,maximum:maxEstimate.readings},
       lowerReadings:lower,upperReadings:upper,lowUnits:Math.round(low*TARGET_SCALE),highUnits:Math.round(high*TARGET_SCALE),witness};
@@ -361,6 +368,11 @@
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
   const fmtFactor=units=>(units/(5*TARGET_SCALE)).toFixed(7).replace(/0+$/g,"").replace(/\.$/,"");
+  const fmtTieTarget=n=>{
+    const value=BigInt(n),scale=10000000n;
+    const fraction=String(value%scale).padStart(7,"0").replace(/0+$/g,"");
+    return value/scale+(fraction?"."+fraction:"");
+  };
   function fmtRational(rawNumerator,rawDenominator) {
     let numerator=BigInt(rawNumerator),denominator=BigInt(rawDenominator);
     if(numerator*BigInt(TARGET_SCALE)%denominator===0n)
@@ -625,6 +637,28 @@
         "Reproduce view: "+new URL(viewUrl(),window.location.href).href].join("\n");
     } else sparseProofCopy="";
     $("sparse-copy-status").textContent="";
+    const tieTargets=exact.tieTargets,allTieTargets=tieTargets.kind==="all";
+    const bandLow=fmtTieTarget(tieTargets.lowerNumerator),bandHigh=fmtTieTarget(tieTargets.upperNumerator);
+    const targetOverlap=allTieTargets||
+      Math.round(current.low*TARGET_SCALE)*10<=tieTargets.upperNumerator&&
+      Math.round(current.high*TARGET_SCALE)*10>=tieTargets.lowerNumerator;
+    $("tie-window-range").textContent=allTieTargets?"Every target from 0 to 100 can tie":
+      bandLow===bandHigh?"Only target "+bandLow+" can tie":"Tie targets: "+bandLow+" to "+bandHigh;
+    $("tie-window-proof").textContent=allTieTargets
+      ?"At least one allowed reading arrangement has mean = median, so that arrangement ties at every target. The attainable midpoint band is ["+bandLow+", "+bandHigh+"], but the coincident estimates extend ties to all targets."
+      :"The midpoint of the mean and median ranges continuously from "+bandLow+" with all readings at their allowed lows to "+bandHigh+
+        " with all readings at their allowed highs. "+(targetOverlap
+          ?"Your selected target range meets this band, so a tie is attainable."
+          :"Your selected target range stays outside this band, so no tie is attainable at this drift.");
+    const track=$("tie-track");
+    track.style.setProperty("--tie-start",(allTieTargets?0:tieTargets.lowerNumerator/tieTargets.denominator)+"%");
+    track.style.setProperty("--tie-end",(allTieTargets?100:tieTargets.upperNumerator/tieTargets.denominator)+"%");
+    track.style.setProperty("--range-start",current.low+"%");
+    track.style.setProperty("--range-end",current.high+"%");
+    track.setAttribute("aria-label",$("tie-window-range").textContent+
+      "; selected target range "+fmt(current.low)+" to "+fmt(current.high)+" on a 0 to 100 scale. "+
+      (targetOverlap?"A tie is attainable.":"No tie is attainable at this drift."));
+    if((exact.kind!=="strict")!==targetOverlap) throw new Error("Tie target band disagrees with the exact certificate");
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
     $("edge-exact-fraction").textContent=threshold.kind==="edge"?
       threshold.numerator+"/"+threshold.denominator:"—";
