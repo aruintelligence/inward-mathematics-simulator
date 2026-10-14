@@ -11,6 +11,7 @@
   const targetPattern=/^(?:0|[1-9]\d?|100)(?:\.\d{1,6})?$/;
   const TARGET_SCALE=1000000;
   const DEFAULT_RADIUS=2;
+  const DEFAULT_DRIFT=1;
 
   function validNumber(raw,pattern) {
     if(!pattern.test(raw)) return null;
@@ -23,17 +24,19 @@
   }
   function parseView(search) {
     const params=new URLSearchParams(search);
-    if(!["values","target","lo","hi"].some(key=>params.has(key))) return null;
+    if(!["values","target","lo","hi","eps"].some(key=>params.has(key))) return null;
     if(params.getAll("values").length!==1||params.getAll("target").length!==1) return false;
     const hasLow=params.has("lo"),hasHigh=params.has("hi");
-    if(hasLow!==hasHigh||params.getAll("lo").length>1||params.getAll("hi").length>1) return false;
+    if(hasLow!==hasHigh||params.getAll("lo").length>1||params.getAll("hi").length>1||params.getAll("eps").length>1) return false;
     const raw=params.get("values").split(",");
     if(raw.length!==5) return false;
     const values=raw.map(part=>validNumber(part,readingPattern));
     const target=validNumber(params.get("target"),targetPattern);
     if(values.some(value=>value===null)||target===null) return false;
     const interval=hasLow?{low:validNumber(params.get("lo"),targetPattern),high:validNumber(params.get("hi"),targetPattern)}:defaultInterval(target);
-    return interval.low===null||interval.high===null||interval.low>interval.high?false:{values,target,...interval,label:"Shared case"};
+    const epsilon=params.has("eps")?validNumber(params.get("eps"),targetPattern):DEFAULT_DRIFT;
+    return interval.low===null||interval.high===null||interval.low>interval.high||epsilon===null?false:
+      {values,target,...interval,epsilon,label:"Shared case"};
   }
   function estimateUnits(values) {
     const readings=values.map(value=>Math.round(value*10000));
@@ -75,15 +78,32 @@
       Math.abs(Math.round(high*TARGET_SCALE)-boundaryUnits))/TARGET_SCALE:0;
     return {kind,winner,lower,upper,low,high,boundary:boundaryUnits/TARGET_SCALE,margin,sameEstimate};
   }
+  function certifyReadingDrift(values,low,high,epsilon) {
+    const interval=certifyInterval(values,low,high);
+    if(!Number.isFinite(epsilon)||epsilon<0||epsilon>100) throw new RangeError("Invalid reading drift");
+    const epsilonUnits=Math.round(epsilon*TARGET_SCALE);
+    if(interval.kind!=="robust") return {kind:"no-baseline",winner:null,gap:0,allowance:2*epsilonUnits/TARGET_SCALE,remaining:0};
+    const {meanUnits,medianUnits}=estimateUnits(values);
+    const gapAt=target=>{
+      const t=Math.round(target*TARGET_SCALE);
+      return Math.abs(Math.abs(meanUnits-t)-Math.abs(medianUnits-t));
+    };
+    // The absolute-error lead is monotone toward the unique crossover and flat beyond either estimate.
+    const gapUnits=Math.min(gapAt(low),gapAt(high));
+    const allowanceUnits=2*epsilonUnits;
+    return {kind:gapUnits>allowanceUnits?"certified":"inconclusive",winner:interval.winner,
+      gap:gapUnits/TARGET_SCALE,allowance:allowanceUnits/TARGET_SCALE,
+      remaining:(gapUnits-allowanceUnits)/TARGET_SCALE};
+  }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
-  let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),values:[...PRESETS.a.values],key:"a"};
+  let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
   let witnesses=targetWitnesses(current.values);
   const supplied=parseView(window.location.search);
   if(supplied) current=supplied;
@@ -91,7 +111,7 @@
 
   function viewUrl() {
     return "target-lens.html?values="+encodeURIComponent(current.values.map(fmt).join(","))+"&target="+fmt(current.target)+
-      "&lo="+fmt(current.low)+"&hi="+fmt(current.high);
+      "&lo="+fmt(current.low)+"&hi="+fmt(current.high)+"&eps="+fmt(current.epsilon);
   }
   function updateAddress() {
     try { window.history.replaceState(null,"",viewUrl()); } catch (_) { /* Local file views still work. */ }
@@ -205,6 +225,23 @@
             :"The range crosses "+fmt(boundary)+". Its endpoints prove a strict "+certificate.lower.toLowerCase()+
               " win and a strict "+certificate.upper.toLowerCase()+" win, with a tie between them. No one strict winner covers the range.";
 
+    const drift=certifyReadingDrift(current.values,current.low,current.high,current.epsilon);
+    if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
+    $("drift-badge").dataset.kind=drift.kind;
+    $("drift-badge").textContent=drift.kind==="certified"?drift.winner+" still wins":
+      drift.kind==="inconclusive"?"Bound inconclusive":"No strict baseline";
+    $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
+    $("drift-allowance").textContent=fmt(drift.allowance);
+    $("drift-remaining").textContent=drift.kind==="no-baseline"?"—":fmt(drift.remaining);
+    $("drift-remaining").dataset.kind=drift.kind;
+    $("drift-proof-text").textContent=drift.kind==="no-baseline"
+      ?"The chosen target range has no strict winner throughout even before readings move. Narrow the range to one side of the tie to test stability."
+      :drift.kind==="certified"
+        ?"Every target in the range still favors "+drift.winner.toLowerCase()+" after any allowed adjustment of the five readings. The worst starting lead is "+fmt(drift.gap)+
+          "; moving each reading by at most "+fmt(current.epsilon)+" can reduce that lead by at most "+fmt(drift.allowance)+". A positive lead of at least "+fmt(drift.remaining)+" remains."
+        :"The starting lead can be as small as "+fmt(drift.gap)+", while this bound allows a drop of "+fmt(drift.allowance)+
+          ". The bound cannot certify a strict winner; it does not prove that a reversal is possible.";
+
     $("open-view").href=viewUrl();
     $("share-status").textContent="";
     updateAddress();
@@ -242,6 +279,17 @@
       event.target.value=fmt(current[key]);
     });
   }
+  $("drift-input").addEventListener("input",event=>{
+    const parsed=validNumber(event.target.value,targetPattern);
+    if(parsed===null) {
+      $("drift-error").textContent="Use a reading drift from 0 to 100 with at most six decimal places.";
+      return;
+    }
+    $("drift-error").textContent="";
+    current.epsilon=parsed;
+    render();
+  });
+  $("drift-input").addEventListener("change",event=>{event.target.value=fmt(current.epsilon);});
   $("interval-span").addEventListener("click",()=>{
     const {mean,median}=evaluate(current.values,current.target);
     current.low=Math.min(mean,median);
@@ -251,9 +299,10 @@
   });
   document.querySelectorAll(".preset").forEach(button=>button.addEventListener("click",()=>{
     const selected=button.dataset.case;
-    current={...PRESETS[selected],...defaultInterval(PRESETS[selected].target),values:[...PRESETS[selected].values],key:selected};
+    current={...PRESETS[selected],...defaultInterval(PRESETS[selected].target),epsilon:DEFAULT_DRIFT,values:[...PRESETS[selected].values],key:selected};
     $("input-error").textContent="";
     $("interval-error").textContent="";
+    $("drift-error").textContent="";
     render();
   }));
   $("copy-view").addEventListener("click",async()=>{
