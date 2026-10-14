@@ -1,8 +1,17 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const vm = require("node:vm");
 const {test} = require("node:test");
+
+test("Target Lens asset URL changes whenever its script bytes change", () => {
+  const html=fs.readFileSync(path.join(__dirname,"..","target-lens.html"),"utf8");
+  const script=fs.readFileSync(path.join(__dirname,"..","target-lens.js"));
+  const version=html.match(/<script src="target-lens\.js\?v=([a-f0-9]{12})"><\/script>/);
+  assert.ok(version,"Target Lens needs a content-derived script cache key");
+  assert.equal(version[1],crypto.createHash("sha256").update(script).digest("hex").slice(0,12));
+});
 
 function loadLab(search="",hash="") {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -1660,7 +1669,6 @@ test("the target-lens factorization matches exact squared errors across fraction
   assert.match(html,/id="edge-reference-detail"/);
   assert.match(html,/id="sparse-changes" aria-label="Five readings in a minimum-support tie"/);
   assert.match(html,/id="tie-track" role="img"/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-tie-target-band-support-polish2"/);
 });
 
 test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
