@@ -1582,9 +1582,15 @@ test("target lens finds the exact crossover and handles a permanent tie", () => 
   const shared=parseView("?values=48%2C49%2C50%2C51%2C85&target=53.3");
   assert.deepEqual(shared.values,a.values);
   assert.equal(evaluate(shared.values,shared.target).winner,"Equal");
+  assert.deepEqual([shared.low,shared.high],[51.3,55.3]);
+  assert.deepEqual([parseView("?values=0%2C0%2C0%2C0%2C0.0001&target=0&lo=0&hi=0.00001").low,
+    parseView("?values=0%2C0%2C0%2C0%2C0.0001&target=0&lo=0&hi=0.00001").high],[0,0.00001]);
   assert.equal(parseView("?values=48%2C49%2C50%2C51%2C85&target=101"),false);
   assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5&target=50&target=51"),false);
   assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5.12345&target=50"),false);
+  for(const suffix of ["&lo=52","&hi=52","&lo=53&hi=52","&lo=0&hi=0.0000001","&lo=0&lo=1&hi=2","&lo=-1&hi=2"]) {
+    assert.equal(parseView("?values=1%2C2%2C3%2C4%2C5&target=3"+suffix),false);
+  }
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/href="target-lens\.html"/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","guide.html"),"utf8"),/href="target-lens\.html\?values=/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","worksheet.html"),"utf8"),/href="target-lens\.html\?values=/);
@@ -1639,10 +1645,69 @@ test("the target-lens factorization matches exact squared errors across fraction
   const html=fs.readFileSync(path.join(__dirname,"..","target-lens.html"),"utf8");
   assert.match(html,/id="witness-grid" role="group"/);
   assert.match(html,/\.witness-grid\[hidden\],\.witness-all-tie\[hidden\] \{ display:none; \}/);
-  assert.match(html,/src="target-lens\.js\?v=20261014-witness"/);
+  assert.match(html,/id="interval-ruler" role="img"/);
+  assert.match(html,/src="target-lens\.js\?v=20261014-interval"/);
 });
 
-test("target witness buttons move the live reference and collapse into an all-target tie", () => {
+test("whole-range certificates distinguish strict, touching, crossing, singleton, and permanent ties", () => {
+  const {PRESETS,certifyInterval}=require("../target-lens.js");
+  const a=PRESETS.a.values;
+  assert.deepEqual([certifyInterval(a,48,52).kind,certifyInterval(a,48,52).winner,certifyInterval(a,48,52).margin],
+    ["robust","Median",1.3]);
+  assert.deepEqual([certifyInterval(a,52,53.3).kind,certifyInterval(a,52,53.3).winner],["touches","Median"]);
+  assert.deepEqual([certifyInterval(a,53.3,56.6).kind,certifyInterval(a,53.3,56.6).winner],["touches","Mean"]);
+  assert.deepEqual([certifyInterval(a,50,56.6).kind,certifyInterval(a,50,56.6).lower,
+    certifyInterval(a,50,56.6).upper],["crosses","Median","Mean"]);
+  assert.equal(certifyInterval(a,53.3,53.3).kind,"tie-only");
+  assert.deepEqual([certifyInterval(a,54,60).kind,certifyInterval(a,54,60).margin],["robust",0.7]);
+  assert.equal(certifyInterval(PRESETS.c.values,0,100).kind,"all-tie");
+  assert.deepEqual([certifyInterval([0,50,51,52,53],40,51).kind,
+    certifyInterval([0,50,51,52,53],40,51).lower,certifyInterval([0,50,51,52,53],40,51).upper],
+    ["crosses","Mean","Median"]);
+  const narrow=[0,0,0,0,0.0001];
+  assert.deepEqual([certifyInterval(narrow,0,0.000009).kind,certifyInterval(narrow,0,0.000009).margin],
+    ["robust",0.000001]);
+  assert.equal(certifyInterval(narrow,0.000009,0.00001).kind,"touches");
+  assert.equal(certifyInterval(narrow,0.000009,0.000011).kind,"crosses");
+  assert.equal(certifyInterval(narrow,0.00001,0.00001).kind,"tie-only");
+  for(const [low,high] of [[52,48],[-1,20],[20,101],[NaN,30]])
+    assert.throws(()=>certifyInterval(a,low,high),RangeError);
+});
+
+test("range certificates agree with independent squared-error signs on sampled intervals", () => {
+  const {certifyInterval}=require("../target-lens.js");
+  let seed=714091;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<500;trial++) {
+    const values=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const ends=Array.from({length:2},()=>Math.floor(roll()*100000001));
+    const lowUnits=Math.min(...ends),highUnits=Math.max(...ends);
+    const certificate=certifyInterval(values,lowUnits/1000000,highUnits/1000000);
+    const readings=values.map(value=>Math.round(value*10000));
+    const meanUnits=readings.reduce((sum,value)=>sum+value,0)*20;
+    const medianUnits=[...readings].sort((a,b)=>a-b)[2]*100;
+    const boundaryUnits=(meanUnits+medianUnits)/2;
+    const outcome=targetUnits=>{
+      const difference=BigInt(meanUnits-targetUnits)**2n-BigInt(medianUnits-targetUnits)**2n;
+      return difference===0n?"Equal":difference<0n?"Mean":"Median";
+    };
+    assert.equal(certificate.lower,outcome(lowUnits));
+    assert.equal(certificate.upper,outcome(highUnits));
+    for(const position of [lowUnits,Math.floor((lowUnits+highUnits)/2),highUnits]) {
+      const label=outcome(position);
+      if(certificate.kind==="robust") assert.equal(label,certificate.winner);
+      if(certificate.kind==="all-tie") assert.equal(label,"Equal");
+    }
+    if(certificate.kind==="crosses") {
+      assert.ok(lowUnits<boundaryUnits&&boundaryUnits<highUnits);
+      assert.notEqual(certificate.lower,certificate.upper);
+      assert.equal(outcome(boundaryUnits),"Equal");
+    }
+    if(certificate.kind==="touches") assert.ok(lowUnits===boundaryUnits||highUnits===boundaryUnits);
+  }
+});
+
+test("target witnesses and interval controls update the verdict, certificate, and exact link", () => {
   const elements=new Map(),address=[];
   function element(id) {
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
@@ -1661,19 +1726,36 @@ test("target witness buttons move the live reference and collapse into an all-ta
   assert.equal(element("witness-0").parts.strong.textContent,"50");
   assert.equal(element("witness-1").parts.strong.textContent,"53.3");
   assert.equal(element("witness-2").parts.strong.textContent,"56.6");
+  assert.equal(element("interval-badge").textContent,"Median throughout");
+  assert.match(element("interval-proof-text").textContent,/nearest endpoint is 1\.3 from a tie/);
   witnesses[2].handlers.click();
   assert.equal(element("hero-target").textContent,"56.6");
   assert.equal(element("verdict").textContent,"Mean is closer.");
   assert.equal(element("witness-2").attributes["aria-pressed"],"true");
-  assert.match(address.at(-1),/target=56\.6$/);
+  assert.match(address.at(-1),/target=56\.6&lo=48&hi=52$/);
   witnesses[1].handlers.click();
   assert.equal(element("verdict").textContent,"Equal absolute error.");
   assert.match(element("proof-factors").textContent,/zero \(a tie\)/);
+  element("interval-span").handlers.click();
+  assert.equal(element("interval-badge").textContent,"Both winners possible");
+  assert.equal(element("interval-ruler").dataset.kind,"crosses");
+  assert.match(address.at(-1),/target=53\.3&lo=50&hi=56\.6$/);
+  element("interval-high").handlers.input({target:{value:"53.3"}});
+  assert.equal(element("interval-badge").textContent,"Median or tie");
+  element("interval-low").handlers.input({target:{value:"53.3"}});
+  assert.equal(element("interval-badge").textContent,"Exact tie only");
+  assert.match(address.at(-1),/lo=53\.3&hi=53\.3$/);
+  element("interval-low").handlers.input({target:{value:"70"}});
+  assert.match(element("interval-error").textContent,/low ≤ high/);
+  assert.match(address.at(-1),/lo=53\.3&hi=53\.3$/);
   presets[2].handlers.click();
   assert.equal(element("witness-grid").hidden,true);
   assert.equal(element("witness-all-tie").hidden,false);
   assert.match(element("witness-all-tie").textContent,/every target/);
   assert.match(element("proof-factors").textContent,/zero for every target/);
+  assert.equal(element("interval-badge").textContent,"Every target ties");
+  assert.equal(element("interval-span").disabled,true);
+  assert.equal(element("interval-tie-mark").hidden,true);
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
