@@ -234,7 +234,7 @@
     const referenceAt=box=>signReference*(signReference>0
       ?sum(box.lower)+5*median(box.lower)-10*highTarget
       :sum(box.upper)+5*median(box.upper)-10*lowTarget);
-    let first=null;
+    const firstByFactor={estimate:null,reference:null};
     const consider=(h0,h1,f0,f1,factor,group=null)=>{
       if(f0===null||f1===null) return;
       let numerator,denominator;
@@ -243,8 +243,9 @@
         numerator=BigInt(h0)*BigInt(f0-f1)+BigInt(h1-h0)*BigInt(f0);
         denominator=BigInt(f0-f1);
       } else return;
-      if(first===null||numerator*first.denominator<first.numerator*denominator)
-        first={numerator,denominator,factor,group};
+      const previous=firstByFactor[factor];
+      if(previous===null||numerator*previous.denominator<previous.numerator*denominator)
+        firstByFactor[factor]={numerator,denominator,factor,group};
     };
     // Work in half-millionth reading units: every clipping, ordering, and
     // median feasibility change lies at a reading endpoint or a half-gap.
@@ -257,12 +258,23 @@
       for(const group of groups)
         consider(h0,h1,estimateAt(box0,group),estimateAt(box1,group),"estimate",group);
     }
-    if(first===null) throw new Error("A tie must be attainable by radius 100");
+    if(!firstByFactor.estimate||!firstByFactor.reference)
+      throw new Error("Both tie mechanisms must be attainable by radius 100");
+    const physicalFraction=root=>{
+      let numerator=root.numerator,denominator=root.denominator*BigInt(2*TARGET_SCALE);
+      let a=numerator,b=denominator;
+      while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
+      return {numerator:(numerator/a).toString(),denominator:(denominator/a).toString()};
+    };
+    const routes={estimate:physicalFraction(firstByFactor.estimate),
+      reference:physicalFraction(firstByFactor.reference)};
+    // The reference route wins an exact simultaneous tie, matching the scan order.
+    const reference=firstByFactor.reference,estimate=firstByFactor.estimate;
+    const first=reference.numerator*estimate.denominator<=estimate.numerator*reference.denominator
+      ?reference:estimate;
     let divisor=first.numerator,rest=first.denominator;
     while(rest!==0n) { const remainder=divisor%rest; divisor=rest; rest=remainder; }
-    first.numerator/=divisor;
-    first.denominator/=divisor;
-    const h=first.numerator,d=first.denominator,full=BigInt(scale)*d;
+    const h=first.numerator/divisor,d=first.denominator/divisor,full=BigInt(scale)*d;
     const lower=readings.map(value=>{
       const raw=2n*BigInt(value)*d-h;
       return raw<0n?0n:raw;
@@ -291,13 +303,10 @@
     const tiedFactor=first.factor==="estimate"?tieSum-5n*tieMedian:
       tieSum+5n*tieMedian-10n*targetNumerator;
     if(tiedFactor!==0n) throw new Error("The continuous boundary lacks an exact witness");
-    let numerator=first.numerator,denominator=first.denominator*BigInt(2*TARGET_SCALE);
-    let a=numerator,b=denominator;
-    while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
-    numerator/=a; denominator/=a;
-    const firstTieUnits=Number((numerator*BigInt(TARGET_SCALE)+denominator-1n)/denominator);
+    const {numerator,denominator}=routes[first.factor];
+    const firstTieUnits=Number((BigInt(numerator)*BigInt(TARGET_SCALE)+BigInt(denominator)-1n)/BigInt(denominator));
     return {kind:"edge",winner:baseline.winner,factor:first.factor,
-      numerator:numerator.toString(),denominator:denominator.toString(),firstTieUnits,
+      numerator,denominator,firstTieUnits,routes,
       witness:{readingsNumerators:tieReadings.map(value=>value.toString()),
         targetNumerator:targetNumerator.toString(),denominator:(d*BigInt(2*TARGET_SCALE)).toString()}};
   }
@@ -505,6 +514,14 @@
       threshold.numerator+"/"+threshold.denominator:"—";
     $("edge-exact-decimal").textContent=threshold.kind==="edge"?
       fmtThresholdApprox(threshold.numerator,threshold.denominator):"";
+    for(const factor of ["estimate","reference"]) {
+      const route=threshold.kind==="edge"?threshold.routes[factor]:null;
+      $("edge-"+factor+"-threshold").textContent=route?
+        route.numerator+(route.denominator==="1"?"":"/"+route.denominator):"—";
+      $("edge-"+factor+"-route").dataset.active=String(!!route&&
+        BigInt(route.numerator)*BigInt(threshold.denominator)===
+          BigInt(threshold.numerator)*BigInt(route.denominator));
+    }
     $("edge-first-tie").textContent=fmt(edge.firstTieUnits/TARGET_SCALE);
     $("edge-last-button").disabled=edge.kind!=="edge";
     $("edge-first-button").disabled=edge.kind!=="edge";
@@ -512,7 +529,9 @@
       ?"For every allowed set of readings and target, "+edge.winner+" is strictly closer through "+fmt(edge.lastStrictUnits/TARGET_SCALE)+
         ". The exact continuous threshold is "+threshold.numerator+"/"+threshold.denominator+
         "; "+(threshold.factor==="estimate"?"mean − median":"mean + median − 2×target")+
-        " first reaches zero there. The first selectable tie setting is "+fmt(edge.firstTieUnits/TARGET_SCALE)+"."
+        " reaches zero there"+(threshold.routes.estimate.numerator===threshold.routes.reference.numerator&&
+          threshold.routes.estimate.denominator===threshold.routes.reference.denominator?" alongside the other factor":" first")+
+        ". The first selectable tie setting is "+fmt(edge.firstTieUnits/TARGET_SCALE)+"."
       :"The target range already permits a tie at zero drift. Narrow it to find a strict stability edge.";
     $("edge-proof").hidden=threshold.kind!=="edge";
     if(threshold.kind==="edge") {
@@ -547,6 +566,8 @@
         "Model: each reading independently changes by at most ε within [0, 100]; target may be any real value in the range.",
         "Strict winner below threshold: "+threshold.winner,
         "Exact threshold ε = "+threshold.numerator+"/"+threshold.denominator,
+        "Mean meets median at ε = "+$("edge-estimate-threshold").textContent,
+        "Target meets mean–median midpoint at ε = "+$("edge-reference-threshold").textContent,
         "First zero factor: "+(threshold.factor==="estimate"?"mean − median":"mean + median − 2×target"),
         ...moves,"Tie target: "+targetText,$("edge-outcome").textContent,
         "Last six-decimal strict setting: "+fmt(edge.lastStrictUnits/TARGET_SCALE),
