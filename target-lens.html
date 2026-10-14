@@ -152,14 +152,29 @@
     .drift-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
     .drift-head h3 { margin:0; font-size:clamp(1.45rem,2.7vw,2rem); line-height:1.16; letter-spacing:-.035em; }
     .drift-badge { padding:5px 11px; border:1px solid #9aafba; border-radius:99px; background:#31404b; color:#ecf5f8; font-size:.78rem; font-weight:800; }
-    .drift-badge[data-kind="certified"] { border-color:#a5d9a9; background:#245343; color:#edffe9; }
-    .drift-badge[data-kind="inconclusive"] { border-color:#ffcb78; background:#68482b; color:#ffebc9; }
+    .drift-badge[data-kind="strict"] { border-color:#a5d9a9; background:#245343; color:#edffe9; }
+    .drift-badge[data-kind="tie-possible"] { border-color:#ffcb78; background:#68482b; color:#ffebc9; }
+    .drift-badge[data-kind="all-tie"] { border-color:#93d4ee; background:#18445a; color:#def7ff; }
     .drift-intro { max-width:790px; margin:9px 0 18px; color:#d4e1e4; font-size:.88rem; }
     .drift-control { display:flex; flex-wrap:wrap; align-items:end; gap:12px 20px; }
     .drift-control label { display:block; min-width:200px; font-size:.8rem; font-weight:800; }
     .drift-control input { display:block; width:200px; max-width:100%; min-height:46px; margin-top:6px; border:1px solid #b5a37d; border-radius:9px; padding:8px 10px; color:var(--ink); background:#071e2a; }
     .drift-control span { max-width:580px; color:#c5d9da; font-size:.82rem; }
+    .drift-example { margin:4px 0 10px; padding:8px 12px; border:1px solid #8bbfb6; border-radius:8px; background:#143f42; color:#d9fff1; font-size:.78rem; font-weight:800; }
+    .drift-example:hover { filter:brightness(1.18); }
     #drift-error { min-height:1.4em; margin:5px 0 3px; color:var(--rose); font-size:.8rem; font-weight:700; }
+    .drift-exact { padding:17px; border:1px solid #a9b7a1; border-radius:12px; background:linear-gradient(120deg,#102f35,#102331); }
+    .drift-exact h4 { margin:0 0 10px; color:var(--mint); font-size:.76rem; letter-spacing:.12em; text-transform:uppercase; }
+    .drift-factors { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .drift-factors div { min-width:0; padding:13px 15px; border:1px solid #587c83; border-radius:9px; background:#071e2d; }
+    .drift-factors small { display:block; color:#c4dcdf; font-size:.71rem; font-weight:800; }
+    .drift-factors strong { display:block; margin-top:5px; color:var(--gold); font:800 clamp(1rem,2vw,1.35rem) ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .drift-exact p { margin:12px 0 0; color:#e7f5ef; font-size:.9rem; }
+    .drift-exact .drift-witness { padding-top:10px; border-top:1px solid #72958f; color:var(--gold); font-weight:700; }
+    .drift-shortcut { margin-top:13px; padding:12px 15px; border:1px solid #667a81; border-radius:11px; background:#0b202e; }
+    .drift-shortcut summary { cursor:pointer; color:#d7eced; font-size:.84rem; font-weight:800; }
+    .drift-shortcut summary::marker { color:var(--gold); }
+    .drift-shortcut summary span { margin-left:8px; color:var(--gold); font-weight:700; }
     .drift-measures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:12px 0; }
     .drift-measures div { padding:13px 15px; border:1px solid #627a82; border-radius:10px; background:#092130; }
     .drift-measures small { display:block; color:#c3d8da; font-size:.7rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
@@ -182,7 +197,7 @@
     .note { color:var(--muted); font-size:.85rem; }
     footer { padding:22px 0 40px; border-top:1px solid var(--line); color:var(--muted); font-size:.84rem; }
     @media(max-width:820px) { .hero,.under { grid-template-columns:1fr; } .hero { padding-top:28px; } .verdict-card { max-width:650px; } }
-    @media(max-width:600px) { .controls { grid-template-columns:1fr 1fr; } .controls .range-control { grid-column:1 / -1; } .controls button { white-space:normal; } .numbers,.witness-grid,.drift-measures { grid-template-columns:1fr; } .interval-controls { grid-template-columns:1fr 1fr; } .interval-controls button { grid-column:1 / -1; } .number { display:flex; justify-content:space-between; align-items:center; gap:8px; } .readings { gap:5px; } .readings li { font-size:1rem; padding:10px 2px; } .readings li::before { font-size:.45rem; } .region { font-size:.72rem; } .witness { min-height:0; } .drift-measures div { display:flex; justify-content:space-between; align-items:center; gap:8px; } }
+    @media(max-width:600px) { .controls { grid-template-columns:1fr 1fr; } .controls .range-control { grid-column:1 / -1; } .controls button { white-space:normal; } .numbers,.witness-grid,.drift-measures,.drift-factors { grid-template-columns:1fr; } .interval-controls { grid-template-columns:1fr 1fr; } .interval-controls button { grid-column:1 / -1; } .number { display:flex; justify-content:space-between; align-items:center; gap:8px; } .readings { gap:5px; } .readings li { font-size:1rem; padding:10px 2px; } .readings li::before { font-size:.45rem; } .region { font-size:.72rem; } .witness { min-height:0; } .drift-measures div { display:flex; justify-content:space-between; align-items:center; gap:8px; } }
     @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
@@ -272,18 +287,30 @@
         </section>
         <section class="drift-proof" aria-labelledby="drift-title">
           <p class="eyebrow">Reading uncertainty / universal guarantee</p>
-          <div class="drift-head"><h3 id="drift-title">What if every reading can drift?</h3><span class="drift-badge" id="drift-badge" role="status">Median still wins</span></div>
-          <p class="drift-intro">Allow each of the five readings to change independently by up to the same amount. Check whether one estimate remains strictly closer for every allowed set of readings and every target in the range above.</p>
-          <div class="drift-control"><label for="drift-input">Maximum change per reading<input id="drift-input" type="number" min="0" max="100" step="any" inputmode="decimal" value="1" aria-describedby="drift-help"></label><span id="drift-help">Readings stay in 0–100. The bound covers all simultaneous changes, including different directions.</span></div>
+          <div class="drift-head"><h3 id="drift-title">What if every reading can drift?</h3><span class="drift-badge" id="drift-badge" role="status">Median guaranteed</span></div>
+          <p class="drift-intro">Allow each of the five readings to change independently by up to the same amount. The exact certificate checks every allowed configuration and every real target in the range above.</p>
+          <div class="drift-control"><label for="drift-input">Maximum change per reading<input id="drift-input" type="number" min="0" max="100" step="any" inputmode="decimal" value="1" aria-describedby="drift-help"></label><span id="drift-help">Readings stay in 0–100. Changes may happen simultaneously and in different directions.</span></div>
           <p id="drift-error" role="alert"></p>
-          <div class="drift-measures" aria-label="Stability calculation">
-            <div><small>Smallest starting lead</small><strong id="drift-gap">2.6</strong></div>
-            <div><small>Largest allowed drop · 2 × change</small><strong id="drift-allowance">2</strong></div>
-            <div><small>Conservative lead floor</small><strong id="drift-remaining">0.6</strong></div>
+          <button class="drift-example" id="drift-example" type="button">Try a case the 2ε shortcut cannot prove ↗</button>
+          <div class="drift-exact">
+            <h4>Exact factor ranges / all allowed readings</h4>
+            <div class="drift-factors">
+              <div><small>Mean − median</small><strong id="drift-estimate-range">[0, 0]</strong></div>
+              <div><small>Mean + median − 2 × target</small><strong id="drift-reference-range">[0, 0]</strong></div>
+            </div>
+            <p id="drift-exact-text">The signs of both factors determine the verdict throughout the allowed region.</p>
+            <p class="drift-witness" id="drift-witness" hidden></p>
           </div>
-          <p class="drift-proof-text" id="drift-proof-text">A positive lead remains throughout the target range.</p>
-          <code class="drift-identity">|mean′ − mean| ≤ ε &nbsp;·&nbsp; |median′ − median| ≤ ε &nbsp;⇒&nbsp; error lead drops by at most 2ε</code>
-          <p class="scope">The mean bound follows by averaging five changes; the median bound follows because every ordered reading moves at most ε. The reverse triangle inequality bounds each absolute error. This is a sufficient guarantee, not a claim that reversal occurs when the bound is inconclusive. It assumes a hypothetical target range and stated per-reading limits, not measured uncertainty.</p>
+          <details class="drift-shortcut"><summary>Inspect the simpler 2ε bound <span id="drift-shortcut-status">Shortcut certifies Median</span></summary>
+            <div class="drift-measures" aria-label="Conservative stability calculation">
+              <div><small>Smallest starting lead</small><strong id="drift-gap">2.6</strong></div>
+              <div><small>Largest allowed drop · 2 × change</small><strong id="drift-allowance">2</strong></div>
+              <div><small>Conservative lead floor</small><strong id="drift-remaining">0.6</strong></div>
+            </div>
+            <p class="drift-proof-text" id="drift-proof-text">A positive lead remains throughout the target range.</p>
+          </details>
+          <code class="drift-identity">|mean − target|² − |median − target|² = (mean − median)(mean + median − 2×target)</code>
+          <p class="scope">The sum and median are monotone in every reading, giving exact bounds for the second factor. The first factor is optimized over all 30 choices of a median and two lower readings; within each ordering, its extrema occur at the limiting median values. A zero in either factor gives a tie by continuity. These are hypothetical ranges and stipulated reading limits, not measured uncertainty or a verified target.</p>
         </section>
       </section>
       <div class="under">
@@ -307,6 +334,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=20261014-reading-drift"></script>
+  <script src="target-lens.js?v=20261014-exact-joint"></script>
 </body>
 </html>
