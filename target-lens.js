@@ -96,6 +96,52 @@
       remaining:(gapUnits-allowanceUnits)/TARGET_SCALE};
   }
 
+  function interpolateTiePath(from,to,targetFromUnits,targetToUnits,factor) {
+    const delta=from.map((value,index)=>value-to[index]);
+    const fraction=(numerator,denominator)=>{
+      if(denominator<0n) { numerator=-numerator; denominator=-denominator; }
+      let a=numerator<0n?-numerator:numerator,b=denominator;
+      while(b!==0n) { const remainder=a%b; a=b; b=remainder; }
+      return {numerator:numerator/a,denominator:denominator/a};
+    };
+    const compare=(a,b)=>a.numerator*b.denominator-b.numerator*a.denominator;
+    const stops=[fraction(0n,1n),fraction(1n,1n)];
+    // The box and target interval are convex, so the whole segment is allowed.
+    // Its median changes affine branch only where two reading lines meet.
+    for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) {
+      const slope=BigInt(delta[i]-delta[j]);
+      if(slope===0n) continue;
+      const stop=fraction(BigInt(from[i]-from[j]),slope);
+      if(compare(stop,stops[0])>0n&&compare(stop,stops[1])<0n) stops.push(stop);
+    }
+    stops.sort((a,b)=>Number(compare(a,b)));
+    const medianWeight=factor==="estimate"?-5:5;
+    const targetWeight=factor==="estimate"?0:-10;
+    for(let index=1;index<stops.length;index++) {
+      const left=stops[index-1],right=stops[index];
+      if(compare(left,right)===0n) continue;
+      const middle=fraction(left.numerator*right.denominator+right.numerator*left.denominator,
+        2n*left.denominator*right.denominator);
+      const order=[0,1,2,3,4].sort((a,b)=>{
+        const aUnits=BigInt(from[a])*middle.denominator-BigInt(delta[a])*middle.numerator;
+        const bUnits=BigInt(from[b])*middle.denominator-BigInt(delta[b])*middle.numerator;
+        return Number(aUnits-bUnits);
+      });
+      const medianIndex=order[2];
+      const atStart=from.reduce((sum,value)=>sum+value,0)+medianWeight*from[medianIndex]+targetWeight*targetFromUnits;
+      const slope=-delta.reduce((sum,value)=>sum+value,0)-medianWeight*delta[medianIndex]+
+        targetWeight*(targetToUnits-targetFromUnits);
+      if(slope===0) continue;
+      const root=fraction(-BigInt(atStart),BigInt(slope));
+      if(compare(root,left)<0n||compare(root,right)>0n) continue;
+      // A common denominator retains the exact rational witness even when
+      // the tie reading has more than six decimal places.
+      return {from,to,targetFromUnits,targetToUnits,
+        numerator:root.numerator.toString(),denominator:root.denominator.toString()};
+    }
+    throw new Error("No tie on the continuous extremizer path");
+  }
+
   function certifyJointUncertainty(values,low,high,epsilon) {
     certifyInterval(values,low,high);
     if(!Number.isFinite(epsilon)||epsilon<0||epsilon>100) throw new RangeError("Invalid reading drift");
@@ -137,11 +183,14 @@
       estimateCanTie||referenceCanTie?"tie-possible":"strict";
     const winner=kind==="strict"?
       (Math.sign(minEstimate.units)===Math.sign(minReference)?"Median":"Mean"):null;
-    const witness=kind==="tie-possible"?
+    let witness=kind==="tie-possible"?
       minEstimate.units===0?{readings:minEstimate.readings,targetUnits:Math.round(low*TARGET_SCALE)}:
       maxEstimate.units===0?{readings:maxEstimate.readings,targetUnits:Math.round(low*TARGET_SCALE)}:
       minReference===0?{readings:lower,targetUnits:Math.round(high*TARGET_SCALE)}:
       maxReference===0?{readings:upper,targetUnits:Math.round(low*TARGET_SCALE)}:null:null;
+    if(kind==="tie-possible"&&!witness) witness={path:estimateCanTie?
+      interpolateTiePath(minEstimate.readings,maxEstimate.readings,Math.round(low*TARGET_SCALE),Math.round(low*TARGET_SCALE),"estimate"):
+      interpolateTiePath(lower,upper,Math.round(high*TARGET_SCALE),Math.round(low*TARGET_SCALE),"reference")};
     return {kind,winner,estimateRangeUnits,referenceRangeUnits,
       tieFactor:estimateCanTie?"estimate":referenceCanTie?"reference":null,
       estimateExtremizers:{minimum:minEstimate.readings,maximum:maxEstimate.readings},
@@ -168,7 +217,7 @@
 
   const $=id=>document.getElementById(id);
   const fmt=value=>String(Number(value.toFixed(6)));
-  const fmtFactor=units=>String(Number((units/(5*TARGET_SCALE)).toFixed(7)));
+  const fmtFactor=units=>(units/(5*TARGET_SCALE)).toFixed(7).replace(/0+$/g,"").replace(/\.$/,"");
   const x=value=>58+value*7.12;
   const y=error=>220-error*1.9;
   let current={...PRESETS.a,...defaultInterval(PRESETS.a.target),epsilon:DEFAULT_DRIFT,values:[...PRESETS.a.values],key:"a"};
@@ -315,9 +364,18 @@
         ?"Mean and median coincide for every allowed set of readings, so every target ties."
         :"The factor "+factorName+" reaches zero within the allowed continuous ranges. Its extremes occur at allowed readings and targets; moving between them passes through an exact tie. A strict winner cannot cover every configuration.";
     $("drift-witness").hidden=!exact.witness;
-    if(exact.witness) $("drift-witness").textContent="Exact tie witness: readings "+
-      exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
-      "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
+    if(exact.witness) $("drift-witness").textContent=exact.witness.path
+      ?"Exact tie construction: interpolate the readings from ["+
+        exact.witness.path.from.map(units=>fmt(units/TARGET_SCALE)).join(", ")+"] to ["+
+        exact.witness.path.to.map(units=>fmt(units/TARGET_SCALE)).join(", ")+"], with "+
+        (exact.witness.path.targetFromUnits===exact.witness.path.targetToUnits
+          ?"target fixed at "+fmt(exact.witness.path.targetFromUnits/TARGET_SCALE)
+          :"target moving from "+fmt(exact.witness.path.targetFromUnits/TARGET_SCALE)+" to "+
+            fmt(exact.witness.path.targetToUnits/TARGET_SCALE))+", at fraction "+
+        exact.witness.path.numerator+"/"+exact.witness.path.denominator+
+        " of the path. At that exact fraction the "+(exact.tieFactor==="estimate"?"mean equals the median":"target is the mean–median midpoint")+"; both errors tie."
+      :"Exact tie witness: readings "+exact.witness.readings.map(units=>fmt(units/TARGET_SCALE)).join(", ")+
+        "; target "+fmt(exact.witness.targetUnits/TARGET_SCALE)+". Both estimates have equal absolute error.";
     $("edge-last-strict").textContent=edge.kind==="edge"?fmt(edge.lastStrictUnits/TARGET_SCALE):"—";
     $("edge-first-tie").textContent=fmt(edge.firstTieUnits/TARGET_SCALE);
     $("edge-last-button").disabled=edge.kind!=="edge";
