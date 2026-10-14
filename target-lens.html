@@ -204,6 +204,21 @@
     .reach-map-verdict[data-winner="Mean"] { border-color:#c28c69; background:#3b2d2a; color:#ffe4cf; }
     .reach-map-verdict[data-winner="Median"] { border-color:#55a6b9; background:#153f51; color:#e4faff; }
     .reach-map-card .reach-map-caption { margin-bottom:0; color:#f1f8ed; }
+    .depth-atlas { margin-top:17px; padding:13px; border:1px solid #5d9298; border-radius:10px; background:#0b2836; }
+    .depth-atlas summary { color:#ecfff5; font-size:.86rem; font-weight:800; cursor:pointer; }
+    .depth-atlas > p { margin:9px 0 13px; color:#d8eee8; font-size:.79rem; line-height:1.5; }
+    .depth-rows { display:grid; gap:6px; }
+    .depth-row { display:grid; grid-template-columns:88px minmax(100px,1fr) minmax(145px,200px); gap:10px; align-items:center; padding:7px 9px; border:1px solid #426877; border-radius:7px; background:#0a2533; }
+    .depth-row[data-first="true"] { border-color:var(--gold); background:#29382f; box-shadow:inset 3px 0 0 var(--gold); }
+    .depth-row strong { color:#ecfaf4; font-size:.75rem; }
+    .depth-row output { color:#d9f5e8; font:.72rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+    .depth-track { position:relative; height:26px; border:1px solid #537c82; border-radius:5px; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),#82a3a032 calc(10% - 1px),#82a3a032 10%),#092331; overflow:hidden; }
+    .depth-track span { position:absolute; }
+    .depth-band { left:var(--tie-start); width:calc(var(--tie-end) - var(--tie-start)); min-width:3px; top:6px; height:12px; border-radius:3px; background:var(--mint); box-shadow:0 0 9px #79eac388; }
+    .depth-track[data-kind="all"] .depth-band { background:var(--gold); box-shadow:0 0 9px #ffcb7888; }
+    .depth-selection { left:var(--range-start); width:calc(var(--range-end) - var(--range-start)); min-width:2px; top:0; bottom:0; background:#ff9aa53b; border-left:2px solid var(--rose); border-right:2px solid var(--rose); }
+    .depth-atlas .depth-conclusion { margin-bottom:0; color:#f6e4bd; font-weight:750; }
+    @media(max-width:650px) { .depth-row { grid-template-columns:75px minmax(0,1fr); gap:4px 8px; } .depth-row output { grid-column:2; } }
     .point-edge { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 17px; align-items:center; margin-top:15px; padding:15px; border:1px solid #b88c85; border-radius:10px; background:linear-gradient(120deg,#3a3540,#19323d); }
     .point-edge small { display:block; color:#f2cdd0; font-size:.7rem; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
     .point-edge strong { display:block; margin-top:3px; color:#ffd5d9; font:800 clamp(1.2rem,2.5vw,1.65rem) ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
@@ -454,6 +469,18 @@
               <div class="reach-map-key" aria-hidden="true"><span id="reach-map-below-label" data-winner="Median">Median guaranteed · below tie band</span><span id="reach-map-above-label" data-winner="Mean">Mean guaranteed · above tie band</span><span>Midpoint ties possible</span><span>Every target can tie</span><span>Your target range</span><span>First tie at your exact target</span></div>
               <div class="reach-map-verdict" id="reach-map-verdict" role="status" data-winner="Median">Median is guaranteed for the selected range at this drift.</div>
               <p class="reach-map-caption" id="reach-map-caption"></p>
+              <details class="depth-atlas" id="depth-atlas"><summary>Explore tie depth across every target</summary>
+                <p>At the current drift, each row lets at most the named number of readings move. Mint marks targets where some allowed arrangement ties; rose marks your selected range. Gold means an arrangement with equal estimates can tie at any target. The first highlighted row is the minimum budget for a tie in your range.</p>
+                <div class="depth-rows">
+                  <div class="depth-row" id="depth-row-0"><strong>0 moving</strong><div class="depth-track" id="depth-track-0" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-0"></output></div>
+                  <div class="depth-row" id="depth-row-1"><strong>≤ 1 moving</strong><div class="depth-track" id="depth-track-1" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-1"></output></div>
+                  <div class="depth-row" id="depth-row-2"><strong>≤ 2 moving</strong><div class="depth-track" id="depth-track-2" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-2"></output></div>
+                  <div class="depth-row" id="depth-row-3"><strong>≤ 3 moving</strong><div class="depth-track" id="depth-track-3" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-3"></output></div>
+                  <div class="depth-row" id="depth-row-4"><strong>≤ 4 moving</strong><div class="depth-track" id="depth-track-4" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-4"></output></div>
+                  <div class="depth-row" id="depth-row-5"><strong>≤ 5 moving</strong><div class="depth-track" id="depth-track-5" role="img"><span class="depth-band"></span><span class="depth-selection"></span></div><output id="depth-label-5"></output></div>
+                </div>
+                <p class="depth-conclusion" id="depth-conclusion"></p>
+              </details>
               <div class="point-edge" role="group" aria-label="First tie at the selected exact target">
                 <div><small>First tie at your exact target <span id="point-target">50</span></small><strong id="point-exact">33/10</strong><span class="point-grid" id="point-grid">First selectable ε = 3.3</span></div>
                 <button id="point-open" type="button">Inspect this target’s first tie ↗</button>
@@ -554,6 +581,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=ee65b7411a53"></script>
+  <script src="target-lens.js?v=10a6c3224311"></script>
 </body>
 </html>

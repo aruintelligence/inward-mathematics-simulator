@@ -2300,6 +2300,41 @@ test("winner map certifies both open sides and excludes attainable tie boundarie
   }
 });
 
+test("tie depth atlas has exact nested targets and agrees with minimal movable support", () => {
+  const {supportTieAtlas,minimumTieSupport,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  const atOne=supportTieAtlas(values,1);
+  assert.deepEqual(atOne.map(row=>row.lowerNumerator/row.denominator),
+    [53.3,52.7,52.6,52.5,52.4,52.3]);
+  assert.deepEqual(atOne.map(row=>row.upperNumerator/row.denominator),
+    [53.3,53.9,54,54.1,54.2,54.3]);
+  assert.deepEqual(supportTieAtlas(values,10).map(row=>row.kind),
+    ["band","band","band","all","all","all"]);
+  assert.equal(supportTieAtlas(values,1.3)[5].lowerNumerator,52*10000000);
+  assert.deepEqual(supportTieAtlas(PRESETS.c.values,0).map(row=>row.kind),
+    ["all","all","all","all","all","all"]);
+  assert.throws(()=>supportTieAtlas(values,-0.1),RangeError);
+
+  let seed=51231;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<32;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const epsilon=Math.floor(roll()*20000001)/1000000;
+    const low=Math.floor(roll()*95000001)/1000000;
+    const high=Math.min(100,low+Math.floor(roll()*5000001)/1000000);
+    const rows=supportTieAtlas(readings,epsilon);
+    const first=rows.find(row=>row.kind==="all"||
+      Math.round(low*1000000)*10<=row.upperNumerator&&
+      Math.round(high*1000000)*10>=row.lowerNumerator);
+    const certificate=minimumTieSupport(readings,low,high,epsilon);
+    assert.equal(first?.count??null,certificate.kind==="tie"?certificate.count:null);
+    const full=certifyJointUncertainty(readings,low,high,epsilon).tieTargets;
+    assert.equal(rows[5].kind,full.kind);
+    assert.equal(rows[5].lowerNumerator,full.lowerNumerator);
+    assert.equal(rows[5].upperNumerator,full.upperNumerator);
+  }
+});
+
 test("exact point threshold inverts the reachability curves across targets", () => {
   const {tieReachabilityEnvelope,continuousStabilityThreshold,PRESETS}=require("../target-lens.js");
   const firstByCurve=(envelope,target)=>{
@@ -2374,6 +2409,12 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("reach-map-above").attributes["data-winner"],"Mean");
   assert.equal(element("reach-map-below-label").textContent,"Median guaranteed · below tie band");
   assert.match(element("reach-map-verdict").textContent,/Median is guaranteed for every allowed reading arrangement/);
+  assert.equal(element("depth-label-0").textContent,"Tie at 53.3");
+  assert.equal(element("depth-label-1").textContent,"Tie: 52.7–53.9");
+  assert.equal(element("depth-label-5").textContent,"Tie: 52.3–54.3");
+  assert.equal(element("depth-track-5").dataset.kind,"band");
+  assert.equal(element("depth-row-5").dataset.first,"false");
+  assert.match(element("depth-conclusion").textContent,/cannot tie even when all five/);
   assert.equal(element("reach-map-max").textContent,"10");
   assert.match(element("reach-map-caption").textContent,/exact ε = 16\/3/);
   assert.match(element("reach-map").attributes["aria-label"],/No tie is attainable/);
@@ -2461,10 +2502,15 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(address.at(-1),/eps=1\.3$/);
   element("drift-input").handlers.input({target:{value:"4"}});
   assert.equal(element("sparse-count").textContent,"2");
+  assert.equal(element("depth-row-2").dataset.first,"true");
+  assert.equal(element("depth-row-1").dataset.first,"false");
+  assert.match(element("depth-conclusion").textContent,/at most 2 movable readings/);
   assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["true","false","true","false","false"]);
   assert.match(element("sparse-outcome").textContent,/Target 52 · mean 55 · median 49 · equal absolute errors 3/);
   element("drift-input").handlers.input({target:{value:"10"}});
   assert.equal(element("sparse-count").textContent,"1");
+  assert.equal(element("depth-row-1").dataset.first,"true");
+  assert.equal(element("depth-track-3").dataset.kind,"all");
   assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["false","false","true","false","false"]);
   assert.match(element("sparse-changes").children[2].textContent,/50 → 122\/3/);
   element("drift-input").handlers.input({target:{value:"0.9"}});
@@ -2501,6 +2547,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("reach-map-below").attributes.d,"");
   assert.equal(element("reach-map-above").attributes.d,"");
   assert.match(element("reach-map-verdict").textContent,/A tie is attainable/);
+  assert.equal(element("depth-label-0").textContent,"Every target can tie");
+  assert.equal(element("depth-row-0").dataset.first,"true");
   assert.equal(element("witness-grid").hidden,true);
   assert.equal(element("witness-all-tie").hidden,false);
   assert.match(element("witness-all-tie").textContent,/every target/);
