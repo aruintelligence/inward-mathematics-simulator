@@ -912,9 +912,106 @@ test("One Move scores strict reversals against the exact four-decimal minimum", 
   assert.match(parsePuzzle("?values=1%2C2%2C3%2C4%2C5&target=101").error,/invalid/);
   const page=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
   assert.match(page,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(page,/src="one-move\.js\?v=36" defer/);
+  assert.match(page,/src="one-move\.js\?v=37" defer/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),/Play the three-round course/);
   assert.match(fs.readFileSync(path.join(__dirname,"..","flip-levers.html"),"utf8"),/id="puzzle-link"/);
+});
+
+test("integer certificate covers the full grid and proves every route's nearest strict reversal", () => {
+  const {proveMinimum}=require("../minimum-proof.js");
+  const {PRESETS,evaluate}=require("../flip-levers.js");
+  const {values,target}=PRESETS.b,certificate=proveMinimum(values,target);
+  assert.equal(certificate.positions,5000005);
+  assert.equal(certificate.winner,"Mean");
+  assert.deepEqual([certificate.best.index,certificate.best.toUnits,certificate.best.distanceUnits],[2,516667,16667]);
+  const targetUnits=Math.round(target*10000);
+  for(const route of certificate.routes) {
+    assert.equal(route.segments[0].fromUnits,0);
+    assert.equal(route.segments.at(-1).toUnits,1000000);
+    for(let i=1;i<route.segments.length;i++)
+      assert.equal(route.segments[i-1].toUnits,route.segments[i].fromUnits,"intervals cover the domain without gaps");
+    const fixed=values.filter((_,i)=>i!==route.index).map(value=>Math.round(value*10000));
+    const fixedSum=fixed.reduce((total,value)=>total+value,0);
+    let nearest=null;
+    // Separate exhaustive oracle: sort all five integer readings at every legal grid position.
+    for(let reading=0;reading<=1000000;reading++) {
+      const sorted=[...fixed,reading].sort((a,b)=>a-b);
+      const gap=Math.abs(fixedSum+reading-5*targetUnits)-5*Math.abs(sorted[2]-targetUnits);
+      if(gap<=0) continue;
+      const distance=Math.abs(reading-route.fromUnits);
+      if(!nearest||distance<nearest.distance||distance===nearest.distance&&reading<nearest.reading)
+        nearest={reading,distance};
+    }
+    assert.equal(route.toUnits,nearest?.reading??null);
+    assert.equal(route.distanceUnits,nearest?.distance??null);
+    if(route.toUnits!==null) {
+      const nearer=[...values];nearer[route.index]=route.nearMissUnits/10000;
+      assert.notEqual(evaluate(nearer,target).winner,"Median");
+    }
+  }
+  const html=fs.readFileSync(path.join(__dirname,"..","one-move.html"),"utf8");
+  assert.match(html,/id="minimum-proof" hidden/);
+  assert.match(html,/src="minimum-proof\.js\?v=1" defer/);
+  assert.match(html,/id="proof-routes" aria-label="Independent minimum check for every reading"/);
+});
+
+test("integer proof handles ties, unreachable routes, and fractional near-misses", () => {
+  const {proveMinimum}=require("../minimum-proof.js"),{PRESETS,rankLevers}=require("../flip-levers.js");
+  const tied=proveMinimum(PRESETS.c.values,PRESETS.c.target);
+  assert.equal(tied.winner,"Equal");
+  assert.equal(tied.best,null);
+  const unreachable=proveMinimum(PRESETS.a.values,PRESETS.a.target);
+  assert.equal(unreachable.routes[0].toUnits,null);
+  assert.equal(unreachable.routes.filter(route=>route.toUnits!==null).length,3);
+  assert.throws(()=>proveMinimum([1,2,3,4,5.00001],50),/four-decimal/);
+  let seed=7123001;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<500;trial++) {
+    const values=Array.from({length:5},()=>Math.round(roll()*1000000)/10000);
+    const target=Math.round(roll()*1000000)/10000;
+    const proof=proveMinimum(values,target),solver=rankLevers(values,target);
+    for(const route of proof.routes) {
+      const flip=solver.levers[route.index].flip;
+      assert.equal(route.toUnits,flip?Math.round(flip.value*10000):null,
+        `solver disagreement in trial ${trial}, reading ${route.index+1}`);
+      if(route.toUnits!==null) {
+        const original=route.initialDifference;
+        assert.ok(original<0?route.winnerDifference>0:route.winnerDifference<0);
+        assert.ok(original<0?route.nearMissDifference<=0:route.nearMissDifference>=0);
+      }
+    }
+  }
+});
+
+test("the result reveals the five-route certificate only after a strict flip", () => {
+  const elements=new Map();
+  function element(id) {
+    if(["home-daily-preview","daily-trail","practice-run"].includes(id)) return null;
+    if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,open:false,style:{},dataset:{},handlers:{},children:[],
+      addEventListener(name,callback){this.handlers[name]=callback;},setAttribute(){},scrollIntoView(){},focus(){},
+      append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},getContext(){return null;}});
+    return elements.get(id);
+  }
+  const readings=Array.from({length:5},()=>({handlers:{},addEventListener(name,callback){this.handlers[name]=callback;},
+    setAttribute(){},querySelector(){return {textContent:"",style:{}};}}));
+  const document={getElementById:element,querySelectorAll(selector){return selector===".reading"?readings:[];},
+    createElement(){return {textContent:"",style:{},dataset:{},children:[],append(...items){this.children.push(...items);},setAttribute(){}};}};
+  const window={location:{search:"?round=1",hash:"",href:"https://example.test/one-move.html?round=1"},history:{replaceState(){}}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","one-move.js"),"utf8"),
+    {module:{exports:{}},require:name=>require(path.join(__dirname,"..",name)),window,document,Date,URL,URLSearchParams},
+    {timeout:2000});
+  assert.equal(element("minimum-proof").hidden,true);
+  element("proposed").value="51.6667";
+  element("submit").handlers.click();
+  assert.equal(element("minimum-proof").hidden,false);
+  assert.equal(element("minimum-proof").open,true);
+  assert.match(element("proof-summary").textContent,/5,000,005 possible final positions/);
+  assert.match(element("proof-winner").textContent,/Reading 3 moves from 50 to 51\.6667/);
+  assert.equal(element("proof-routes").children.length,5);
+  assert.match(element("proof-routes").children[2].children[1].textContent,/51\.6666 is mean closer; 51\.6667 is median closer/);
+  element("proposed").value="51.6666";
+  element("submit").handlers.click();
+  assert.equal(element("minimum-proof").hidden,true);
 });
 
 test("daily puzzle is reproducible by date and every generated edition has a real reversal", () => {
@@ -1187,7 +1284,7 @@ test("homepage previews and shares the exact local daily puzzle without a soluti
   assert.match(html,/id="home-daily-share"/);
   assert.match(html,/id="home-daily-trail"/);
   assert.match(html,/src="flip-levers\.js\?v=3" defer/);
-  assert.match(html,/src="one-move\.js\?v=36" defer/);
+  assert.match(html,/src="one-move\.js\?v=37" defer/);
 });
 
 test("numbered practice cases replay exactly and always have viable strict flips", () => {
