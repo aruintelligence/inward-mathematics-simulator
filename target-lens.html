@@ -284,6 +284,8 @@
     .frontier-row button { min-height:36px; padding:6px 11px; border:1px solid #8bd8c4; border-radius:7px; background:#19514d; color:#e8fff4; font-size:.76rem; font-weight:800; }
     .frontier-row button:hover:not(:disabled) { filter:brightness(1.15); }
     .frontier-row button:disabled { opacity:.45; cursor:default; }
+    .single-card { border-color:#ad9a70; background:#142d38; }
+    .single-card .frontier-row[data-reached="true"] { border-color:var(--gold); background:#354035; }
     .drift-shortcut { margin-top:13px; padding:12px 15px; border:1px solid #667a81; border-radius:11px; background:#0b202e; }
     .drift-shortcut summary { cursor:pointer; color:#d7eced; font-size:.84rem; font-weight:800; }
     .drift-shortcut summary::marker { color:var(--gold); }
@@ -497,6 +499,17 @@
               </div>
               <p id="frontier-proof"></p>
             </details>
+            <details class="frontier-card single-card" id="single-card"><summary>Which reading can tip the result by itself?</summary>
+              <p>Hold four readings fixed and allow only the named reading to move. Compare the exact continuous threshold, the first selectable six-decimal setting, and a rational tie witness for each one.</p>
+              <div class="frontier-rows" id="single-rows">
+                <div class="frontier-row" id="single-row-1"><span id="single-reading-1"></span><div><strong id="single-exact-1"></strong><span class="frontier-grid" id="single-grid-1"></span></div><button id="single-button-1" type="button">Open grid setting ↗</button><details id="single-detail-1"><summary>Inspect exact witness</summary><p id="single-witness-1"></p></details></div>
+                <div class="frontier-row" id="single-row-2"><span id="single-reading-2"></span><div><strong id="single-exact-2"></strong><span class="frontier-grid" id="single-grid-2"></span></div><button id="single-button-2" type="button">Open grid setting ↗</button><details id="single-detail-2"><summary>Inspect exact witness</summary><p id="single-witness-2"></p></details></div>
+                <div class="frontier-row" id="single-row-3"><span id="single-reading-3"></span><div><strong id="single-exact-3"></strong><span class="frontier-grid" id="single-grid-3"></span></div><button id="single-button-3" type="button">Open grid setting ↗</button><details id="single-detail-3"><summary>Inspect exact witness</summary><p id="single-witness-3"></p></details></div>
+                <div class="frontier-row" id="single-row-4"><span id="single-reading-4"></span><div><strong id="single-exact-4"></strong><span class="frontier-grid" id="single-grid-4"></span></div><button id="single-button-4" type="button">Open grid setting ↗</button><details id="single-detail-4"><summary>Inspect exact witness</summary><p id="single-witness-4"></p></details></div>
+                <div class="frontier-row" id="single-row-5"><span id="single-reading-5"></span><div><strong id="single-exact-5"></strong><span class="frontier-grid" id="single-grid-5"></span></div><button id="single-button-5" type="button">Open grid setting ↗</button><details id="single-detail-5"><summary>Inspect exact witness</summary><p id="single-witness-5"></p></details></div>
+              </div>
+              <p id="single-proof"></p>
+            </details>
           </div>
           <details class="drift-shortcut"><summary>Inspect the simpler 2ε bound <span id="drift-shortcut-status">Shortcut certifies Median</span></summary>
             <div class="drift-measures" aria-label="Conservative stability calculation">
@@ -531,6 +544,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=5f0e73fcc1d3"></script>
+  <script src="target-lens.js?v=fd4133d29d2e"></script>
 </body>
 </html>

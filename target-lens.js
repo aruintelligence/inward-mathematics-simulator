@@ -407,6 +407,31 @@
     return {kind:"frontier",rows};
   }
 
+  function singleReadingThresholds(values,low,high) {
+    if(certifyJointUncertainty(values,low,high,0,0).kind!=="strict")
+      return {kind:"baseline-tie",rows:[]};
+    const rows=values.map((value,index)=>{
+      const mask=1<<index;
+      const exact=continuousStabilityThreshold(values,low,high,mask);
+      const canTie=units=>certifyJointUncertainty(values,low,high,units/TARGET_SCALE,mask).kind!=="strict";
+      let firstTieUnits=null;
+      if(canTie(100*TARGET_SCALE)) {
+        let strict=0,tie=100*TARGET_SCALE;
+        while(tie-strict>1) {
+          const midpoint=Math.floor((strict+tie)/2);
+          if(canTie(midpoint)) tie=midpoint;
+          else strict=midpoint;
+        }
+        firstTieUnits=tie;
+      }
+      if((exact.kind==="edge")!==(firstTieUnits!==null)||
+        exact.kind==="edge"&&exact.firstTieUnits!==firstTieUnits)
+        throw new Error("Single-reading continuous and selectable thresholds disagree");
+      return {index,mask,value,firstTieUnits,exact};
+    });
+    return {kind:"frontier",rows};
+  }
+
   function tieReachabilityEnvelope(values,selectedEpsilon) {
     if(!Number.isFinite(selectedEpsilon)||selectedEpsilon<0||selectedEpsilon>100)
       throw new RangeError("Invalid reading drift");
@@ -450,7 +475,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,tieReachabilityEnvelope,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,minimumTieSupport,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,stabilityEdge,continuousStabilityThreshold};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -652,7 +677,8 @@
       result:stabilityEdge(current.values,current.low,current.high),
       threshold:continuousStabilityThreshold(current.values,current.low,current.high),
       frontier:supportFrontier(current.values,current.low,current.high),
-      exactFrontier:continuousSupportFrontier(current.values,current.low,current.high)};
+      exactFrontier:continuousSupportFrontier(current.values,current.low,current.high),
+      singleReading:singleReadingThresholds(current.values,current.low,current.high)};
     const edge=cachedEdge.result;
     const threshold=cachedEdge.threshold;
     const frontier=cachedEdge.frontier;
@@ -663,6 +689,7 @@
     const pointEdge=cachedPoint.result;
     if(pointEdge.kind!=="edge"&&pointEdge.kind!=="no-baseline")
       throw new Error("Every target must tie when all five readings can move by 100");
+    const singleReading=cachedEdge.singleReading;
     if(document.activeElement!==$("drift-input")) $("drift-input").value=fmt(current.epsilon);
     $("drift-badge").dataset.kind=exact.kind;
     $("drift-badge").textContent=exact.kind==="strict"?exact.winner+" guaranteed":
@@ -763,6 +790,28 @@
         describeRouteWitness(exactRow,exactRow.witness)+
         " All smaller real ε are strict for every subset of this size.":"";
       $("frontier-button-"+count).disabled=!reachable;
+    }
+    $("single-rows").hidden=singleReading.kind!=="frontier";
+    $("single-proof").textContent=singleReading.kind==="baseline-tie"
+      ?"The fixed readings already admit a tie for a target in this range. No reading change is needed."
+      :"Each row freezes the other four readings. The exact box proof excludes every smaller real drift for that reading; a separate six-decimal search checks the first selectable setting. These are possible changes, not evidence that a reading is wrong.";
+    if(singleReading.kind==="frontier") for(const row of singleReading.rows) {
+      const number=row.index+1,reachable=row.firstTieUnits!==null;
+      $("single-reading-"+number).textContent="Reading "+number+" · "+fmt(row.value);
+      $("single-row-"+number).dataset.reached=String(reachable&&
+        Math.round(current.epsilon*TARGET_SCALE)>=row.firstTieUnits);
+      $("single-exact-"+number).textContent=reachable?
+        "Exact ε = "+row.exact.numerator+(row.exact.denominator==="1"?"":"/"+row.exact.denominator):
+        "No tie through ε = 100";
+      $("single-grid-"+number).textContent=reachable?
+        "First selectable ε = "+fmt(row.firstTieUnits/TARGET_SCALE):
+        "This reading alone cannot force a tie";
+      $("single-detail-"+number).hidden=!reachable;
+      $("single-witness-"+number).textContent=reachable?
+        (row.exact.factor==="estimate"?"Mean meets median. ":"Target meets the mean–median midpoint. ")+
+        describeRouteWitness(row.exact,row.exact.witness)+
+        " The other four readings stay fixed. Every smaller real ε is strict for this one-reading box.":"";
+      $("single-button-"+number).disabled=!reachable;
     }
     const tieTargets=exact.tieTargets,allTieTargets=tieTargets.kind==="all";
     const bandLow=fmtTieTarget(tieTargets.lowerNumerator),bandHigh=fmtTieTarget(tieTargets.upperNumerator);
@@ -1012,6 +1061,15 @@
     $("drift-error").textContent="";
     render();
     $("sparse-witness").scrollIntoView({block:"center"});
+  });
+  for(let number=1;number<=5;number++) $("single-button-"+number).addEventListener("click",()=>{
+    const row=cachedEdge.singleReading.rows[number-1];
+    if(!row||row.firstTieUnits===null) return;
+    current.epsilon=row.firstTieUnits/TARGET_SCALE;
+    $("drift-error").textContent="";
+    render();
+    $("single-detail-"+number).open=true;
+    $("single-row-"+number).scrollIntoView({block:"center"});
   });
   $("edge-copy").addEventListener("click",async()=>{
     if(!edgeProofCopy) return;

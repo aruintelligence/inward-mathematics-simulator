@@ -2174,6 +2174,56 @@ test("continuous support frontier has exact rational boundaries and admissible w
   assert.ok(checked>100);
 });
 
+test("individual-reading thresholds are exact, independently grid checked, and leave four readings fixed", () => {
+  const {singleReadingThresholds,continuousSupportFrontier,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
+  const featured=singleReadingThresholds(PRESETS.a.values,48,52);
+  assert.deepEqual(featured.rows.map(row=>[row.exact.numerator,row.exact.denominator,row.firstTieUnits]),
+    [["13","1",13000000],["13","1",13000000],["8","1",8000000],
+      ["8","1",8000000],["13","1",13000000]]);
+  assert.equal(singleReadingThresholds(PRESETS.a.values,0,100).kind,"baseline-tie");
+  assert.equal(singleReadingThresholds([0,0,0,0,100],0,0).rows[0].firstTieUnits,null);
+  let seed=39281,checked=0;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<32;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*1000001)/10000);
+    const x=Math.floor(roll()*100000001)/1e6,y=Math.floor(roll()*100000001)/1e6;
+    const low=Math.min(x,y),high=Math.max(x,y);
+    const result=singleReadingThresholds(readings,low,high);
+    if(result.kind==="baseline-tie") continue;
+    const best=continuousSupportFrontier(readings,low,high).rows[0];
+    const reachable=result.rows.filter(row=>row.exact.kind==="edge");
+    if(best.kind==="edge") assert.ok(reachable.some(row=>
+      BigInt(row.exact.numerator)*BigInt(best.denominator)===
+        BigInt(best.numerator)*BigInt(row.exact.denominator)));
+    else assert.equal(reachable.length,0);
+    for(const row of result.rows) {
+      const units=row.firstTieUnits;
+      if(units===null) {
+        assert.equal(row.exact.kind,"unreachable");
+        assert.equal(certifyJointUncertainty(readings,low,high,100,row.mask).kind,"strict");
+        continue;
+      }
+      checked++;
+      assert.equal(certifyJointUncertainty(readings,low,high,(units-1)/1e6,row.mask).kind,"strict");
+      assert.notEqual(certifyJointUncertainty(readings,low,high,units/1e6,row.mask).kind,"strict");
+      const n=BigInt(row.exact.numerator),d=BigInt(row.exact.denominator);
+      assert.ok(BigInt(units-1)*d<n*1000000n&&n*1000000n<=BigInt(units)*d);
+      const witness=row.exact.witness,den=BigInt(witness.denominator);
+      const moved=witness.readingsNumerators.map(BigInt),target=BigInt(witness.targetNumerator);
+      for(let index=0;index<5;index++) {
+        const original=BigInt(Math.round(readings[index]*1e6))*den/1000000n;
+        const delta=moved[index]-original;
+        assert.ok(index===row.index||delta===0n);
+        assert.ok((delta<0n?-delta:delta)*d<=n*den);
+      }
+      const sum=moved.reduce((total,value)=>total+value,0n);
+      const median=[...moved].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+      assert.equal((sum-5n*median)*(sum+5n*median-10n*target),0n);
+    }
+  }
+  assert.ok(checked>50);
+});
+
 test("target-by-drift envelope follows exact midpoint bounds and the all-target switch", () => {
   const {tieReachabilityEnvelope,certifyJointUncertainty,PRESETS}=require("../target-lens.js");
   const values=PRESETS.a.values;
@@ -2327,6 +2377,12 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(scrolled,"edge-proof");
   assert.match(address.at(-1),/target=50&lo=50&hi=50&eps=3\.3$/);
   presets[0].handlers.click();
+  assert.equal(element("single-reading-3").textContent,"Reading 3 · 50");
+  assert.equal(element("single-exact-3").textContent,"Exact ε = 8");
+  assert.equal(element("single-grid-3").textContent,"First selectable ε = 8");
+  assert.equal(element("single-exact-1").textContent,"Exact ε = 13");
+  assert.match(element("single-witness-3").textContent,/other four readings stay fixed/i);
+  assert.equal(element("single-row-3").dataset.reached,"false");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.equal(element("sparse-count").textContent,"5");
@@ -2343,6 +2399,14 @@ test("target witnesses and interval controls update the verdict, certificate, an
   await element("sparse-copy").handlers.click();
   assert.match(copied,/Minimum movable readings: 2 of 5/);
   assert.match(copied,/All smaller subsets certified strict: 6/);
+  element("single-button-4").handlers.click();
+  assert.equal(element("drift-input").value,"8");
+  assert.equal(element("sparse-count").textContent,"1");
+  assert.equal(element("single-row-4").dataset.reached,"true");
+  assert.equal(element("single-row-1").dataset.reached,"false");
+  assert.equal(element("single-detail-4").open,true);
+  assert.equal(scrolled,"single-row-4");
+  assert.match(address.at(-1),/eps=8$/);
   element("edge-last-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.match(address.at(-1),/eps=1\.299999$/);
@@ -2411,6 +2475,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
   assert.equal(element("frontier-rows").hidden,true);
+  assert.equal(element("single-rows").hidden,true);
+  assert.match(element("single-proof").textContent,/No reading change is needed/);
   assert.match(element("frontier-proof").textContent,/No reading change is needed/);
   assert.equal(element("point-exact").textContent,"0 · already tied");
   element("point-open").handlers.click();
