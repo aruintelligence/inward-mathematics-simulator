@@ -2062,13 +2062,65 @@ test("minimum movable readings has exact subset exclusions and admissible ration
   assert.throws(()=>certifyJointUncertainty(values,48,52,1,32),RangeError);
 });
 
+test("reading–drift frontier certifies the first selectable tie for every support budget", () => {
+  const {PRESETS,supportFrontier,certifyJointUncertainty,minimumTieSupport,stabilityEdge}=require("../target-lens.js");
+  const values=PRESETS.a.values;
+  for(const [low,high,expected] of [
+    [48,52,[8000000,1857143,1625000,1444445,1300000]],
+    [0,1,[33000000,10666667,8000000,6400000,5333334]]
+  ]) {
+    const frontier=supportFrontier(values,low,high);
+    assert.equal(frontier.kind,"frontier");
+    assert.deepEqual(frontier.rows.map(row=>row.firstTieUnits),expected);
+    assert.equal(frontier.rows[4].firstTieUnits,stabilityEdge(values,low,high).firstTieUnits);
+    for(const row of frontier.rows) {
+      const {count,firstTieUnits,mask}=row;
+      assert.equal(mask.toString(2).replace(/0/g,"").length,count);
+      assert.notEqual(certifyJointUncertainty(values,low,high,firstTieUnits/1e6,mask).kind,"strict");
+      for(let candidate=1;candidate<32;candidate++) {
+        if(candidate.toString(2).replace(/0/g,"").length!==count) continue;
+        assert.equal(certifyJointUncertainty(values,low,high,(firstTieUnits-1)/1e6,candidate).kind,"strict");
+      }
+      assert.equal(minimumTieSupport(values,low,high,firstTieUnits/1e6).count,count);
+    }
+  }
+  assert.deepEqual(supportFrontier(values,0,100),{kind:"baseline-tie",rows:[]});
+  // An otherwise fixed reading cannot force the mean to meet the median in
+  // the far-target example, even when it has the full 0–100 movement budget.
+  const unreachable=supportFrontier([84,7,14,10,27],0,0);
+  assert.equal(unreachable.rows[0].firstTieUnits,null);
+  assert.equal(unreachable.rows[0].mask,null);
+  let seed=71307;
+  const roll=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  for(let trial=0;trial<20;trial++) {
+    const readings=Array.from({length:5},()=>Math.floor(roll()*101));
+    const low=Math.floor(roll()*91),high=low+Math.floor(roll()*(101-low));
+    const frontier=supportFrontier(readings,low,high);
+    if(frontier.kind==="baseline-tie") continue;
+    let previous=Infinity;
+    for(const row of frontier.rows) {
+      if(row.firstTieUnits===null) continue;
+      assert.ok(row.firstTieUnits<=previous);
+      previous=row.firstTieUnits;
+      for(const epsilon of [0,1,3,10,30,100]) {
+        const expected=row.firstTieUnits<=epsilon*1e6;
+        const actual=Array.from({length:31},(_,index)=>index+1).some(mask=>
+          mask.toString(2).replace(/0/g,"").length<=row.count&&
+          certifyJointUncertainty(readings,low,high,epsilon,mask).kind!=="strict");
+        assert.equal(actual,expected);
+      }
+    }
+  }
+});
+
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
-  let copied="";
+  let copied="",scrolled="";
   function element(id) {
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
       style:{setProperty(){}},children:id==="readings"||id==="edge-changes"||id==="sparse-changes"?Array.from({length:5},()=>({textContent:"",dataset:{}})):[],parts:{},
       addEventListener(name,callback){this.handlers[name]=callback;},setAttribute(name,value){this.attributes[name]=value;},
+      scrollIntoView(){scrolled=id;},
       querySelector(selector){return this.parts[selector]??=({textContent:""});}});
     return elements.get(id);
   }
@@ -2105,16 +2157,27 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-first-tie").textContent,"1.3");
   assert.equal(element("sparse-status").textContent,"No tie within this drift");
   assert.match(element("sparse-proof").textContent,/All 32 subsets/);
+  assert.equal(element("frontier-threshold-1").textContent,"ε = 8");
+  assert.equal(element("frontier-threshold-2").textContent,"ε = 1.857143");
+  assert.equal(element("frontier-selection-2").textContent,"Witness subset: 2, 3");
+  assert.equal(element("frontier-threshold-5").textContent,"ε = 1.3");
+  assert.equal(element("frontier-row-5").dataset.reached,"false");
   element("edge-first-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"A tie can occur");
   assert.equal(element("sparse-count").textContent,"5");
   assert.match(element("sparse-proof").textContent,/\(checked: 31\)/);
   assert.deepEqual(element("sparse-changes").children.map(item=>item.dataset.moved),["true","true","true","true","true"]);
   assert.match(element("sparse-outcome").textContent,/Target 52 · mean 55\.3 · median 48\.7 · equal absolute errors 3\.3/);
+  assert.equal(element("frontier-row-5").dataset.current,"true");
+  element("frontier-button-2").handlers.click();
+  assert.equal(element("drift-input").value,"1.857143");
+  assert.equal(element("sparse-count").textContent,"2");
+  assert.equal(element("frontier-row-2").dataset.current,"true");
+  assert.equal(scrolled,"sparse-witness");
+  assert.match(address.at(-1),/eps=1\.857143$/);
   await element("sparse-copy").handlers.click();
-  assert.match(copied,/Minimum movable readings: 5 of 5/);
-  assert.match(copied,/All smaller subsets certified strict: 31/);
-  assert.match(address.at(-1),/eps=1\.3$/);
+  assert.match(copied,/Minimum movable readings: 2 of 5/);
+  assert.match(copied,/All smaller subsets certified strict: 6/);
   element("edge-last-button").handlers.click();
   assert.equal(element("drift-badge").textContent,"Median guaranteed");
   assert.match(address.at(-1),/eps=1\.299999$/);
@@ -2180,6 +2243,8 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.equal(element("edge-proof").hidden,true);
   assert.equal(element("edge-first-tie").textContent,"0");
   assert.equal(element("edge-first-button").disabled,true);
+  assert.equal(element("frontier-rows").hidden,true);
+  assert.match(element("frontier-proof").textContent,/No reading change is needed/);
   copied="";
   await element("edge-copy").handlers.click();
   assert.equal(copied,"");
