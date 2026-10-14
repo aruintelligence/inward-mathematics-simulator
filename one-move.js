@@ -2,6 +2,7 @@
 (() => {
   "use strict";
   const core=typeof module==="object"&&module.exports?require("./flip-levers.js"):window.InwardMathLevers;
+  const proof=typeof module==="object"&&module.exports?require("./minimum-proof.js"):window.InwardMathProof;
   const ROUNDS=[
     {values:[40,42,50,60,68],target:52,title:"The narrow crossing",cue:"The mean leads. Find a single reading that gives the median the lead."},
     {values:[43,55,37,62,68],target:61,title:"Turn the tide",cue:"The median leads this time. Move just one reading to make the mean closer."},
@@ -589,6 +590,48 @@
       row.append(label,track,amount,detail);list.append(row);
     }
   }
+  function showMinimumProof(judged) {
+    const panel=$("minimum-proof");
+    if(!panel) return;
+    panel.hidden=!judged.flipped||typeof proof?.proveMinimum!=="function";
+    if(panel.hidden) return;
+    const certificate=proof.proveMinimum(puzzle.values,puzzle.target),best=certificate.best;
+    const ranked=core.rankLevers(puzzle.values,puzzle.target);
+    const agrees=certificate.winner===ranked.current.winner&&best?.index===judged.solution.index&&
+      best?.distanceUnits===judged.minimumUnits&&
+      certificate.routes.every(route=>{
+        const flip=ranked.levers[route.index].flip;
+        return route.toUnits===(flip?units(flip.value):null);
+      });
+    if(!agrees) {
+      panel.open=false;
+      $("proof-summary").textContent="This arrangement could not be independently certified.";
+      $("proof-winner").textContent="The two methods disagree; no minimum proof is displayed.";
+      $("proof-breakpoints").textContent="";
+      $("proof-routes").replaceChildren();
+      return;
+    }
+    panel.open=true;
+    $("proof-summary").textContent="Exact certificate · "+certificate.positions.toLocaleString("en-US")+" possible final positions covered";
+    $("proof-winner").textContent="Reading "+(best.index+1)+" moves from "+fmt(best.fromUnits/10000)+" to "+fmt(best.toUnits/10000)+
+      ". Its move of "+fmt(best.distanceUnits/10000)+" is the smallest strict reversal across all five readings.";
+    $("proof-breakpoints").textContent="Winning reading's interval boundaries: "+
+      [...best.segments.map(segment=>fmt(segment.fromUnits/10000)),fmt(best.segments.at(-1).toUnits/10000)].join(" · ")+".";
+    const list=$("proof-routes");list.replaceChildren();
+    const verdict=difference=>difference===0?"tie":difference<0?"mean closer":"median closer";
+    for(const route of certificate.routes) {
+      const item=document.createElement("li"),head=document.createElement("div"),name=document.createElement("strong"),amount=document.createElement("b"),detail=document.createElement("p");
+      item.className="proof-route";item.dataset.best=String(route.index===best.index);
+      name.textContent="Reading "+(route.index+1);
+      amount.textContent=route.toUnits===null?"No reversal":"Move "+fmt(route.distanceUnits/10000);
+      head.append(name,amount);
+      detail.textContent=route.toUnits===null
+        ?route.segments.length+" straight-line intervals cover 0–100; none contains an opposing strict winner."
+        :route.segments.length+" intervals · "+fmt(route.nearMissUnits/10000)+" is "+verdict(route.nearMissDifference)+
+          "; "+fmt(route.toUnits/10000)+" is "+verdict(route.winnerDifference)+".";
+      item.append(head,detail);list.append(item);
+    }
+  }
   function drawResultCard(judged) {
     if(!$("move-card-kit")) return;
     $("move-card-kit").hidden=false;
@@ -661,6 +704,7 @@
     if($("verdict-shift")) $("verdict-shift").hidden=true;
     if($("mechanism")) $("mechanism").hidden=true;
     if($("route-atlas")) $("route-atlas").hidden=true;
+    if($("minimum-proof")) $("minimum-proof").hidden=true;
     if($("move-card-kit")) {$("move-card-kit").hidden=true;$("move-card-status").textContent="";cardReady=false;}
     $("puzzle-link").href="flip-levers.html?values="+encodeURIComponent(puzzle.values.map(fmt).join(","))+"&target="+fmt(puzzle.target);
     $("share-link").href=sourceUrl();
@@ -704,6 +748,7 @@
     showVerdictShift(judged);
     showMoveMechanism(judged);
     showRouteAtlas(judged);
+    showMinimumProof(judged);
     if($("move-card-kit")) $("move-card-kit").hidden=true;
     cardReady=false;
     $("benchmark").hidden=!flipped;
