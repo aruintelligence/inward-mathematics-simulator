@@ -4,6 +4,7 @@ const {spawnSync} = require('node:child_process');
 const {mkdtempSync, writeFileSync, rmSync, readFileSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
+const vm = require('node:vm');
 const core = require('../odd-target-box-core.js');
 
 function python(values, low, high, targetLow, targetHigh) {
@@ -59,4 +60,43 @@ test('bad bounds, input, and browser disclosure patterns are rejected', () => {
   assert.match(html, /odd-target-box-core\.js/);
   assert.match(script, /textContent/);
   assert.doesNotMatch(script, /fetch\(|XMLHttpRequest|location\.search/);
+});
+
+test('workbench renders every route and clears stale results on an invalid edit', () => {
+  function element(tag) {
+    return {tag, children: [], handlers: {}, textContent: '', disabled: false,
+      append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = [...nodes]; },
+      setAttribute() {},
+      addEventListener(name, handler) { this.handlers[name] = handler; },
+      scrollIntoView() {}, remove() {}, click() { this.handlers.click?.(); }};
+  }
+  const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
+    'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
+    'summary-copy', 'facts', 'routes', 'download', 'print', 'locked-example',
+    'signed-example', 'results'].map(id => [id, element(id)]));
+  Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
+  Object.assign(fields['move-low'], {value: '0'});
+  Object.assign(fields['move-high'], {value: '100'});
+  Object.assign(fields['target-low'], {value: '48'});
+  Object.assign(fields['target-high'], {value: '52'});
+  const document = {getElementById: id => fields[id], createElement: element,
+    createElementNS: (_, tag) => element(tag), createTextNode: text => element(`#text:${text}`),
+    body: element('body')};
+  vm.runInNewContext(readFileSync('odd-target-box.js', 'utf8'),
+    {document, InwardTargetBox: core, setTimeout() {},
+      window: {print() {}}, URL: {createObjectURL() {return 'blob:test';}, revokeObjectURL() {}},
+      Blob}, {timeout: 5000});
+  assert.equal(fields.routes.children.length, 5);
+  assert.equal(fields.download.disabled, false);
+  assert.equal(fields.headline.textContent, '3 reachable outcomes');
+  assert.equal(fields['input-error'].textContent, '');
+  fields['locked-example'].handlers.click();
+  assert.match(fields['headline-detail'].textContent, /2 of 5 individual routes/);
+  assert.equal(fields.routes.children.length, 5);
+  fields['target-low'].value = '52'; fields['target-high'].value = '48';
+  fields['box-form'].handlers.submit({preventDefault() {}});
+  assert.equal(fields.routes.children.length, 0);
+  assert.equal(fields.download.disabled, true);
+  assert.match(fields['input-error'].textContent, /Target bounds must be ordered/);
 });

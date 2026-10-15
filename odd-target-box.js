@@ -32,7 +32,9 @@
       const color = {Mean: "#40cfa7", Median: "#8abffd", Tie: "#f2b85c"}[name];
       const marker = svg("circle", {cx: x(witness.reading), cy: y(witness.target), r: 8,
         fill: color, stroke: "#10283a", "stroke-width": 2});
-      marker.append(svg("title", {})).textContent = `${name} at reading ${witness.reading}, target ${witness.target}`;
+      const tooltip = svg("title", {});
+      tooltip.textContent = `${name} at reading ${witness.reading}, target ${witness.target}`;
+      marker.append(tooltip);
       plot.append(marker);
     }
     figure.append(plot);
