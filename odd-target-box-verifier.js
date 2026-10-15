@@ -1,0 +1,208 @@
+/* Independent checker for target-box certificates. No constructor code is imported. */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.InwardTargetBoxVerifier = api;
+})(globalThis, function () {
+  "use strict";
+  const FORMAT = "inward-odd-target-box-v1";
+  const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
+  const ORDER = ["Mean", "Median", "Tie"];
+  const fail = message => { throw new Error(message); };
+  const abs = n => n < 0n ? -n : n;
+  function gcd(a, b) {
+    a = abs(a); b = abs(b);
+    while (b !== 0n) [a, b] = [b, a % b];
+    return a;
+  }
+  function fraction(n, d = 1n) {
+    if (d === 0n) fail("Zero denominator");
+    if (d < 0n) [n, d] = [-n, -d];
+    const divisor = gcd(n, d);
+    return {n: n / divisor, d: d / divisor};
+  }
+  const ZERO = fraction(0n), TWO = fraction(2n), LIMIT = fraction(1_000_000n);
+  const NEGATIVE_LIMIT = fraction(-1_000_000n);
+  const add = (a, b) => fraction(a.n * b.d + b.n * a.d, a.d * b.d);
+  const subtract = (a, b) => fraction(a.n * b.d - b.n * a.d, a.d * b.d);
+  const multiply = (a, b) => fraction(a.n * b.n, a.d * b.d);
+  const divide = (a, b) => fraction(a.n * b.d, a.d * b.n);
+  const compare = (a, b) => a.n * b.d < b.n * a.d ? -1 : a.n * b.d > b.n * a.d ? 1 : 0;
+  const notation = a => a.d === 1n ? String(a.n) : `${a.n}/${a.d}`;
+  function rational(raw, label, low, high) {
+    if (typeof raw !== "string" || !RATIONAL.test(raw)) fail(`Invalid ${label} rational`);
+    const [top, bottom = "1"] = raw.split("/");
+    const value = fraction(BigInt(top), BigInt(bottom));
+    if (notation(value) !== raw || low && compare(value, low) < 0 ||
+        high && compare(value, high) > 0) fail(`Noncanonical or out-of-range ${label}`);
+    return value;
+  }
+  function fields(object, names, label) {
+    if (object === null || typeof object !== "object" || Array.isArray(object) ||
+        Object.keys(object).length !== names.length ||
+        names.some(name => !Object.hasOwn(object, name))) fail(`Invalid ${label} fields`);
+  }
+  function sameList(actual, expected, label) {
+    if (!Array.isArray(actual) || actual.length !== expected.length ||
+        actual.some((item, index) => item !== expected[index])) fail(`Incorrect ${label}`);
+  }
+
+  // JSON.parse silently accepts duplicate names. Scan the already syntax-checked
+  // source, decoding each key, so escaped and literal spellings collide too.
+  function parseReceipt(source) {
+    if (typeof source !== "string" || new TextEncoder().encode(source).length > 2_000_000) {
+      fail("Certificate must be JSON no larger than 2 MB");
+    }
+    const parsed = JSON.parse(source);
+    let cursor = 0;
+    const space = () => { while (/[ \t\r\n]/.test(source[cursor] || "\0")) cursor++; };
+    function quoted() {
+      const start = cursor++;
+      while (cursor < source.length) {
+        const next = source[cursor++];
+        if (next === '"') return JSON.parse(source.slice(start, cursor));
+        if (next === "\\") cursor++;
+      }
+      fail("Unterminated JSON string");
+    }
+    function scan(depth) {
+      if (depth > 64) fail("Certificate JSON nesting too deep");
+      space();
+      if (source[cursor] === "{") {
+        cursor++; space();
+        const keys = new Set();
+        while (source[cursor] !== "}") {
+          const key = quoted();
+          if (keys.has(key)) fail(`Duplicate JSON key: ${key}`);
+          keys.add(key);
+          space(); cursor++; // Colon was checked by JSON.parse.
+          scan(depth + 1); space();
+          if (source[cursor] === ",") {cursor++; space();} else break;
+        }
+        cursor++;
+      } else if (source[cursor] === "[") {
+        cursor++; space();
+        while (source[cursor] !== "]") {
+          scan(depth + 1); space();
+          if (source[cursor] === ",") {cursor++; space();} else break;
+        }
+        cursor++;
+      } else if (source[cursor] === '"') quoted();
+      else while (cursor < source.length && !/[ \t\r\n,\]}]/.test(source[cursor])) cursor++;
+    }
+    scan(0);
+    return parsed;
+  }
+
+  function estimators(fixed, moved) {
+    const sorted = [...fixed, moved].sort(compare);
+    const mean = divide(sorted.reduce(add, ZERO), fraction(BigInt(sorted.length)));
+    return [mean, sorted[(sorted.length - 1) / 2]];
+  }
+  function outcome(fixed, moved, target) {
+    const [mean, median] = estimators(fixed, moved);
+    const meanError = subtract(mean, target), medianError = subtract(median, target);
+    const difference = subtract(multiply(meanError, meanError),
+      multiply(medianError, medianError));
+    const sign = compare(difference, ZERO);
+    return sign < 0 ? "Mean" : sign > 0 ? "Median" : "Tie";
+  }
+  function allRoots(fixed, low, high, targetLow, targetHigh) {
+    const n = fixed.length + 1;
+    const ordered = [...fixed].sort(compare);
+    const k = (n - 1) / 2;
+    const lower = ordered[k - 1], upper = ordered[k];
+    const sum = fixed.reduce(add, ZERO), count = fraction(BigInt(n));
+    const candidates = new Map([low, high, lower, upper].map(x => [notation(x), x]));
+    for (const [start, end, median] of [[low, lower, lower], [upper, high, upper]]) {
+      const roots = [subtract(multiply(count, median), sum),
+        ...[targetLow, targetHigh].map(target =>
+          subtract(multiply(count, subtract(multiply(TWO, target), median)), sum))];
+      for (const root of roots) {
+        if (compare(start, root) <= 0 && compare(root, end) <= 0) {
+          candidates.set(notation(root), root);
+        }
+      }
+    }
+    const middle = [divide(sum, fraction(BigInt(n - 1))),
+      ...[targetLow, targetHigh].map(target =>
+        divide(subtract(multiply(multiply(TWO, count), target), sum), fraction(BigInt(n + 1))))];
+    for (const root of middle) {
+      if (compare(lower, root) <= 0 && compare(root, upper) <= 0) {
+        candidates.set(notation(root), root);
+      }
+    }
+    return [...candidates.values()].sort(compare);
+  }
+  function allOutcomes(fixed, knots, targetLow, targetHigh) {
+    const found = new Set();
+    const samples = [knots[0]];
+    for (let i = 1; i < knots.length; i++) {
+      samples.push(divide(add(knots[i - 1], knots[i]), TWO), knots[i]);
+    }
+    for (const moved of samples) {
+      found.add(outcome(fixed, moved, targetLow));
+      found.add(outcome(fixed, moved, targetHigh));
+      const [mean, median] = estimators(fixed, moved);
+      const crossing = divide(add(mean, median), TWO);
+      if (compare(targetLow, crossing) <= 0 && compare(crossing, targetHigh) <= 0) found.add("Tie");
+    }
+    return ORDER.filter(name => found.has(name));
+  }
+  function strictWinner(reachable) {
+    return reachable.length === 1 && reachable[0] !== "Tie" ? reachable[0] : null;
+  }
+  function verify(record) {
+    fields(record, ["format", "inputs", "claim"], "certificate");
+    if (record.format !== FORMAT) fail("Unknown certificate format");
+    fields(record.inputs, ["readings", "movement", "target"], "inputs");
+    fields(record.inputs.movement, ["low", "high"], "movement");
+    fields(record.inputs.target, ["low", "high"], "target");
+    const {inputs, claim} = record;
+    const low = rational(inputs.movement.low, "movement lower", NEGATIVE_LIMIT, LIMIT);
+    const high = rational(inputs.movement.high, "movement upper", NEGATIVE_LIMIT, LIMIT);
+    const targetLow = rational(inputs.target.low, "target lower", NEGATIVE_LIMIT, LIMIT);
+    const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
+    if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
+    if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
+        inputs.readings.length > 21 || inputs.readings.length % 2 !== 1) {
+      fail("Reading count must be odd and between 3 and 21");
+    }
+    const readings = inputs.readings.map((item, index) =>
+      rational(item, `reading ${index + 1}`, low, high));
+    fields(claim, ["routes", "reachable", "guarantee"], "claim");
+    if (!Array.isArray(claim.routes) || claim.routes.length !== readings.length) {
+      fail("Missing one-reading routes");
+    }
+    const overall = new Set();
+    claim.routes.forEach((route, index) => {
+      fields(route, ["index", "knots", "reachable", "guarantee", "witnesses"], `route ${index + 1}`);
+      if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
+      const fixed = readings.filter((_, i) => i !== index);
+      const roots = allRoots(fixed, low, high, targetLow, targetHigh);
+      if (!Array.isArray(route.knots) || route.knots.length !== roots.length ||
+          route.knots.some((raw, i) =>
+            compare(rational(raw, "knot", low, high), roots[i]) !== 0)) {
+        fail(`Incomplete partition on route ${index + 1}`);
+      }
+      const reachable = allOutcomes(fixed, roots, targetLow, targetHigh);
+      sameList(route.reachable, reachable, `reachable outcomes on route ${index + 1}`);
+      if (route.guarantee !== strictWinner(reachable)) fail(`Incorrect guarantee on route ${index + 1}`);
+      fields(route.witnesses, reachable, `witnesses on route ${index + 1}`);
+      for (const name of reachable) {
+        const witness = route.witnesses[name];
+        fields(witness, ["reading", "target"], `${name} witness`);
+        const moved = rational(witness.reading, "witness reading", low, high);
+        const target = rational(witness.target, "witness target", targetLow, targetHigh);
+        if (outcome(fixed, moved, target) !== name) fail(`False ${name} witness on route ${index + 1}`);
+      }
+      reachable.forEach(name => overall.add(name));
+    });
+    const reachable = ORDER.filter(name => overall.has(name));
+    sameList(claim.reachable, reachable, "global reachable outcomes");
+    const guarantee = strictWinner(reachable);
+    if (claim.guarantee !== guarantee) fail("Incorrect global guarantee");
+    return {routes: readings.length, reachable, guarantee};
+  }
+  return {parseReceipt, verify};
+});
