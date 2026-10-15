@@ -111,6 +111,13 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   assert.equal(fields.cards.children[2].children.filter(x => x.tag === 'figure').length, 2);
   assert.match(fields.fingerprint.textContent, /SHA-256 of exported JSON bytes: [0-9a-f]{64}/);
   assert.equal(fields.results.hidden, false);
+  fields['fraction-example'].handlers.click();
+  await fields['search-form'].handlers.submit({preventDefault() {}});
+  const figure = fields.cards.children[0].children.find(x => x.tag === 'figure');
+  const svg = figure.children.find(x => x.tag === 'svg');
+  const target = svg.children.find(x => x.tag === 'line' && x.attrs.stroke === '#ffca73');
+  assert.equal(Number(target.attrs.x1), 90, 'target 1/4 spans one eighth of the chosen 0–2 domain');
+  assert.equal(svg.children.at(-1).textContent, '2');
   fields['reading-values'].value = '0,1/2';
   fields['reading-values'].handlers.input();
   assert.equal(fields.results.hidden, true);
