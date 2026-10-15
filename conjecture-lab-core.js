@@ -13,6 +13,20 @@
     ["target-independent", "Changing the target cannot reverse a strict winner for fixed readings."],
     ["midpoint-tie", "For distinct estimates, their exact midpoint is an equal-error target."],
   ];
+  const CLAIM_FORMAT = "inward-conditional-claim-v1";
+  const CONDITIONS = {
+    "any-target": "at any target",
+    "target-at-or-below-midpoint": "if the target is at or below the estimates' midpoint",
+    "target-at-or-above-midpoint": "if the target is at or above the estimates' midpoint",
+    "target-at-or-below-both": "if the target is at or below both estimates",
+    "target-at-or-above-both": "if the target is at or above both estimates",
+  };
+  const PREDICTIONS = {
+    "lower-no-worse": "the lower estimate is no farther than the higher estimate",
+    "higher-no-worse": "the higher estimate is no farther than the lower estimate",
+    "mean-no-worse": "the mean is no farther than the median",
+    "median-no-worse": "the median is no farther than the mean",
+  };
   const fail = message => { throw new Error(message); };
   const abs = n => n < 0n ? -n : n;
   function gcd(a, b) {
@@ -113,5 +127,67 @@
       domain: {readingValues: values.map(notation), targetValues: targets.map(notation), readingMultisets},
       candidates};
   }
-  return {scan, parseGrid, FORMAT, SCOPE, CLAIMS};
+  function conditionHolds(condition, meanValue, medianValue, target) {
+    const lower = compare(meanValue, medianValue) <= 0 ? meanValue : medianValue;
+    const higher = compare(meanValue, medianValue) <= 0 ? medianValue : meanValue;
+    const midpoint = half(add(meanValue, medianValue));
+    if (condition === "any-target") return true;
+    if (condition === "target-at-or-below-midpoint") return compare(target, midpoint) <= 0;
+    if (condition === "target-at-or-above-midpoint") return compare(target, midpoint) >= 0;
+    if (condition === "target-at-or-below-both") return compare(target, lower) <= 0;
+    return compare(target, higher) >= 0;
+  }
+  function predicted(condition, prediction) {
+    if (prediction === "lower-no-worse") return condition.endsWith("below-midpoint") || condition.endsWith("below-both");
+    if (prediction === "higher-no-worse") return condition.endsWith("above-midpoint") || condition.endsWith("above-both");
+    return false;
+  }
+  function proofFor(condition, prediction) {
+    if (!predicted(condition, prediction)) return null;
+    const left = prediction === "lower-no-worse";
+    return {method: "squared-error-factor-sign-v1",
+      identity: {difference: "(a-t)^2-(b-t)^2", product: "(a-b)(a+b-2t)",
+        expanded: {"a^2": 1, "b^2": -1, "a*t": -2, "b*t": 2}},
+      assumptions: ["a<=b", condition.endsWith("midpoint") ?
+        (left ? "t<=(a+b)/2" : "t>=(a+b)/2") : (left ? "t<=a" : "t>=b")],
+      factorSigns: ["nonpositive", left ? "nonnegative" : "nonpositive"],
+      result: left ? "(a-t)^2<=(b-t)^2" : "(b-t)^2<=(a-t)^2"};
+  }
+  function compose(readingGrid, targetGrid, condition, prediction) {
+    if (!Object.hasOwn(CONDITIONS, condition) || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unknown claim choice");
+    const values = parseGrid(readingGrid, 6, "Reading grid");
+    const targets = parseGrid(targetGrid, 12, "Target grid");
+    const claim = {condition, prediction,
+      statement: `For any five real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`};
+    let readingMultisets = 0, casesChecked = 0, counterexample = null;
+    for (const readings of multisets(values)) {
+      readingMultisets++;
+      if (counterexample) continue;
+      const [meanValue, medianValue] = pair(readings);
+      const lower = compare(meanValue, medianValue) <= 0 ? meanValue : medianValue;
+      const higher = compare(meanValue, medianValue) <= 0 ? medianValue : meanValue;
+      for (const target of targets) {
+        if (!conditionHolds(condition, meanValue, medianValue, target)) continue;
+        casesChecked++;
+        const actualWinner = winner(meanValue, medianValue, target);
+        const expectedWinner = prediction.startsWith("lower") ?
+          (compare(meanValue, medianValue) <= 0 ? "mean" : "median") :
+          prediction.startsWith("higher") ?
+            (compare(meanValue, medianValue) >= 0 ? "mean" : "median") : prediction.split("-")[0];
+        if (actualWinner !== "tie" && actualWinner !== expectedWinner) {
+          counterexample = {readings: readings.map(notation), target: notation(target),
+            mean: notation(meanValue), median: notation(medianValue),
+            lower: notation(lower), higher: notation(higher), actualWinner};
+          break;
+        }
+      }
+    }
+    const proof = proofFor(condition, prediction);
+    if (proof && counterexample) fail("An algebraic theorem disagrees with exact enumeration");
+    return {format: CLAIM_FORMAT, claim,
+      domain: {readingValues: values.map(notation), targetValues: targets.map(notation), readingMultisets},
+      search: {casesChecked, status: counterexample ? "counterexample-found" :
+        proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof};
+  }
+  return {scan, compose, parseGrid, FORMAT, SCOPE, CLAIMS, CLAIM_FORMAT};
 });
