@@ -170,7 +170,7 @@ test('browser view renders exact counterexample maps and clears stale evidence o
     'search-form', 'reading-values', 'target-values', 'fraction-example',
     'scope-note', 'ledger', 'cards', 'fingerprint', 'claim-form', 'claim-condition',
     'claim-prediction', 'claim-download', 'claim-results', 'claim-status', 'claim-title',
-    'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-fingerprint',
+    'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-crossover', 'claim-fingerprint',
     'claim-formal-link'];
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['reading-values'].value = '0,25,50,75,100';
@@ -195,6 +195,7 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   assert.match(fields['claim-proof'].textContent, /a−b ≤ 0/);
   assert.match(fields['claim-summary'].textContent, /proved in Lean/);
   assert.equal(fields['claim-formal-link'].hidden, false);
+  assert.equal(fields['claim-crossover'].hidden, true);
   assert.match(fields['claim-fingerprint'].textContent, /[0-9a-f]{64}/);
   fields['claim-prediction'].value = 'higher-no-worse';
   fields['claim-prediction'].handlers.change();
@@ -204,7 +205,20 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   assert.equal(fields['claim-badge'].textContent, 'Counterexample found');
   assert.equal(fields['claim-formal-link'].hidden, true);
   assert.equal(fields['claim-plot'].children.length, 1);
+  assert.equal(fields['claim-crossover'].hidden, false);
+  const crossover = fields['claim-crossover'].children[0];
+  assert.match(crossover.children[0].textContent, /crossover for these readings: 5\/2/);
+  assert.deepEqual(crossover.children[1].children.map(region => region.children.map(x => x.textContent)), [
+    ['t < 5/2', 'Median strictly closer'],
+    ['t = 5/2', 'Equal error'],
+    ['t > 5/2', 'Mean strictly closer'],
+  ]);
   fields['fraction-example'].handlers.click();
+  assert.equal(fields['claim-crossover'].hidden, true);
+  fields['claim-condition'].value = 'any-target';
+  fields['claim-prediction'].value = 'mean-no-worse';
+  await fields['claim-form'].handlers.submit({preventDefault() {}});
+  assert.match(fields['claim-crossover'].children[0].children[0].textContent, /crossover for these readings: 1\/20/);
   await fields['search-form'].handlers.submit({preventDefault() {}});
   const figure = fields.cards.children[0].children.find(x => x.tag === 'figure');
   const svg = figure.children.find(x => x.tag === 'svg');
@@ -232,6 +246,7 @@ test('published page fingerprints exact scripts and explains finite evidence lim
   assert.match(html, /tools\/verify_conjecture_experiment\.py/);
   assert.match(html, /tools\/verify_conditional_claim\.py/);
   assert.match(html, /id="claim-formal-link"[^>]+hidden/);
+  assert.match(html, /id="claim-crossover" hidden/);
   assert.match(html, /prefers-color-scheme:light/);
   assert.match(readFileSync('discovery.html', 'utf8'), /href="conjecture-lab\.html"/);
   assert.match(readFileSync('index.html', 'utf8'), /href="conjecture-lab\.html"/);

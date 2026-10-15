@@ -55,4 +55,59 @@ theorem midpoint_tie (a b t : ℝ) (ht : 2 * t = a + b) :
     rw [squared_error_factorization, hright, mul_zero]
   exact (sq_eq_sq_iff_abs_eq_abs (a - t) (b - t)).mp (sub_eq_zero.mp hdiff)
 
+/-!
+The implications above say when one estimate is no farther. For distinct
+estimates, the converses locate the *only* crossover. This makes the target
+partition exhaustive, rather than an inference from a few sampled targets.
+-/
+
+/-- If `a < b`, the lower estimate is no farther exactly up to the midpoint. -/
+theorem lower_no_worse_iff_target_below_midpoint (a b t : ℝ) (hab : a < b) :
+    |a - t| ≤ |b - t| ↔ 2 * t ≤ a + b := by
+  constructor
+  · intro herror
+    have hsq : (a - t) ^ 2 ≤ (b - t) ^ 2 := sq_le_sq.mpr herror
+    have hproduct : (a - b) * (a + b - 2 * t) ≤ 0 := by
+      rw [← squared_error_factorization]
+      exact sub_nonpos.mpr hsq
+    by_contra htarget
+    have hleft : a - b < 0 := sub_neg.mpr hab
+    have hright : a + b - 2 * t < 0 := by linarith
+    have hpositive : 0 < (a - b) * (a + b - 2 * t) :=
+      mul_pos_of_neg_of_neg hleft hright
+    linarith
+  · exact lower_no_worse_at_midpoint a b t (le_of_lt hab)
+
+/-- If `a < b`, the higher estimate is no farther exactly from the midpoint. -/
+theorem higher_no_worse_iff_target_above_midpoint (a b t : ℝ) (hab : a < b) :
+    |b - t| ≤ |a - t| ↔ a + b ≤ 2 * t := by
+  constructor
+  · intro herror
+    have hsq : (b - t) ^ 2 ≤ (a - t) ^ 2 := sq_le_sq.mpr herror
+    have hproduct : 0 ≤ (a - b) * (a + b - 2 * t) := by
+      rw [← squared_error_factorization]
+      exact sub_nonneg.mpr hsq
+    by_contra htarget
+    have hleft : a - b < 0 := sub_neg.mpr hab
+    have hright : 0 < a + b - 2 * t := by linarith
+    have hnegative : (a - b) * (a + b - 2 * t) < 0 :=
+      mul_neg_of_neg_of_pos hleft hright
+    linarith
+  · exact higher_no_worse_at_midpoint a b t (le_of_lt hab)
+
+/-- For distinct estimates, equal absolute error occurs only at the midpoint. -/
+theorem distinct_estimates_tie_iff_midpoint (a b t : ℝ) (hab : a < b) :
+    |a - t| = |b - t| ↔ 2 * t = a + b := by
+  constructor
+  · intro heq
+    have hlo := (lower_no_worse_iff_target_below_midpoint a b t hab).mp (le_of_eq heq)
+    have hhi := (higher_no_worse_iff_target_above_midpoint a b t hab).mp (le_of_eq heq.symm)
+    linarith
+  · exact midpoint_tie a b t
+
+/-- When estimates coincide, every target is an equal-error target. -/
+theorem coincident_estimates_tie (a b t : ℝ) (hab : a = b) :
+    |a - t| = |b - t| := by
+  rw [hab]
+
 end InwardFormal

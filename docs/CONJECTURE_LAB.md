@@ -39,6 +39,16 @@ $$
 
 If $t\le(a+b)/2$, the first factor is nonpositive and the second is nonnegative, so $(a-t)^2\le(b-t)^2$. The absolute-error ordering is the same. If $t\ge(a+b)/2$, both factors are nonpositive, so the ordering reverses. The stronger endpoint guards imply the corresponding midpoint inequality because $a\le(a+b)/2\le b$. Equal estimates and targets on boundaries are included. These are established elementary consequences of the identity, **not newly discovered theorems**. The [Lean formalization](../formal/README.md) states and checks all four implications over the real numbers; its CI job checks the proof objects and axioms.
 
+For distinct fixed estimates $a<b$, the formalization checks the **converses**:
+$|a-t|\le|b-t|$ exactly when $2t\le a+b$, and $|b-t|\le|a-t|$ exactly when
+$a+b\le2t$. Thus $a$ wins strictly below the midpoint, the two tie only at
+the midpoint, and $b$ wins strictly above it. If $a=b$, they tie for every
+real target. After a composed claim finds a counterexample, the page uses
+exact rational arithmetic to display this complete target partition for that
+fixed witness's mean and median, including a crossover that may not be in the
+chosen target grid. The partition explains the witness; it does not turn the
+refuted universal claim into a theorem.
+
 Other composed statements receive a counterexample if one appears; otherwise their status is `unrefuted-on-finite-grid` and there is no proof. A genuine universal counterexample settles its universal claim even when the finite search was small; absence of one does not. The Python checker recomputes the full finite search with `Fraction`, expands both polynomials with integer exponent vectors, and derives the permitted factor signs from the selected condition:
 
 ```sh

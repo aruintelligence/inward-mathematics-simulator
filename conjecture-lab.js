@@ -18,6 +18,44 @@
     const delta = difference(fraction(a), fraction(b)).n;
     return delta < 0n ? -1 : delta > 0n ? 1 : 0;
   };
+  function exactMidpoint(left, right) {
+    const a = fraction(left), b = fraction(right);
+    let n = a.n * b.d + b.n * a.d;
+    let d = 2n * a.d * b.d;
+    const gcd = (x, y) => {
+      while (y) [x, y] = [y, x % y];
+      return x;
+    };
+    const divisor = gcd(n, d);
+    n /= divisor;
+    d /= divisor;
+    return d === 1n ? String(n) : `${n}/${d}`;
+  }
+  function targetRegions(witness) {
+    const map = node("div", "", "region-map");
+    map.setAttribute("aria-label", "Exact target regions for these readings");
+    const ordering = compareRaw(witness.mean, witness.median);
+    if (ordering === 0) {
+      map.append(node("p", `Mean and median both equal ${witness.mean}; they tie at every real target for these readings.`, "fact"));
+      return map;
+    }
+    const midpoint = exactMidpoint(witness.mean, witness.median);
+    const lower = ordering < 0 ? "Mean" : "Median";
+    const higher = ordering < 0 ? "Median" : "Mean";
+    map.append(node("p", `Exact crossover for these readings: ${midpoint}. The complete target partition follows from the squared-error identity.`, "fact"));
+    const regions = node("div", "", "region-strip");
+    for (const [title, description, kind] of [
+      [`t < ${midpoint}`, `${lower} strictly closer`, "lower"],
+      [`t = ${midpoint}`, "Equal error", "tie"],
+      [`t > ${midpoint}`, `${higher} strictly closer`, "higher"],
+    ]) {
+      const segment = node("div", "", `region ${kind}`);
+      segment.append(node("strong", title), node("span", description));
+      regions.append(segment);
+    }
+    map.append(regions);
+    return map;
+  }
   function scale(domain) {
     const readings = domain.readingValues, targets = domain.targetValues;
     return {low: compareRaw(readings[0], targets[0]) <= 0 ? readings[0] : targets[0],
@@ -31,6 +69,8 @@
     $("claim-download").disabled = true;
     $("results").hidden = true;
     $("claim-results").hidden = true;
+    $("claim-crossover").hidden = true;
+    $("claim-formal-link").hidden = true;
     $("headline").textContent = "Ready";
     $("headline-note").textContent = "Run a new exact experiment.";
     $("search-status").textContent = "Values changed. Run the search again.";
@@ -43,6 +83,7 @@
     claimExportBytes = null;
     $("claim-download").disabled = true;
     $("claim-results").hidden = true;
+    $("claim-crossover").hidden = true;
     $("claim-formal-link").hidden = true;
     $("claim-status").textContent = "Claim changed. Test it again.";
     $("claim-status").classList.remove("error");
@@ -143,7 +184,7 @@
     $("claim-download").disabled = true;
     $("claim-results").hidden = true;
     $("claim-formal-link").hidden = true;
-    $("claim-formal-link").hidden = true;
+    $("claim-crossover").hidden = true;
     $("claim-status").classList.remove("error");
     try {
       const report = engine.compose($("reading-values").value, $("target-values").value,
@@ -174,6 +215,8 @@
       }
       const axis = scale(report.domain);
       $("claim-plot").replaceChildren(...(search.counterexample ? [plot(search.counterexample, axis)] : []));
+      $("claim-crossover").replaceChildren(...(search.counterexample ? [targetRegions(search.counterexample)] : []));
+      $("claim-crossover").hidden = !search.counterexample;
       $("claim-fingerprint").textContent = `SHA-256 of exported claim JSON bytes: ${fingerprint}`;
       $("claim-results").hidden = false;
       claimExportBytes = source;

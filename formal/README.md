@@ -7,6 +7,15 @@ both midpoint guards, both stronger endpoint guards, and the midpoint tie.
 The statements include equality cases and arbitrary real inputs. They are
 established elementary results, not newly discovered theorems.
 
+The module also proves the converses for distinct ordered estimates `a < b`:
+`|a-t| ≤ |b-t|` if and only if `2*t ≤ a+b`, and `|b-t| ≤ |a-t|` if
+and only if `a+b ≤ 2*t`. Their tie occurs if and only if `2*t = a+b`;
+coincident estimates tie for every target. Together these results justify an
+exhaustive three-region target map for any *fixed* pair of estimates, even
+when the chosen finite target grid misses the crossover. They do not verify
+that the five readings, mean, median, or target in a particular exported JSON
+record were parsed or computed correctly.
+
 From this directory, with `elan` installed:
 
 ```sh
