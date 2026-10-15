@@ -5,6 +5,7 @@ from itertools import combinations
 from pathlib import Path
 import hashlib
 import json
+import math
 import re
 import sys
 
@@ -13,9 +14,22 @@ LIMIT = 100 * SCALE
 
 
 def checked_int(value, name):
-    if type(value) is not int or not 0 <= value <= LIMIT:
+    if type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)) or not 0 <= value <= LIMIT or int(value) != value:
         raise ValueError(f"Invalid {name}")
-    return value
+    return int(value)
+
+
+def same_json(actual, expected):
+    """JSON number semantics agree with JavaScript after parsing; booleans do not."""
+    if type(expected) is int:
+        return type(actual) in (int, float) and (type(actual) is int or math.isfinite(actual)) and actual == expected
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(actual) == len(expected) and all(
+            same_json(a, b) for a, b in zip(actual, expected))
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and actual.keys() == expected.keys() and all(
+            same_json(actual[key], value) for key, value in expected.items())
+    return type(actual) is type(expected) and actual == expected
 
 
 def five(values, name):
@@ -92,7 +106,7 @@ def verify_witness(witness, lower, upper, low, high):
 
 
 def verify(receipt):
-    if not isinstance(receipt, dict) or receipt.get("format") != "inward-target-lens-proof-v1" or type(receipt.get("scale")) is not int or receipt["scale"] != SCALE:
+    if not isinstance(receipt, dict) or receipt.get("format") != "inward-target-lens-proof-v1" or not same_json(receipt.get("scale"), SCALE):
         raise ValueError("Unknown receipt format")
     inputs, claim = receipt.get("inputs"), receipt.get("claim")
     if not isinstance(inputs, dict) or not isinstance(claim, dict):
@@ -111,9 +125,9 @@ def verify(receipt):
     estimate = factor_bounds(lower, upper)
     reference = [sum(lower) + 5 * median(lower) - 10 * high,
                  sum(upper) + 5 * median(upper) - 10 * low]
-    if type(claim.get("estimateRange")) is not list or any(type(x) is not int for x in claim["estimateRange"]) or claim["estimateRange"] != estimate:
+    if not same_json(claim.get("estimateRange"), estimate):
         raise ValueError("Incorrect estimate factor range")
-    if type(claim.get("referenceRange")) is not list or any(type(x) is not int for x in claim["referenceRange"]) or claim["referenceRange"] != reference:
+    if not same_json(claim.get("referenceRange"), reference):
         raise ValueError("Incorrect reference factor range")
     estimate_zero = estimate[0] <= 0 <= estimate[1]
     reference_zero = reference[0] <= 0 <= reference[1]
@@ -125,7 +139,7 @@ def verify(receipt):
                "lowerNumerator": sum(lower) + 5 * median(lower),
                "upperNumerator": sum(upper) + 5 * median(upper),
                "denominator": 10 * SCALE}
-    if claim.get("tieTargets") != targets:
+    if not same_json(claim.get("tieTargets"), targets):
         raise ValueError("Incorrect tie target band")
     if kind == "tie-possible":
         verify_witness(claim.get("witness"), lower, upper, low, high)
@@ -141,11 +155,15 @@ def main():
         path = Path(sys.argv[1])
         if path.stat().st_size > 1_000_000:
             raise ValueError("Receipt too large")
-        text = path.read_text(encoding="utf-8")
-        result = verify(json.loads(text))
+        raw = path.read_bytes()
+        text = raw.decode("utf-8", errors="strict")
+        def invalid_constant(value):
+            raise ValueError(f"Invalid JSON constant: {value}")
+
+        result = verify(json.loads(text, parse_constant=invalid_constant))
         print("Verified " + result["kind"] + (" · " + result["winner"] + " throughout" if result["winner"] else ""))
-        print("Receipt SHA-256: " + hashlib.sha256(text.encode("utf-8")).hexdigest())
-    except (OSError, ValueError, KeyError, TypeError) as error:
+        print("Receipt SHA-256: " + hashlib.sha256(raw).hexdigest())
+    except (OSError, ValueError, KeyError, TypeError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)
         return 1
     return 0

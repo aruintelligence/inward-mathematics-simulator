@@ -10,8 +10,16 @@ const array=(value,length,name)=>{
   if(!Array.isArray(value)||value.length!==length) fail(`Invalid ${name}`);
   return value;
 };
+const same=(actual,claimed)=>{
+  if(Array.isArray(actual)) return Array.isArray(claimed)&&actual.length===claimed.length&&
+    actual.every((value,index)=>same(value,claimed[index]));
+  if(actual!==null&&typeof actual==="object") return claimed!==null&&typeof claimed==="object"&&
+    !Array.isArray(claimed)&&Object.keys(actual).length===Object.keys(claimed).length&&
+    Object.keys(actual).every(key=>Object.prototype.hasOwnProperty.call(claimed,key)&&same(actual[key],claimed[key]));
+  return actual===claimed;
+};
 const equal=(actual,claimed,name)=>{
-  if(JSON.stringify(actual)!==JSON.stringify(claimed)) fail(`Incorrect ${name}`);
+  if(!same(actual,claimed)) fail(`Incorrect ${name}`);
 };
 const median=values=>[...values].sort((a,b)=>a-b)[2];
 const sum=values=>values.reduce((a,b)=>a+b,0);

@@ -14,9 +14,11 @@ This checklist distinguishes **mathematical correctness**, **software reliabilit
 8. **Product quality:** Provide keyboard navigation, readable mobile contrast, accessible graph alternatives, and offline export.
 9. **Commercial readiness:** Confirm licenses and ownership of all assets; document API boundaries, privacy, pricing assumptions, and support obligations before selling.
 
-## Next engineering milestone
+## Implemented cross-language gate
 
-Implement a deterministic cross-language differential-test runner that generates seeded valid and adversarial receipts, invokes both existing verifiers, and reports disagreements with a minimal reproduction fixture. Run it in CI on every pull request. Keep existing public demonstrations unchanged until the test gate passes.
+Run `python3 tools/differential_verify.py --seed 620810 --cases 64` to generate eight boundary cases, 64 seeded reading boxes, a corrupt variant of each, and JSON encoding and malformed input cases. It invokes both independent command-line verifiers. A mismatch or incorrect acceptance writes a one-receipt reproduction in `artifacts/differential/`; CI uploads it on failure. The same gate runs on every push and pull request alongside the Node and Python tests. Pass local receipt paths to compare the checkers on additional inputs. These tests cover the finite fixtures only; they do not establish correctness for arbitrary inputs.
+
+The Node suite also checks permutation invariance and nested factor ranges under a seeded set of reading boxes, then verifies those receipts with the independent Python implementation. Next, specify and prove a machine-checkable certificate format for the stability-edge threshold, with explicit limits on input size and numerical complexity.
 
 ## Evidence ledger template
 
