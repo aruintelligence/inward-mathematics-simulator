@@ -119,12 +119,17 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   }
   const ids = ['receipt-file', 'receipt-json', 'file-name', 'report', 'routes', 'fingerprint',
     'seal-status', 'seal-note', 'status', 'verify-button', 'reachable', 'overall-note',
-    'guarantee', 'guarantee-note', 'report-intro', 'print'];
+    'guarantee', 'guarantee-note', 'report-intro', 'print', 'save-to-archive',
+    'save-status', 'archive-label'];
   const elements = Object.fromEntries(ids.map(id => [id, element(id)]));
   const document = {getElementById: id => elements[id], createElement: element};
+  const saved = [];
   vm.runInNewContext(readFileSync('verify-odd-target-box.js', 'utf8'),
     {document, InwardTargetBoxVerifier: verifier, TextEncoder, TextDecoder, Uint8Array,
-      crypto: crypto.webcrypto, window: {print() {}}}, {timeout: 5000});
+      InwardResearchArchive: {open: async () => ({close() {}}), add: async (_db, source) => {
+        saved.push(source);
+        return {created: true, digest: crypto.createHash('sha256').update(source).digest('hex')};
+      }}, crypto: crypto.webcrypto, window: {print() {}}}, {timeout: 5000});
   elements['receipt-json'].value = exampleText;
   elements['receipt-json'].handlers.input();
   await elements['verify-button'].handlers.click();
@@ -133,20 +138,27 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   assert.equal(elements.fingerprint.textContent,
     crypto.createHash('sha256').update(exampleText).digest('hex'));
   assert.equal(elements['seal-status'].textContent, 'Mathematics verified');
+  assert.equal(elements['save-to-archive'].disabled, false);
+  await elements['save-to-archive'].handlers.click();
+  assert.deepEqual(saved, [exampleText]);
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);
   assert.equal(elements.routes.children.length, 0);
   assert.equal(elements.fingerprint.textContent, '');
+  assert.equal(elements['save-to-archive'].disabled, true);
   await elements['verify-button'].handlers.click();
   assert.equal(elements.report.hidden, true);
   assert.equal(elements['seal-status'].textContent, 'Verification failed');
+  await elements['save-to-archive'].handlers.click();
+  assert.equal(saved.length, 1);
 });
 
 test('inspector assets are local, versioned, and do not send certificate contents', () => {
   const html = readFileSync('verify-odd-target-box.html', 'utf8');
   const app = readFileSync('verify-odd-target-box.js', 'utf8');
-  for (const script of ['odd-target-box-verifier.js', 'verify-odd-target-box.js']) {
+  for (const script of ['odd-target-box-verifier.js', 'research-archive-core.js',
+    'verify-odd-target-box.js']) {
     const version = html.match(new RegExp(`${script.replace('.', '\\.') }\\?v=([0-9a-f]{12})`));
     assert.ok(version, `${script} needs a content fingerprint`);
     assert.equal(version[1], crypto.createHash('sha256').update(readFileSync(script))
