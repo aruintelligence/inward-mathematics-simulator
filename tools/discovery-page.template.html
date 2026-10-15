@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Explore exact counterexamples and bounded finite-grid searches in the Inward Mathematics discovery archive.">
+  <title>Discovery Archive | Inward Mathematics™</title>
+  <style>
+    :root { color-scheme:dark light; --bg:#061722; --panel:#102b35; --panel-2:#143641; --ink:#f0f8f5; --muted:#c2d7d3; --line:#668b8a; --mint:#65e7c0; --gold:#f8ca80; --rose:#fa9fab; --cyan:#91daf0; --shadow:#0005; }
+    * { box-sizing:border-box; }
+    [hidden] { display:none!important; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 86% 1%,#1b4f51 0,transparent 37%),radial-gradient(circle at 0% 52%,#15364e 0,transparent 42%),var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:var(--mint); text-underline-offset:3px; }
+    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    .wrap { width:min(1180px,calc(100% - 34px)); margin:auto; }
+    .skip { position:absolute; top:-90px; left:16px; padding:8px 13px; background:var(--gold); color:#0a242d; }
+    .skip:focus { top:8px; }
+    header { border-bottom:1px solid #8baba944; }
+    header .wrap { display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:68px; }
+    .brand { color:var(--ink); font-size:.77rem; font-weight:850; letter-spacing:.11em; text-decoration:none; }
+    nav { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:.81rem; font-weight:700; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(240px,.65fr); align-items:center; gap:clamp(20px,5vw,66px); padding:clamp(48px,7vw,95px) 0 66px; }
+    .eyebrow { margin:0 0 13px; color:var(--mint); font-size:.74rem; font-weight:850; letter-spacing:.17em; text-transform:uppercase; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:16px; font-size:clamp(2.7rem,6.6vw,5.7rem); letter-spacing:-.065em; line-height:1.02; }
+    h1 em { color:var(--gold); font-style:normal; }
+    .lede { max-width:680px; color:var(--muted); font-size:1.08rem; }
+    .hero-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 15px; border:1px solid var(--mint); border-radius:9px; background:var(--mint); color:#0b2c30; font-size:.85rem; font-weight:850; text-decoration:none; }
+    .button.secondary { background:transparent; color:var(--mint); }
+    .ledger { padding:24px; border:1px solid var(--gold); border-radius:20px; background:linear-gradient(150deg,#23443e,var(--panel)); box-shadow:0 23px 60px var(--shadow); }
+    .ledger span { display:block; color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .ledger strong { display:block; margin:6px 0 15px; color:var(--gold); font:850 clamp(2.5rem,5.5vw,4.6rem)/1 ui-monospace,SFMono-Regular,monospace; }
+    .ledger p { margin:12px 0 0; padding-top:13px; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+    .section { padding:clamp(36px,6vw,64px) 0; border-top:1px solid #8baba944; }
+    .section h2 { margin-bottom:9px; font-size:clamp(1.75rem,3.6vw,2.6rem); letter-spacing:-.04em; line-height:1.13; }
+    .intro { max-width:800px; color:var(--muted); }
+    .method { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:24px; }
+    .method article { padding:18px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+    .method strong { color:var(--gold); }
+    .method p { margin:7px 0 0; color:var(--muted); font-size:.86rem; }
+    .provenance { margin:20px 0 0; padding:14px 17px; border-left:3px solid var(--mint); background:var(--panel); color:var(--muted); font-size:.84rem; }
+    .provenance code { display:block; margin:3px 0 7px; color:var(--mint); overflow-wrap:anywhere; }
+    .controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding:17px; margin:24px 0 12px; border:1px solid var(--line); border-radius:14px; background:var(--panel); }
+    .controls label { flex:1 1 230px; min-width:0; color:var(--muted); font-size:.76rem; font-weight:850; letter-spacing:.05em; text-transform:uppercase; }
+    .controls input,.controls select { display:block; width:100%; min-height:44px; margin-top:5px; padding:8px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font-size:.9rem; font-weight:500; letter-spacing:0; }
+    .controls button { min-height:44px; padding:8px 13px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); color:var(--ink); font-size:.84rem; font-weight:800; }
+    .controls button:hover { border-color:var(--mint); }
+    .count { color:var(--muted); font-size:.88rem; }
+    .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:15px; margin-top:17px; }
+    .candidate { min-width:0; border:1px solid var(--line); border-radius:17px; background:var(--panel); box-shadow:0 14px 34px var(--shadow); overflow:hidden; }
+    .candidate[data-status="counterexample-found"] { border-color:#c7999b; }
+    .candidate summary { display:block; position:relative; cursor:pointer; padding:20px 45px 19px 20px; list-style:none; }
+    .candidate summary::-webkit-details-marker { display:none; }
+    .candidate summary::after { content:"+"; position:absolute; right:17px; top:17px; color:var(--mint); font-size:1.5rem; font-weight:700; }
+    .candidate[open] summary::after { content:"−"; }
+    .candidate summary small { color:var(--muted); font-size:.72rem; font-weight:700; }
+    .candidate summary strong { display:block; margin:5px 0 8px; color:var(--ink); font-size:1.1rem; line-height:1.28; }
+    .badge { display:inline-block; padding:5px 9px; border:1px solid var(--gold); border-radius:99px; color:var(--gold); font-size:.69rem; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+    .candidate[data-status="counterexample-found"] .badge { border-color:var(--rose); color:var(--rose); }
+    .candidate-body { padding:0 20px 20px; }
+    .candidate-body > p { color:var(--muted); font-size:.87rem; }
+    .witnesses { display:grid; grid-template-columns:1fr; gap:11px; }
+    .witness { min-width:0; padding:14px; border:1px solid var(--line); border-radius:11px; background:var(--bg); }
+    .witness h3 { margin:0 0 10px; color:var(--mint); font-size:.85rem; }
+    .reading-list { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 12px; padding:0; list-style:none; }
+    .reading-list li { min-width:37px; padding:5px 7px; border:1px solid var(--line); border-radius:6px; background:var(--panel-2); color:var(--ink); text-align:center; font:.78rem ui-monospace,SFMono-Regular,monospace; }
+    .plot { display:block; width:100%; height:auto; margin:6px 0 12px; border:1px solid var(--line); border-radius:7px; background:#0e2934; }
+    .legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin-bottom:9px; color:var(--muted); font-size:.69rem; }
+    .legend i { display:inline-block; width:9px; height:9px; margin-right:4px; border-radius:50%; background:var(--rose); }
+    .legend .mean i { background:var(--cyan); }.legend .median i { background:var(--mint); }.legend .target i { background:var(--gold); }
+    .facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .facts span { padding:7px 8px; border:1px solid var(--line); border-radius:6px; color:var(--muted); font-size:.68rem; overflow-wrap:anywhere; }
+    .facts strong { display:block; color:var(--ink); font:800 .92rem ui-monospace,SFMono-Regular,monospace; }
+    .verdict { margin:11px 0 0; color:var(--gold); font-size:.84rem; font-weight:850; }
+    .finite { padding:15px; border-left:3px solid var(--gold); background:var(--bg); }
+    .finite strong { color:var(--gold); }
+    .finite p { margin:7px 0 0; color:var(--muted); font-size:.86rem; }
+    .empty { margin:20px 0; padding:20px; border:1px solid var(--line); border-radius:12px; color:var(--muted); }
+    .report { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; margin-top:27px; padding:18px; border:1px solid var(--line); border-radius:13px; background:var(--panel); }
+    .report button { min-height:44px; padding:10px 15px; border:1px solid var(--gold); border-radius:8px; background:var(--gold); color:#2b2417; font-weight:850; }
+    .report p { margin:0; color:var(--muted); font-size:.84rem; }
+    footer { border-top:1px solid #8baba944; padding:23px 0 35px; color:var(--muted); font-size:.79rem; }
+    @media(max-width:760px) { header .wrap { align-items:start; flex-direction:column; padding:15px 0; } .hero,.method,.cards { grid-template-columns:1fr; } .hero { padding-bottom:44px; } .ledger { max-width:460px; } }
+    @media(max-width:460px) { .controls button { width:100%; } .facts { grid-template-columns:1fr 1fr; } .candidate summary { padding:17px 43px 17px 17px; } .candidate-body { padding:0 17px 17px; } }
+    @media(prefers-color-scheme:light) { :root { --bg:#f4f7f3; --panel:#fff; --panel-2:#e8f2ef; --ink:#17343b; --muted:#425a60; --line:#829da0; --mint:#006655; --gold:#775013; --rose:#95404f; --cyan:#096982; --shadow:#29434a22; } body { background:radial-gradient(circle at 90% 0%,#dcefe8 0,transparent 35%),var(--bg); } .button,.report button { color:#fff; background:#006655; border-color:#006655; } .button.secondary { background:transparent; color:#006655; } .ledger { background:linear-gradient(150deg,#f0eddf,#e7f1ed); } .plot { background:#143540; } .controls input,.controls select { background:#fff; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+    @media print { :root { color-scheme:light; --bg:#fff; --panel:#fff; --panel-2:#f4f4f4; --ink:#14252a; --muted:#334d50; --line:#8b9a9c; --mint:#155a50; --gold:#674611; --rose:#803744; --shadow:transparent; } body { background:#fff; } header,.hero-actions,.controls,.report,footer { display:none; } .hero { padding:15px 0; } .section { padding:18px 0; } .candidate { break-inside:avoid; box-shadow:none; } .plot { print-color-adjust:exact; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#results">Skip to search results</a>
+  <header><div class="wrap"><a class="brand" href="index.html">ĀRU INTELLIGENCE / INWARD MATHEMATICS™</a><nav aria-label="Research navigation"><a href="index.html">Interactive lab</a><a href="target-lens.html">Target Lens</a><a href="verify-proof.html">Proof Inspector</a></nav></div></header>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="title"><div><p class="eyebrow">Inward Discovery / research archive v1</p><h1 id="title">Find the flaw.<br><em>Keep the proof honest.</em></h1><p class="lede">Five mathematical statements meet an exact, reproducible search. Three fail with rational counterexamples. Two survive this finite grid; neither is labeled a proven theorem by the archive.</p><div class="hero-actions"><a class="button" href="#results">Explore five candidates ↓</a><a class="button secondary" href="examples/discovery-scan-v1.json" download>Download exact archive ↓</a></div></div><aside class="ledger"><span>Finite search snapshot</span><strong>@@MULTISETS@@</strong><span>five-reading multisets</span><p>Reading grid: @@READINGS@@<br>Target grid: @@TARGETS@@<br>Each comparison uses exact rational arithmetic.</p></aside></section>
+    <section class="section" aria-labelledby="method-title"><p class="eyebrow">01 / Scientific status</p><h2 id="method-title">A counterexample can settle a universal claim.</h2><p class="intro">One valid counterexample disproves a universal statement under the specified model. An exhaustive check of a chosen finite grid says only that no counterexample was found there. To prove a statement for all real readings and targets, a separate mathematical argument is required.</p><div class="method"><article><strong>Exact inputs</strong><p>Readings and targets are rational values from the displayed grid. The mean, median, and error comparisons use fractions.</p></article><article><strong>Reproducible search</strong><p>Each card records the number of cases checked and its first counterexample when one exists.</p></article><article><strong>Independent replay</strong><p>A separate checker reconstructs the finite domain, statuses, counts, and witnesses without running the generator.</p></article></div><p class="provenance">Generator source SHA-256: <code>@@SOURCE_SHA@@</code><a href="docs/DISCOVERY_SCAN.md">Read the method and limitations</a> · <a href="tools/verify_discovery_archive.py">Inspect the independent verifier</a></p></section>
+    <section class="section" id="results" aria-labelledby="results-title"><p class="eyebrow">02 / Evidence ledger</p><h2 id="results-title">Inspect each claim.</h2><p class="intro">The diagrams locate values on a 0–100 scale for orientation. The fraction labels and archived JSON carry the exact mathematics.</p><div class="controls"><label for="archive-search">Search claim or exact witness<input id="archive-search" type="search" placeholder="Try median, midpoint, or 25" autocomplete="off"></label><label for="archive-filter">Scientific status<select id="archive-filter"><option value="all">All five candidates</option><option value="counterexample-found">Counterexample found</option><option value="unrefuted-on-finite-grid">Unrefuted on this finite grid</option></select></label><button id="archive-reset" type="button">Clear filters</button></div><p class="count" id="archive-count" role="status">Showing 5 of 5 candidates</p><div class="cards" id="archive-cards">@@CARDS@@</div><p class="empty" id="archive-empty" hidden>No candidates match those filters. Clear them to see all five.</p><div class="report"><button id="archive-print" type="button">Print research report / Save PDF</button><p>The print view expands every candidate and includes its exact evidence. It records the current archive snapshot, not a claim of new general proof.</p></div></section>
+  </main>
+  <footer><div class="wrap">Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</div></footer>
+  <script>
+  (()=>{
+    "use strict";
+    const cards=[...document.querySelectorAll(".candidate")];
+    const search=document.getElementById("archive-search");
+    const filter=document.getElementById("archive-filter");
+    const count=document.getElementById("archive-count");
+    const empty=document.getElementById("archive-empty");
+    function update() {
+      const term=search.value.trim().toLocaleLowerCase();
+      let visible=0;
+      for(const card of cards) {
+        card.hidden=(filter.value!=="all"&&card.dataset.status!==filter.value)||
+          (term!==""&&!card.textContent.toLocaleLowerCase().includes(term));
+        if(!card.hidden) visible++;
+      }
+      count.textContent=`Showing ${visible} of ${cards.length} candidates`;
+      empty.hidden=visible!==0;
+    }
+    search.addEventListener("input",update);
+    filter.addEventListener("change",update);
+    document.getElementById("archive-reset").addEventListener("click",()=>{
+      search.value="";filter.value="all";update();search.focus();
+    });
+    document.getElementById("archive-print").addEventListener("click",()=>{
+      const state=cards.map(card=>({hidden:card.hidden,open:card.open}));
+      cards.forEach(card=>{card.hidden=false;card.open=true;});
+      window.addEventListener("afterprint",()=>cards.forEach((card,index)=>{
+        card.hidden=state[index].hidden;card.open=state[index].open;
+      }),{once:true});
+      window.print();
+    });
+  })();
+  </script>
+</body>
+</html>

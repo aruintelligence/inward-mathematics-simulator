@@ -11,6 +11,7 @@ import unittest
 from discover_candidates import points, scan
 from query_discovery import search
 from verify_discovery_archive import verify
+from render_discovery_page import render_page
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
@@ -107,6 +108,14 @@ class DiscoveryTests(unittest.TestCase):
                                      cwd=ROOT, capture_output=True, text=True)
                 self.assertNotEqual(bad.returncode, 0)
                 self.assertIn("Duplicate JSON key", bad.stderr)
+
+    def test_page_matches_only_independently_checked_archive(self):
+        archive = json.loads(ARCHIVE.read_text(encoding="utf-8"))
+        self.assertEqual((ROOT / "discovery.html").read_text(encoding="utf-8"), render_page(archive))
+        altered = copy.deepcopy(archive)
+        altered["candidates"][0]["counterexample"]["target"] = "0"
+        with self.assertRaises(ValueError):
+            render_page(altered)
 
 
 if __name__ == "__main__":

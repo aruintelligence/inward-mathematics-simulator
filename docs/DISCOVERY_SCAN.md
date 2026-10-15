@@ -5,6 +5,7 @@ Run from the repository root:
 ```sh
 python3 tools/discover_candidates.py --output examples/discovery-scan-v1.json
 python3 tools/verify_discovery_archive.py examples/discovery-scan-v1.json
+python3 tools/render_discovery_page.py --check
 python3 -m unittest discover -s tools -p 'test_*.py' -v
 python3 tools/query_discovery.py midpoint --status unrefuted-on-finite-grid
 ```
@@ -12,6 +13,8 @@ python3 tools/query_discovery.py midpoint --status unrefuted-on-finite-grid
 The default scan uses five possible reading values and five possible targets. It visits all 126 sorted multisets of five readings, evaluates absolute errors with Python's exact `Fraction`, and records the first counterexample to each candidate when one appears. Sorted multisets eliminate duplicate cases for symmetric estimators. The permutation candidate explicitly checks all distinct permutations of each multiset at every selected target. Inputs, counts, source hash, statuses, and exact rational witnesses live in the [versioned JSON archive](../examples/discovery-scan-v1.json); the file has no timestamp, so rerunning the command produces the same bytes for the same source and grid.
 
 The independent archive verifier checks the source digest and domain, then enumerates the finite grid anew using exact rational arithmetic. It reconstructs all five registered claim statuses, tested-case counts, and counterexamples without importing or running the generator. Its permutation check visits ordered tuples directly, instead of permuting each multiset. The CLI rejects duplicate JSON keys and prints a SHA-256 of the bytes it actually checked. This fingerprint is for reproduction, not authentication. Exhausting the chosen grid cannot establish a theorem over all real inputs.
+
+Open the [Discovery Archive](../discovery.html) to search claims and exact witnesses, filter scientific status, compare counterexamples visually, or print the evidence as a research report. The plot locates exact values approximately on a 0–100 screen; the archived rational labels carry the mathematics. The page is generated only after the independent replay succeeds: `python3 tools/render_discovery_page.py` updates the checked-in HTML, while `--check` fails if the page and verified archive differ. It opens as a local file without a server and uses no account or remote API.
 
 Search saved candidate IDs, claim text, and status with `tools/query_discovery.py`; omit the text or `--status` to broaden the result. Queries validate the archive before returning entries, including on a custom grid, and reject changed or unsupported evidence. Version v1 fixes these five claim identifiers and statements; adding candidates requires a new verifier and format version.
 
