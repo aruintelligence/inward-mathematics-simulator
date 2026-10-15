@@ -39,23 +39,32 @@ test("portable Target Lens receipts verify offline and reject altered mathematic
 
 test("browser proof inspector uses the same verifier and refuses a changed witness", async () => {
   const html=fs.readFileSync(path.join(__dirname,"..","verify-proof.html"),"utf8");
+  const exampleSource=html.match(/<script id="proof-examples" type="application\/json">([\s\S]*?)<\/script>/);
+  assert.ok(exampleSource,"the inspector must include worked receipts");
+  const examples=JSON.parse(exampleSource[1]);
+  const {proofReceipt}=require("../target-lens.js");
+  assert.deepEqual(examples.strict,proofReceipt([48,49,50,51,85],0,1,4,0.5));
+  assert.deepEqual(examples.path,proofReceipt([48,49,50,51,85],48,52,4,50));
+  assert.deepEqual(examples.all,proofReceipt([0,0,50,100,100],48,52,0,50));
   const core=fs.readFileSync(path.join(__dirname,"..","tools","target-lens-proof-core.js"));
   const version=html.match(/<script src="tools\/target-lens-proof-core\.js\?v=([a-f0-9]{12})"><\/script>/);
   assert.ok(version,"the inspector must load its verifier with a content-derived key");
   assert.equal(version[1],crypto.createHash("sha256").update(core).digest("hex").slice(0,12));
-  const elements=new Map();
+  const elements=new Map(),buttons=["strict","path","all"].map(name=>({dataset:{example:name},attributes:{},handlers:{},
+    addEventListener(type,callback){this.handlers[type]=callback;},setAttribute(key,value){this.attributes[key]=value;}}));
   const element=id=>{
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",dataset:{},hidden:false,handlers:{},
-      addEventListener(type,callback){this.handlers[type]=callback;}});
+      addEventListener(type,callback){this.handlers[type]=callback;},scrollIntoView(){}});
     return elements.get(id);
   };
-  const window={};
-  const context={window,document:{getElementById:element},BigInt,Number,JSON};
+  element("proof-examples").textContent=exampleSource[1];
+  let printed=0;
+  const window={print(){printed++;}};
+  const context={window,document:{getElementById:element,querySelectorAll(selector){return selector===".example"?buttons:[];}},BigInt,Number,JSON};
   vm.runInNewContext(core.toString(),context,{timeout:1000});
   const script=html.match(/<script>\s*([\s\S]*?)<\/script>/);
   assert.ok(script,"the inspector must initialize its controls");
   vm.runInNewContext(script[1],context,{timeout:1000});
-  const {proofReceipt}=require("../target-lens.js");
   const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
   element("receipt-json").value=JSON.stringify(receipt);
   element("receipt-json").handlers.input();
@@ -63,7 +72,11 @@ test("browser proof inspector uses the same verifier and refuses a changed witne
   assert.equal(element("result").hidden,false);
   assert.equal(element("conclusion").textContent,"A tie is attainable");
   assert.match(element("witness-note").textContent,/9\/40/);
+  assert.match(element("witness-detail").textContent,/target 51\.1.*Mean 54\.4.*median 47\.8/s);
+  assert.match(element("tie-targets").textContent,/49\.3 to 57\.3/);
   assert.equal(element("status").dataset.state,"success");
+  element("print-report").handlers.click();
+  assert.equal(printed,1);
   receipt.claim.witness.path.numerator="10";
   element("receipt-json").value=JSON.stringify(receipt);
   element("receipt-json").handlers.input();
@@ -71,11 +84,22 @@ test("browser proof inspector uses the same verifier and refuses a changed witne
   assert.equal(element("result").hidden,true);
   assert.equal(element("status").dataset.state,"error");
   assert.match(element("status").textContent,/Witness does not tie/);
+  element("print-report").handlers.click();
+  assert.equal(printed,1,"invalid receipts must not print a verified sheet");
   const strict=proofReceipt([48,49,50,51,85],0,1,4,0.5);
   await element("receipt-file").handlers.change({target:{files:[{name:"strict.json",size:900,async text(){return JSON.stringify(strict);}}]}});
   element("verify-button").handlers.click();
   assert.equal(element("conclusion").textContent,"Median wins throughout");
   assert.equal(element("status").dataset.state,"success");
+  buttons[0].handlers.click();
+  assert.equal(element("conclusion").textContent,"Median wins throughout");
+  assert.equal(buttons[0].attributes["aria-pressed"],"true");
+  buttons[2].handlers.click();
+  assert.equal(element("conclusion").textContent,"Every configuration ties");
+  assert.match(element("tie-targets").textContent,/every value from 0 to 100/);
+  buttons[1].handlers.click();
+  assert.equal(element("conclusion").textContent,"A tie is attainable");
+  assert.equal(element("case-origin").textContent,"Worked example 02 · rational tie");
 });
 
 function loadLab(search="",hash="") {
