@@ -3,10 +3,14 @@ from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
+import copy
+import subprocess
+import tempfile
 import unittest
 
 from discover_candidates import points, scan
 from query_discovery import search
+from verify_discovery_archive import verify
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
@@ -58,6 +62,51 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["id"], "midpoint-tie")
         self.assertEqual(search(archive, status="counterexample-found")["count"], 3)
         self.assertEqual(search(archive, "unknown")["count"], 0)
+
+    def test_independent_archive_replay_checks_custom_exact_grid(self):
+        values = points("0,1/2,1", 6)
+        targets = points("0,1/2,1", 12)
+        report = scan(values, targets)
+        result = verify(report)
+        self.assertEqual(result["readingMultisets"], 21)
+        self.assertEqual(result["candidates"], 5)
+        self.assertEqual(result["statuses"]["median-never-worse"], "counterexample-found")
+
+    def test_query_rejects_forged_counterexamples_and_unchecked_claims(self):
+        original = json.loads(ARCHIVE.read_text(encoding="utf-8"))
+        edits = (
+            lambda a: a["candidates"][0]["counterexample"].update(actualWinner="median"),
+            lambda a: a["candidates"][1].update(casesChecked=126),
+            lambda a: a["candidates"][3].update(status="counterexample-found"),
+            lambda a: a["candidates"][4].update(casesChecked=1),
+            lambda a: a["domain"].update(readingMultisets=125),
+            lambda a: a.update(sourceSha256="0" * 64),
+        )
+        for edit in edits:
+            altered = copy.deepcopy(original)
+            edit(altered)
+            with self.subTest(edit=edits.index(edit)), self.assertRaises(ValueError):
+                search(altered)
+
+    def test_cli_fingerprints_valid_bytes_and_rejects_duplicate_keys(self):
+        good = subprocess.run(["python3", "tools/verify_discovery_archive.py", str(ARCHIVE)],
+                              cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(good.returncode, 0, good.stderr)
+        digest = hashlib.sha256(ARCHIVE.read_bytes()).hexdigest()
+        self.assertIn("Archive SHA-256: " + digest, good.stdout)
+        duplicate = ARCHIVE.read_text(encoding="utf-8").replace(
+            '"format": "inward-discovery-scan-v1",',
+            '"format": "inward-discovery-scan-v1", "format": "inward-discovery-scan-v1",', 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            path.write_text(duplicate, encoding="utf-8")
+            for script in ("verify_discovery_archive.py", "query_discovery.py"):
+                bad = subprocess.run(["python3", "tools/" + script, "--archive", str(path)]
+                                     if script == "query_discovery.py" else
+                                     ["python3", "tools/" + script, str(path)],
+                                     cwd=ROOT, capture_output=True, text=True)
+                self.assertNotEqual(bad.returncode, 0)
+                self.assertIn("Duplicate JSON key", bad.stderr)
 
 
 if __name__ == "__main__":

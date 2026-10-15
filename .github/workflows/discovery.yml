@@ -11,3 +11,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 -m unittest discover -s tools -p 'test_discover_candidates.py' -v
+      - run: python3 tools/verify_discovery_archive.py examples/discovery-scan-v1.json

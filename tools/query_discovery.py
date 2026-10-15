@@ -3,14 +3,14 @@
 import argparse
 import json
 from pathlib import Path
+from verify_discovery_archive import no_duplicates, verify
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
 
 
 def search(archive, term="", status=None):
-    if archive.get("format") != "inward-discovery-scan-v1" or not isinstance(archive.get("candidates"), list):
-        raise ValueError("Unsupported discovery archive")
+    verify(archive)
     needle = term.casefold()
     matches = []
     for candidate in archive["candidates"]:
@@ -33,7 +33,8 @@ def main():
     try:
         if args.archive.stat().st_size > 1_000_000:
             raise ValueError("Archive too large")
-        archive = json.loads(args.archive.read_text(encoding="utf-8"))
+        archive = json.loads(args.archive.read_text(encoding="utf-8"), object_pairs_hook=no_duplicates,
+                             parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Invalid JSON constant")))
         print(json.dumps(search(archive, args.term, args.status), indent=2))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Archive search failed: {error}\n")

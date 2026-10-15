@@ -4,13 +4,16 @@ Run from the repository root:
 
 ```sh
 python3 tools/discover_candidates.py --output examples/discovery-scan-v1.json
+python3 tools/verify_discovery_archive.py examples/discovery-scan-v1.json
 python3 -m unittest discover -s tools -p 'test_*.py' -v
 python3 tools/query_discovery.py midpoint --status unrefuted-on-finite-grid
 ```
 
 The default scan uses five possible reading values and five possible targets. It visits all 126 sorted multisets of five readings, evaluates absolute errors with Python's exact `Fraction`, and records the first counterexample to each candidate when one appears. Sorted multisets eliminate duplicate cases for symmetric estimators. The permutation candidate explicitly checks all distinct permutations of each multiset at every selected target. Inputs, counts, source hash, statuses, and exact rational witnesses live in the [versioned JSON archive](../examples/discovery-scan-v1.json); the file has no timestamp, so rerunning the command produces the same bytes for the same source and grid.
 
-Search saved candidate IDs, claim text, and status with `tools/query_discovery.py`; omit the text or `--status` to broaden the result. It reads the archived evidence without rerunning the scan.
+The independent archive verifier checks the source digest and domain, then enumerates the finite grid anew using exact rational arithmetic. It reconstructs all five registered claim statuses, tested-case counts, and counterexamples without importing or running the generator. Its permutation check visits ordered tuples directly, instead of permuting each multiset. The CLI rejects duplicate JSON keys and prints a SHA-256 of the bytes it actually checked. This fingerprint is for reproduction, not authentication. Exhausting the chosen grid cannot establish a theorem over all real inputs.
+
+Search saved candidate IDs, claim text, and status with `tools/query_discovery.py`; omit the text or `--status` to broaden the result. Queries validate the archive before returning entries, including on a custom grid, and reject changed or unsupported evidence. Version v1 fixes these five claim identifiers and statements; adding candidates requires a new verifier and format version.
 
 The scan finds a simple counterexample to both universal dominance claims: readings `[0, 0, 0, 0, 25]` have mean 5 and median 0. Target 0 favors the median; target 25 favors the mean. Thus a chosen target can reverse a strict winner for fixed readings. The midpoint-tie and permutation candidates have no counterexample **on this finite grid**. This observation alone does not prove them for all real readings. The algebraic factorization in [the proof receipt specification](target-lens-proof-v1.md) gives the separate mathematical argument for the midpoint identity.
 
