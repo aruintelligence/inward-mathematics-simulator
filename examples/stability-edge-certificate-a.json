@@ -1,0 +1,86 @@
+{
+  "format": "inward-stability-edge-certificate-v1",
+  "sourceReceipt": {
+    "format": "inward-target-lens-proof-v1",
+    "scale": 1000000,
+    "inputs": {
+      "readings": [
+        48000000,
+        49000000,
+        50000000,
+        51000000,
+        85000000
+      ],
+      "low": 0,
+      "high": 1000000,
+      "drift": 4000000,
+      "selectedTarget": 500000
+    },
+    "claim": {
+      "kind": "strict",
+      "winner": "Median",
+      "estimateRange": [
+        8000000,
+        52000000
+      ],
+      "referenceRange": [
+        483000000,
+        573000000
+      ],
+      "tieTargets": {
+        "kind": "band",
+        "lowerNumerator": 493000000,
+        "upperNumerator": 573000000,
+        "denominator": 10000000
+      },
+      "witness": null
+    }
+  },
+  "mask": 31,
+  "claim": {
+    "kind": "edge",
+    "winner": "Median",
+    "firstRoute": "estimate",
+    "radius": {
+      "numerator": "16",
+      "denominator": "3"
+    },
+    "firstTieUnits": 5333334,
+    "routes": {
+      "estimate": {
+        "radius": {
+          "numerator": "16",
+          "denominator": "3"
+        },
+        "witness": {
+          "readingsNumerators": [
+            "256000000",
+            "262000000",
+            "332000000",
+            "332000000",
+            "478000000"
+          ],
+          "targetNumerator": "0",
+          "denominator": "6000000"
+        }
+      },
+      "reference": {
+        "radius": {
+          "numerator": "75",
+          "denominator": "1"
+        },
+        "witness": {
+          "readingsNumerators": [
+            "0",
+            "0",
+            "0",
+            "0",
+            "20000000"
+          ],
+          "targetNumerator": "2000000",
+          "denominator": "2000000"
+        }
+      }
+    }
+  }
+}

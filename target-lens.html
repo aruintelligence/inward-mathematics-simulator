@@ -271,6 +271,12 @@
     .edge-copy { margin-top:13px; padding:8px 12px; min-height:40px; border:1px solid var(--mint); border-radius:8px; background:#1c4b48; color:#eafff5; font-size:.8rem; font-weight:800; }
     .edge-copy:hover { filter:brightness(1.13); }
     #edge-copy-status { display:inline-block; margin-left:9px; color:var(--mint); font-size:.8rem; }
+    .edge-export { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; margin-top:15px; padding:14px; border:1px solid #a2b7a6; border-radius:10px; background:#0d3039; }
+    .edge-export button { min-height:44px; padding:9px 14px; border:1px solid var(--gold); border-radius:8px; background:var(--gold); color:#302211; font-size:.84rem; font-weight:800; cursor:pointer; }
+    .edge-export button:hover { filter:brightness(1.1); }
+    .edge-export p { flex:1 1 210px; margin:0; color:#e0f0e9; font-size:.8rem; line-height:1.45; }
+    .edge-export a { color:var(--mint); font-weight:800; text-underline-offset:3px; }
+    #edge-download-status { flex-basis:100%; color:var(--mint); font-size:.81rem; }
     .sparse-card { margin-top:16px; padding:clamp(17px,3vw,27px); border:1px solid #80bfb5; border-radius:18px; background:radial-gradient(circle at 95% 0%,#23665a70,transparent 48%),#0a2633; }
     .sparse-heading { display:flex; align-items:start; justify-content:space-between; gap:16px; }
     .sparse-heading h4 { margin:0; font-size:clamp(1.4rem,2.7vw,1.95rem); line-height:1.16; letter-spacing:-.035em; }
@@ -514,6 +520,7 @@
               <p id="edge-outcome"></p>
               <button class="edge-copy" id="edge-copy" type="button">Copy exact certificate</button><span id="edge-copy-status" role="status"></span>
             </details>
+            <div class="edge-export"><button id="edge-download" type="button" aria-describedby="edge-export-help">Download verifiable JSON ↓</button><p id="edge-export-help">Includes both exact routes and rational tie witnesses. <a href="stability-edge-audit.html#certificate">Check it offline with Python ↗</a></p><span id="edge-download-status" role="status"></span></div>
             <p class="edge-audit"><span>Independent rational cross-check</span><a href="stability-edge-audit.html">Audit both routes from a saved receipt ↗</a></p>
           </div>
           <div class="sparse-card" aria-labelledby="sparse-title">
@@ -584,6 +591,6 @@
     </main>
     <footer>Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</footer>
   </div>
-  <script src="target-lens.js?v=c45671101586"></script>
+  <script src="target-lens.js?v=b28de7cf7fb1"></script>
 </body>
 </html>

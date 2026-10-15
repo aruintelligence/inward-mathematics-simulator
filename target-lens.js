@@ -427,6 +427,27 @@
       witness:routeWitnesses[first.factor]};
   }
 
+  function stabilityCertificate(receipt,mask=31) {
+    if(!Number.isInteger(mask)||mask<0||mask>31)
+      throw new Error("Mask must be an integer from 0 to 31");
+    const {readings,low,high}=receipt.inputs;
+    const edge=continuousStabilityThreshold(readings.map(value=>value/TARGET_SCALE),
+      low/TARGET_SCALE,high/TARGET_SCALE,mask);
+    let claim;
+    if(edge.kind==="no-baseline") claim={kind:"no-baseline"};
+    else if(edge.kind==="unreachable") claim={kind:"unreachable",winner:edge.winner};
+    else if(edge.kind==="edge") {
+      const routes={};
+      for(const factor of ["estimate","reference"])
+        routes[factor]=edge.routes[factor]===null?null:{
+          radius:edge.routes[factor],witness:edge.routeWitnesses[factor]};
+      claim={kind:"edge",winner:edge.winner,firstRoute:edge.factor,
+        radius:{numerator:edge.numerator,denominator:edge.denominator},
+        firstTieUnits:edge.firstTieUnits,routes};
+    } else throw new Error("Unknown stability result");
+    return {format:"inward-stability-edge-certificate-v1",sourceReceipt:receipt,mask,claim};
+  }
+
   function continuousSupportFrontier(values,low,high) {
     if(certifyJointUncertainty(values,low,high,0,0).kind!=="strict")
       return {kind:"baseline-tie",rows:[]};
@@ -534,7 +555,7 @@
     return {kind:"edge",winner:baseline.winner,lastStrictUnits,firstTieUnits};
   }
 
-  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,proofReceipt,minimumTieSupport,supportTieAtlas,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold};
+  if(typeof module==="object"&&module.exports) module.exports={PRESETS,parseView,evaluate,targetWitnesses,certifyInterval,certifyReadingDrift,certifyJointUncertainty,proofReceipt,minimumTieSupport,supportTieAtlas,supportFrontier,continuousSupportFrontier,singleReadingThresholds,tieReachabilityEnvelope,classifyReachMap,stabilityEdge,continuousStabilityThreshold,stabilityCertificate};
   if(typeof document==="undefined") return;
 
   const $=id=>document.getElementById(id);
@@ -1087,6 +1108,7 @@
       edgeProofCopy="";
     }
     $("edge-copy-status").textContent="";
+    $("edge-download-status").textContent="";
     $("drift-shortcut-status").textContent=drift.kind==="certified"?"Shortcut certifies "+drift.winner:
       drift.kind==="inconclusive"?"Shortcut inconclusive":"No strict baseline";
     $("drift-gap").textContent=drift.kind==="no-baseline"?"—":fmt(drift.gap);
@@ -1195,6 +1217,18 @@
     } catch (_) {
       $("edge-copy-status").textContent="Copy unavailable here. Use the witness above and the exact view link below.";
     }
+  });
+  $("edge-download").addEventListener("click",()=>{
+    const receipt=proofReceipt(current.values,current.low,current.high,current.epsilon,current.target);
+    const certificate=stabilityCertificate(receipt);
+    const blob=new Blob([JSON.stringify(certificate,null,2)+"\n"],{type:"application/json"});
+    const link=document.createElement("a");
+    const url=URL.createObjectURL(blob);
+    link.href=url;
+    link.download="inward-stability-edge-certificate.json";
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $("edge-download-status").textContent="JSON downloaded. Check it independently with the Python verifier linked below.";
   });
   $("sparse-copy").addEventListener("click",async()=>{
     if(!sparseProofCopy) return;

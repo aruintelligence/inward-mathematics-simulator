@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const os = require("node:os");
+const {spawnSync} = require("node:child_process");
 const vm = require("node:vm");
 const {test} = require("node:test");
 
@@ -2482,6 +2484,7 @@ test("exact point threshold inverts the reachability curves across targets", () 
 
 test("target witnesses and interval controls update the verdict, certificate, and exact link", async () => {
   const elements=new Map(),address=[];
+  const download={blob:null,filename:"",clicked:false,revoked:null};
   let copied="",scrolled="";
   function element(id) {
     if(!elements.has(id)) elements.set(id,{value:"",textContent:"",hidden:false,disabled:false,dataset:{},attributes:{},handlers:{},
@@ -2493,10 +2496,15 @@ test("target witnesses and interval controls update the verdict, certificate, an
   }
   const witnesses=Array.from({length:3},(_,index)=>element("witness-"+index));
   const presets=["a","b","c"].map(key=>({...element("preset-"+key),dataset:{case:key}}));
-  const document={getElementById:element,querySelectorAll(selector){return selector===".witness"?witnesses:selector===".preset"?presets:[];}};
+  const document={getElementById:element,querySelectorAll(selector){return selector===".witness"?witnesses:selector===".preset"?presets:[];},
+    createElement(){return {set download(value){download.filename=value;},click(){download.clicked=true;}};}};
   const window={location:{search:"",href:"https://example.test/target-lens.html"},history:{replaceState(_state,_title,url){address.push(url);}}};
+  class DownloadURL extends URL {}
+  DownloadURL.createObjectURL=blob=>{download.blob=blob;return "blob:edge-certificate";};
+  DownloadURL.revokeObjectURL=url=>{download.revoked=url;};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"..","target-lens.js"),"utf8"),
-    {document,window,URL,URLSearchParams,navigator:{clipboard:{async writeText(value){copied=value;}}}},{timeout:1500});
+    {document,window,URL:DownloadURL,URLSearchParams,Blob,setTimeout:callback=>callback(),
+      navigator:{clipboard:{async writeText(value){copied=value;}}}},{timeout:1500});
   assert.equal(element("witness-grid").hidden,false);
   assert.equal(element("witness-0").parts.strong.textContent,"50");
   assert.equal(element("witness-1").parts.strong.textContent,"53.3");
@@ -2722,6 +2730,31 @@ test("target witnesses and interval controls update the verdict, certificate, an
   assert.match(copied,/First six-decimal tie setting: 5\.333334/);
   assert.match(copied,/Reproduce selectable setting: https:\/\/example\.test\/target-lens\.html\?.*&eps=5\.333334/);
   assert.equal(element("edge-copy-status").textContent,"Exact certificate copied.");
+  element("edge-download").handlers.click();
+  assert.equal(download.clicked,true);
+  assert.equal(download.filename,"inward-stability-edge-certificate.json");
+  assert.equal(download.blob.type,"application/json");
+  assert.equal(download.revoked,"blob:edge-certificate");
+  const exported=JSON.parse(await download.blob.text());
+  const {create}=require("../tools/create-stability-certificate.cjs");
+  const {proofReceipt}=require("../target-lens.js");
+  assert.deepEqual(exported,create(proofReceipt([48,49,50,51,85],0,1,5.333334,0.5)));
+  assert.equal(exported.claim.radius.numerator,"16");
+  assert.equal(exported.claim.routes.reference.radius.numerator,"75");
+  assert.match(element("edge-download-status").textContent,/JSON downloaded/);
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),"inward-browser-edge-"));
+  try {
+    const file=path.join(directory,"download.json");
+    fs.writeFileSync(file,await download.blob.text());
+    const checked=spawnSync("python3",["tools/verify_stability_certificate.py",file],
+      {cwd:path.join(__dirname,".."),encoding:"utf8"});
+    assert.equal(checked.status,0,checked.stderr);
+    assert.match(checked.stdout,/first tie at 16\/3/);
+  } finally {fs.rmSync(directory,{recursive:true,force:true});}
+  presets[2].handlers.click();
+  assert.equal(element("edge-download-status").textContent,"");
+  element("edge-download").handlers.click();
+  assert.equal(JSON.parse(await download.blob.text()).claim.kind,"no-baseline");
 });
 
 test("atlas covers the exact cohort grid and agrees with the full lab", () => {
