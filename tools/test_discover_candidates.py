@@ -6,6 +6,7 @@ from pathlib import Path
 import unittest
 
 from discover_candidates import points, scan
+from query_discovery import search
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
@@ -49,6 +50,14 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(report["candidates"][3]["status"], "unrefuted-on-finite-grid")
         with self.assertRaises(ValueError):
             points("0,0", 6)
+
+    def test_archive_search_filters_claim_and_status(self):
+        archive = json.loads(ARCHIVE.read_text(encoding="utf-8"))
+        result = search(archive, "midpoint", "unrefuted-on-finite-grid")
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["matches"][0]["id"], "midpoint-tie")
+        self.assertEqual(search(archive, status="counterexample-found")["count"], 3)
+        self.assertEqual(search(archive, "unknown")["count"], 0)
 
 
 if __name__ == "__main__":
