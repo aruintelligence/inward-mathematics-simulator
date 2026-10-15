@@ -1,0 +1,36 @@
+{
+  "format": "inward-target-lens-proof-v1",
+  "scale": 1000000,
+  "inputs": {
+    "readings": [
+      48000000,
+      49000000,
+      50000000,
+      51000000,
+      85000000
+    ],
+    "low": 0,
+    "high": 1000000,
+    "drift": 4000000,
+    "selectedTarget": 500000
+  },
+  "claim": {
+    "kind": "strict",
+    "winner": "Median",
+    "estimateRange": [
+      8000000,
+      52000000
+    ],
+    "referenceRange": [
+      483000000,
+      573000000
+    ],
+    "tieTargets": {
+      "kind": "band",
+      "lowerNumerator": 493000000,
+      "upperNumerator": 573000000,
+      "denominator": 10000000
+    },
+    "witness": null
+  }
+}

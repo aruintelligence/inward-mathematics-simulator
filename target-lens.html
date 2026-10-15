@@ -266,6 +266,8 @@
     .edge-changes li { counter-increment:reading; min-width:0; display:flex; gap:9px; align-items:baseline; padding:8px 10px; border:1px solid #547b78; border-radius:7px; background:#092632; color:#e9faf1; font:.82rem ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
     .edge-changes li::before { content:counter(reading,decimal-leading-zero); color:var(--gold); font-weight:800; }
     .edge-proof #edge-outcome { color:var(--gold); font-weight:800; }
+    .edge-audit { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 0; padding:12px 14px; border-left:3px solid var(--mint); background:#092b35; color:#d5ebe4; font-size:.82rem; }
+    .edge-audit a { color:var(--mint); font-weight:800; text-underline-offset:3px; }
     .edge-copy { margin-top:13px; padding:8px 12px; min-height:40px; border:1px solid var(--mint); border-radius:8px; background:#1c4b48; color:#eafff5; font-size:.8rem; font-weight:800; }
     .edge-copy:hover { filter:brightness(1.13); }
     #edge-copy-status { display:inline-block; margin-left:9px; color:var(--mint); font-size:.8rem; }
@@ -512,6 +514,7 @@
               <p id="edge-outcome"></p>
               <button class="edge-copy" id="edge-copy" type="button">Copy exact certificate</button><span id="edge-copy-status" role="status"></span>
             </details>
+            <p class="edge-audit"><span>Independent rational cross-check</span><a href="docs/stability-edge-audit.md">Audit both routes from a saved receipt ↗</a></p>
           </div>
           <div class="sparse-card" aria-labelledby="sparse-title">
             <p class="eyebrow">Minimum support / exact subset proof</p>
@@ -575,7 +578,7 @@
           <p>Keep these five readings, selected hypothetical target, target range, and allowed reading drift together in a link. A recipient can check every number.</p>
           <div class="share-actions"><button class="action" id="copy-view" type="button">Copy exact view</button><button class="button secondary" id="download-proof" type="button">Download proof receipt ↓</button><a class="button secondary" id="open-view" href="target-lens.html?values=48%2C49%2C50%2C51%2C85&amp;target=50&amp;lo=48&amp;hi=52">Open exact view ↗</a></div>
           <p id="share-status" role="status"></p>
-          <p class="note">The link contains all five readings, the selected target, both range bounds, and the reading drift. The JSON receipt includes exact factor bounds and a rational tie witness when applicable. <a href="verify-proof.html">Check a receipt in your browser</a> or use the offline <a href="tools/verify-target-lens.cjs">Node</a> or <a href="tools/verify_target_lens.py">Python</a> checkers. Use invented or public data. These references are chosen what-if values, not measured truth.</p>
+          <p class="note">The link contains all five readings, the selected target, both range bounds, and the reading drift. The JSON receipt includes exact factor bounds and a rational tie witness when applicable. <a href="verify-proof.html">Check a receipt in your browser</a>, use the offline <a href="tools/verify-target-lens.cjs">Node</a> or <a href="tools/verify_target_lens.py">Python</a> checkers, or <a href="docs/stability-edge-audit.md">independently audit both drift thresholds</a> from the saved receipt. Use invented or public data. These references are chosen what-if values, not measured truth.</p>
         </section>
       </div>
     </main>
