@@ -15,6 +15,7 @@ jobs:
           node-version: '22'
       - run: python3 -m unittest discover -s tools -p 'test_odd_sample_flip.py' -v
       - run: node --test tests/odd-flip-lab.test.cjs
+      - run: node --test tests/odd-flip-verifier.test.cjs
       - run: python3 tools/verify_odd_sample_flip.py examples/odd-sample-flip-v1.json
       - run: python3 tools/odd_sample_flip.py --readings 48,49,50,51,85 --target 50 | diff - examples/odd-sample-flip-v1.json
       - run: python3 tools/render_odd_flip_report.py --check
