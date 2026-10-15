@@ -15,8 +15,8 @@
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
     return node;
   };
-  const coord = value => 20 + 9.6 * core.number(value);
-  function card(route, original, best) {
+  const coord = (value, bounds) => 20 + 960 * core.position(value, bounds.low, bounds.high);
+  function card(route, original, best, bounds) {
     const article = element("article", "route");
     const head = element("div", "route-head"), title = element("div");
     title.append(element("small", "", `Reading ${String(route.index + 1).padStart(2, "0")} / start ${original}`),
@@ -24,7 +24,8 @@
     head.append(title);
     if (best && best.index === route.index) head.append(element("span", "badge", "Nearest route"));
     const verdict = element("div", "route-verdict");
-    verdict.append(element("strong", "", route.threshold === null ? "No reversal in 0–100" : `${route.distance} units to tie`),
+    verdict.append(element("strong", "", route.threshold === null ?
+      `No reversal in [${bounds.low}, ${bounds.high}]` : `${route.distance} units to tie`),
       element("span", "", route.threshold === null ? "This reading alone cannot reverse the starting winner." :
         `Tie at ${route.threshold} · strict opposing witness ${route.witness}`));
     const svg = svgElement("svg", {viewBox: "0 0 1000 48", role: "img", "aria-label":
@@ -32,15 +33,15 @@
       (route.threshold === null ? "No strict reversal." : `Tie at ${route.threshold}; opposing witness ${route.witness}.`)});
     svg.append(svgElement("rect", {x: 20, y: 20, width: 960, height: 17, fill: "#223a48"}));
     route.intervalWinners.forEach((winner, i) => {
-      const x = coord(route.knots[i]), end = coord(route.knots[i + 1]);
+      const x = coord(route.knots[i], bounds), end = coord(route.knots[i + 1], bounds);
       svg.append(svgElement("rect", {x, y: 20, width: Math.max(0, end - x), height: 17,
         fill: winner === "Mean" ? "#6ce4c4" : winner === "Median" ? "#8dc8f8" : "#f6c477"}));
     });
-    svg.append(svgElement("line", {x1: coord(original), x2: coord(original), y1: 6, y2: 43,
+    svg.append(svgElement("line", {x1: coord(original, bounds), x2: coord(original, bounds), y1: 6, y2: 43,
       stroke: "#fff", "stroke-width": 3}));
-    if (route.threshold !== null) svg.append(svgElement("circle", {cx: coord(route.threshold), cy: 28.5,
+    if (route.threshold !== null) svg.append(svgElement("circle", {cx: coord(route.threshold, bounds), cy: 28.5,
       r: 7, fill: "#f6c477", stroke: "#11283a", "stroke-width": 2}));
-    const axis = element("div", "axis"); axis.append(element("span", "", "0"), element("span", "", "100"));
+    const axis = element("div", "axis"); axis.append(element("span", "", bounds.low), element("span", "", bounds.high));
     const details = element("details"), summary = element("summary", "", "Inspect exact intervals and boundary winners");
     const list = element("ol");
     route.intervalWinners.forEach((winner, i) => list.append(element("li", "",
@@ -53,8 +54,10 @@
   }
   function render(record) {
     const {inputs, claim} = record;
+    const bounds = inputs.bounds || {low: "0", high: "100"};
     $("input-facts").replaceChildren(...inputs.readings.map((reading, i) =>
-      element("span", "", `r${i + 1} = ${reading}`)), element("span", "", `target = ${inputs.target}`));
+      element("span", "", `r${i + 1} = ${reading}`)), element("span", "", `target = ${inputs.target}`),
+      element("span", "", `movement ∈ [${bounds.low}, ${bounds.high}]`));
     const best = claim.best;
     $("result-label").textContent = claim.kind === "baseline-tie" ? "Starting outcome" : "Strict reversal infimum";
     $("result-value").textContent = claim.kind === "baseline-tie" ? "Already tied" :
@@ -62,11 +65,11 @@
     $("result-explanation").textContent = claim.kind === "baseline-tie" ?
       "The original mean and median have equal error at your chosen target. No strict baseline winner exists to reverse." :
       best ? `The ${claim.baseline.toLowerCase()} starts closer. Moving reading ${best.index + 1} from ${inputs.readings[best.index]} to ${best.threshold} ties; ${best.witness} strictly reverses it.` :
-        `The ${claim.baseline.toLowerCase()} starts closer, and no single reading can make the other estimate win within 0–100.`;
+        `The ${claim.baseline.toLowerCase()} starts closer, and no single reading can make the other estimate win within [${bounds.low}, ${bounds.high}].`;
     $("result-summary").textContent = claim.kind === "baseline-tie" ?
       "Starting verdict: tie. Reversal routes require a strict starting winner." :
-      `Starting verdict: ${claim.baseline}. All ${claim.routes.length} possible movable readings are partitioned over the full real interval [0,100].`;
-    $("routes").replaceChildren(...claim.routes.map(route => card(route, inputs.readings[route.index], best)));
+      `Starting verdict: ${claim.baseline}. All ${claim.routes.length} movable readings are partitioned over [${bounds.low}, ${bounds.high}].`;
+    $("routes").replaceChildren(...claim.routes.map(route => card(route, inputs.readings[route.index], best, bounds)));
     $("download").disabled = false;
   }
   function analyze(event) {
@@ -74,7 +77,9 @@
     current = null; $("download").disabled = true; $("input-error").textContent = "";
     try {
       const raw = $("readings").value.split(",").map(s => s.trim());
-      current = core.certificate(raw, $("target").value.trim());
+      const low = $("low").value.trim(), high = $("high").value.trim();
+      current = low === "0" && high === "100" ? core.certificate(raw, $("target").value.trim()) :
+        core.certificate(raw, $("target").value.trim(), low, high);
       render(current);
     } catch (error) {
       $("input-error").textContent = error.message;
@@ -86,10 +91,16 @@
   }
   $("flip-form").addEventListener("submit", analyze);
   $("mean-example").addEventListener("click", () => {
-    $("readings").value = "40, 42, 50, 60, 68"; $("target").value = "52"; analyze();
+    $("readings").value = "40, 42, 50, 60, 68"; $("target").value = "52";
+    $("low").value = "0"; $("high").value = "100"; analyze();
   });
   $("tie-example").addEventListener("click", () => {
-    $("readings").value = "40, 45, 50, 55, 60"; $("target").value = "50"; analyze();
+    $("readings").value = "40, 45, 50, 55, 60"; $("target").value = "50";
+    $("low").value = "0"; $("high").value = "100"; analyze();
+  });
+  $("signed-example").addEventListener("click", () => {
+    $("readings").value = "-2, -1, 0, 1, 35"; $("target").value = "0";
+    $("low").value = "-10"; $("high").value = "40"; analyze();
   });
   $("download").addEventListener("click", () => {
     if (!current) return;

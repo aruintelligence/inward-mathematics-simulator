@@ -17,6 +17,8 @@ from render_odd_flip_report import render
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE = ROOT / "examples/odd-sample-flip-v1.json"
 REPORT = ROOT / "odd-flip-report.html"
+SIGNED_EXAMPLE = ROOT / "examples/odd-sample-flip-v2.json"
+SIGNED_REPORT = ROOT / "odd-flip-signed-report.html"
 
 
 class OddFlipTests(unittest.TestCase):
@@ -44,6 +46,67 @@ class OddFlipTests(unittest.TestCase):
         self.assertEqual(tied["claim"]["routes"], [])
         self.assertEqual(certificate(["0.5", "1.0", "1.5"], "0.75")["inputs"],
                          {"readings": ["1/2", "1", "3/2"], "target": "3/4"})
+
+    def test_signed_bounds_change_the_optimal_route_and_report_axis(self):
+        values = ["-2", "-1", "0", "1", "35"]
+        wide = certificate(values, "0", "-30", "40")
+        narrow = certificate(values, "0", "-10", "40")
+        self.assertEqual(wide["format"], "inward-odd-sample-flip-v2")
+        self.assertEqual(wide["claim"]["best"],
+                         {"index": 2, "threshold": "-28", "distance": "28", "witness": "-29"})
+        self.assertEqual(narrow["claim"]["best"],
+                         {"index": 4, "threshold": "-1/2", "distance": "71/2", "witness": "-3/4"})
+        self.assertEqual(json.loads(SIGNED_EXAMPLE.read_bytes()), narrow)
+        self.assertEqual(verify(wide)["routes"], 5)
+        self.assertEqual(verify(narrow)["routes"], 5)
+        report = render(json.dumps(narrow).encode())
+        self.assertIn('class="axis"><span>-10</span><span>40</span>', report)
+        self.assertIn('continuous real interval [-10,40]', report)
+        self.assertIn('certificate v2', report)
+        self.assertEqual(SIGNED_REPORT.read_text(encoding="utf-8"), render(SIGNED_EXAMPLE.read_bytes()))
+
+    def test_signed_fractional_domains_target_outside_and_brute_grid(self):
+        rng = random.Random(24102026)
+        for n in (3, 5, 9, 21):
+            for _ in range(8):
+                low = Fraction(rng.randrange(-100, -10), 3)
+                high = low + Fraction(rng.randrange(1, 100), 7)
+                values = [low + (high-low)*Fraction(rng.randrange(0, 21), 20)
+                          for _ in range(n)]
+                target = Fraction(rng.randrange(-100, 101), 3)
+                record = certificate(list(map(str, values)), str(target), str(low), str(high))
+                verify(record)
+                if record["claim"]["kind"] != "strict-baseline":
+                    continue
+                baseline = record["claim"]["baseline"]
+                for route in record["claim"]["routes"]:
+                    fixed = values[:route["index"]] + values[route["index"]+1:]
+                    for step in range(101):
+                        moved = low + (high-low)*Fraction(step, 100)
+                        if winner([*fixed, moved], target) not in (baseline, "Tie"):
+                            self.assertIsNotNone(route["distance"])
+                            self.assertGreater(abs(moved-values[route["index"]]),
+                                               Fraction(route["distance"]))
+
+    def test_bounded_validation_and_forged_bounds(self):
+        for low, high in (("2", "2"), ("3", "2"), ("-1000001", "100"), ("0", "1000001")):
+            with self.subTest(low=low, high=high), self.assertRaises(ValueError):
+                certificate(["1", "2", "3"], "2", low, high)
+        for readings, target, low, high in ((["0", "2", "3"], "2", "1", "4"),
+                                            (["1", "2", "3"], "1000001", "1", "4"),
+                                            (["1", "2", "3"], "2", "1", None)):
+            with self.assertRaises(ValueError):
+                certificate(readings, target, low, high)
+        original = certificate(["-2", "-1", "0", "1", "35"], "0", "-10", "40")
+        for edit in (lambda c: c["inputs"]["bounds"].update(low="0"),
+                     lambda c: c["inputs"]["bounds"].update(high="-10"),
+                     lambda c: c["inputs"]["bounds"].update(low="-10/1"),
+                     lambda c: c["claim"]["best"].update(distance="35"),
+                     lambda c: c["claim"]["routes"][4]["knots"].pop(0)):
+            changed = copy.deepcopy(original)
+            edit(changed)
+            with self.assertRaises((ValueError, ArithmeticError, TypeError)):
+                verify(changed)
 
     def test_seeded_partition_and_sampled_strict_reversals(self):
         rng = random.Random(20261015)

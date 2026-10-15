@@ -42,6 +42,8 @@
       }
       const record = verifier.parseReceipt(source);
       const result = verifier.verify(record);
+      const bounds = record.inputs.bounds || {low: "0", high: "100"};
+      const range = `[${bounds.low}, ${bounds.high}]`;
       const digest = await crypto.subtle.digest("SHA-256", bytes);
       if (started !== revision) return; // A newer file or paste replaced this result.
       const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
@@ -51,13 +53,13 @@
         `All ${result.routes} routes checked against independent exact calculations.`;
       $("status").textContent = "Certificate accepted. The result below is conditional on its supplied inputs.";
       $("baseline").textContent = result.baseline;
-      $("baseline-note").textContent = `${record.inputs.readings.length} readings, target ${record.inputs.target}.`;
+      $("baseline-note").textContent = `${record.inputs.readings.length} readings, target ${record.inputs.target}, movement ${range}.`;
       $("best-distance").textContent = result.kind === "baseline-tie" ? "No strict baseline" :
         result.best ? `${result.best.distance} units to tie` : "No one-reading reversal";
       $("best-note").textContent = result.kind === "baseline-tie" ?
         "The original errors tie, so no strict starting winner can be reversed." :
         result.best ? `Reading ${result.best.index + 1} ties at ${result.best.threshold}; ${result.best.witness} strictly reverses the winner.` :
-          "No one-reading move in [0,100] makes the opposite estimator strictly closer.";
+          `No one-reading move in ${range} makes the opposite estimator strictly closer.`;
       $("report-intro").textContent = result.kind === "baseline-tie" ?
         "The input values and tied starting verdict were checked. No strict reversal routes were claimed." :
         `All ${result.routes} exact factor-root partitions, their open-interval winners, tie boundaries, and reversal witnesses were checked.`;
@@ -67,7 +69,7 @@
         article.append(text("b", `Reading ${route.index + 1}: ${record.inputs.readings[route.index]}`));
         if (result.best && result.best.index === route.index) article.append(text("span", "Nearest route"));
         const badge = article.querySelector("span"); if (badge) badge.className = "tag";
-        article.append(text("small", route.threshold === null ? "No strict reversal in [0,100]" :
+        article.append(text("small", route.threshold === null ? `No strict reversal in ${range}` :
           `${route.distance} to tie at ${route.threshold} · opposing witness ${route.witness}`));
         return article;
       });
