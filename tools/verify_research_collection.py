@@ -56,8 +56,8 @@ def verify(data):
         if hashlib.sha256(raw).hexdigest() != digest:
             raise ValueError("Embedded receipt fingerprint mismatch")
         receipt = parse(source)
-        if type(receipt) is not dict or receipt.get("format") != \
-                (claim.FORMAT if kind == "conditional-claim" else box.FORMAT):
+        accepted = claim.FORMATS if kind == "conditional-claim" else (box.FORMAT,)
+        if type(receipt) is not dict or receipt.get("format") not in accepted:
             raise ValueError("Stored kind does not match receipt format")
         if kind == "conditional-claim":
             status, count = claim.verify(receipt)

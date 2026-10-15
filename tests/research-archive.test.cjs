@@ -151,6 +151,33 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(items.find(x => x.digest === first.digest).valid, true);
 });
 
+test('legacy v1 claims remain readable and portable beside theorem-bound v2 claims', async () => {
+  const db = memoryDB();
+  const current = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const legacy = JSON.parse(JSON.stringify(current));
+  legacy.format = 'inward-conditional-claim-v1';
+  delete legacy.formal;
+  await archive.add(db, JSON.stringify(legacy), 'Earlier proof', checkers, crypto.webcrypto);
+  await archive.add(db, JSON.stringify(current), 'Theorem bound proof', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed.length, 2);
+  assert.ok(listed.every(item => item.valid && item.result.status === 'proved-by-algebra'));
+  assert.equal(listed.find(item => item.record.format.endsWith('-v1')).result.formal, null);
+  assert.equal(listed.find(item => item.record.format.endsWith('-v2')).result.formal.declaration,
+    'InwardFormal.lower_no_worse_at_midpoint');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  const dir = mkdtempSync(join(tmpdir(), 'inward-legacy-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /Verified 2 research records/);
+  } finally {rmSync(dir, {recursive:true, force:true});}
+});
+
 test('unsupported formats and altered claim certificates are rejected before storage', async () => {
   const db = memoryDB();
   const proof = maker.compose('0,25,50,75,100', '0,25,50,75,100',

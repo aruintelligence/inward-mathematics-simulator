@@ -12,6 +12,7 @@
     $("save-status").textContent = "";
     $("result").hidden = true;
     $("formal-reference").hidden = true;
+    $("formal-source").hidden = true;
     $("verdict").textContent = "Awaiting record";
     $("verdict-note").textContent = "Choose an exported claim JSON file or paste its full text.";
     $("status").textContent = message;
@@ -58,6 +59,12 @@
       $("statement").textContent = checked.statement;
       $("count").textContent = `${checked.casesChecked} eligible exact cases checked across ${checked.readingMultisets} five-reading multisets.`;
       $("formal-reference").hidden = !checked.proof;
+      $("formal-source").hidden = !checked.formal;
+      $("formal-declaration").textContent = checked.formal ?
+        `${checked.formal.declaration} at source revision ${checked.formal.sourceCommit.slice(0, 12)}.` :
+        "Legacy v1 record: no machine-readable theorem binding.";
+      if (checked.formal) $("formal-source").href =
+        `https://github.com/aruintelligence/inward-mathematics-simulator/blob/${checked.formal.sourceCommit}/formal/InwardFormal.lean`;
       if (checked.proof) {
         $("explanation").textContent = "The general conclusion follows from (a−t)² − (b−t)² = (a−b)(a+b−2t), where a ≤ b are the two estimates. This inspector independently checks the selected record and its condition. A separate Lean module proves the corresponding real-number inequality; Lean does not check these JSON bytes, the source measurements, or authorship. This is an established elementary result, not a new theorem.";
         $("witness").textContent = "The chosen finite grid illustrates the statement; it is not the source of its general proof.";

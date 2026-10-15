@@ -1,4 +1,4 @@
-/* Independent checker for inward-conditional-claim-v1. Does not import the constructor. */
+/* Independent checker for conditional claims v1/v2. Does not import the constructor. */
 (function (root, factory) {
   const parser = typeof module === "object" && module.exports ?
     require("./target-lens-proof-core.js") : root.TargetLensVerifier;
@@ -7,7 +7,15 @@
   else root.InwardConditionalClaimVerifier = api;
 })(globalThis, function (parser) {
   "use strict";
-  const FORMAT = "inward-conditional-claim-v1";
+  const FORMAT = "inward-conditional-claim-v2";
+  const LEGACY_FORMAT = "inward-conditional-claim-v1";
+  const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
+  const FORMAL_THEOREMS = {
+    "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
+    "target-at-or-above-midpoint": "InwardFormal.higher_no_worse_at_midpoint",
+    "target-at-or-below-both": "InwardFormal.lower_no_worse_below_both",
+    "target-at-or-above-both": "InwardFormal.higher_no_worse_above_both",
+  };
   const CONDITIONS = {
     "any-target": "at any target",
     "target-at-or-below-midpoint": "if the target is at or below the estimates' midpoint",
@@ -146,8 +154,10 @@
     return {checked, witness, total};
   }
   function verify(report) {
-    fields(report, ["format", "claim", "domain", "search", "proof"], "claim record");
-    if (report.format !== FORMAT) fail("Unsupported claim format");
+    const current = report?.format === FORMAT;
+    if (!current && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
+    fields(report, current ? ["format", "claim", "domain", "search", "proof", "formal"] :
+      ["format", "claim", "domain", "search", "proof"], "claim record");
     fields(report.claim, ["condition", "prediction", "statement"], "claim");
     const {condition, prediction} = report.claim;
     if (typeof condition !== "string" || !Object.hasOwn(CONDITIONS, condition) ||
@@ -174,8 +184,11 @@
       }
     }
     if (!same(report.proof, proof)) fail("Algebraic proof does not follow from the condition");
+    const formal = proof && current ? {system: "Lean 4/Mathlib",
+      declaration: FORMAL_THEOREMS[condition], sourceCommit: FORMAL_COMMIT} : null;
+    if (current && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
     return {status, casesChecked: checked, readingMultisets: total, counterexample: witness,
-      statement, proof: Boolean(proof)};
+      statement, proof: Boolean(proof), formal};
   }
   function parseClaim(source) {
     const record = parser.parseReceipt(source);

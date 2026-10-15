@@ -26,7 +26,7 @@
       const searchable = [label, digest, record.claim.statement, record.claim.condition,
         record.claim.prediction, result.status, ...record.domain.readingValues,
         ...record.domain.targetValues, ...(witness?.readings || []), witness?.target,
-        witness?.mean, witness?.median].join(" ").toLocaleLowerCase();
+        witness?.mean, witness?.median, result.formal?.declaration].join(" ").toLocaleLowerCase();
       return (filter === "all" || filter === "conditional-claim" || filter === result.status) &&
         (!term || searchable.includes(term));
     }
@@ -86,9 +86,12 @@
         if (result.proof) {
           body.append(node("p",
             "General result under the stated target condition: this record was independently replayed. A separate Lean proof checks the corresponding real-number inequality, not these JSON bytes or source measurements. This is established mathematics."));
-          const source = node("a", "Read the Lean theorem source ↗");
-          source.href = "https://github.com/aruintelligence/inward-mathematics-simulator/blob/main/formal/InwardFormal.lean";
-          body.append(source);
+          if (result.formal) {
+            body.append(node("p", `Checked theorem mapping: ${result.formal.declaration} · source revision ${result.formal.sourceCommit.slice(0, 12)}.`));
+            const source = node("a", "Read the pinned Lean source ↗");
+            source.href = `https://github.com/aruintelligence/inward-mathematics-simulator/blob/${result.formal.sourceCommit}/formal/InwardFormal.lean`;
+            body.append(source);
+          } else body.append(node("p", "Legacy v1 receipt: no machine-readable theorem binding."));
         }
         else if (result.counterexample) {
           const point = result.counterexample;

@@ -9,7 +9,16 @@ import json
 import re
 import sys
 
-FORMAT = "inward-conditional-claim-v1"
+FORMAT = "inward-conditional-claim-v2"
+LEGACY_FORMAT = "inward-conditional-claim-v1"
+FORMATS = (LEGACY_FORMAT, FORMAT)
+FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705"
+FORMAL_THEOREMS = {
+    "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
+    "target-at-or-above-midpoint": "InwardFormal.higher_no_worse_at_midpoint",
+    "target-at-or-below-both": "InwardFormal.lower_no_worse_below_both",
+    "target-at-or-above-both": "InwardFormal.higher_no_worse_above_both",
+}
 CONDITIONS = {
     "any-target": "at any target",
     "target-at-or-below-midpoint": "if the target is at or below the estimates' midpoint",
@@ -140,9 +149,11 @@ def replay(values, targets, condition, prediction):
 
 
 def verify(report):
-    fields(report, {"format", "claim", "domain", "search", "proof"}, "report")
-    if report["format"] != FORMAT:
+    if type(report) is not dict or report.get("format") not in FORMATS:
         raise ValueError("Unknown claim format")
+    current = report["format"] == FORMAT
+    fields(report, {"format", "claim", "domain", "search", "proof", "formal"} if current else
+           {"format", "claim", "domain", "search", "proof"}, "report")
     claim = report["claim"]
     fields(claim, {"condition", "prediction", "statement"}, "claim")
     condition, prediction = claim["condition"], claim["prediction"]
@@ -176,6 +187,10 @@ def verify(report):
             raise ValueError("Algebraic coefficients must be integers")
     if report["proof"] != proof:
         raise ValueError("Algebraic certificate is absent or inconsistent")
+    formal = {"system": "Lean 4/Mathlib", "declaration": FORMAL_THEOREMS[condition],
+              "sourceCommit": FORMAL_COMMIT} if proof is not None and current else None
+    if current and report["formal"] != formal:
+        raise ValueError("Formal theorem reference does not match the proved claim")
     return status, count
 
 
