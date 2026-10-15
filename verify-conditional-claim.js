@@ -11,6 +11,7 @@
     $("save-to-archive").disabled = true;
     $("save-status").textContent = "";
     $("result").hidden = true;
+    $("formal-reference").hidden = true;
     $("verdict").textContent = "Awaiting record";
     $("verdict-note").textContent = "Choose an exported claim JSON file or paste its full text.";
     $("status").textContent = message;
@@ -56,8 +57,9 @@
       $("result").classList.toggle("refuted", checked.status === "counterexample-found");
       $("statement").textContent = checked.statement;
       $("count").textContent = `${checked.casesChecked} eligible exact cases checked across ${checked.readingMultisets} five-reading multisets.`;
+      $("formal-reference").hidden = !checked.proof;
       if (checked.proof) {
-        $("explanation").textContent = "The general conclusion follows from (a−t)² − (b−t)² = (a−b)(a+b−2t), where a ≤ b are the two estimates. The checker expanded both sides independently and checked that the selected target condition forces the factor signs and claimed error ordering. This is an elementary algebraic argument for all real inputs, not a formal proof-assistant result or a new theorem.";
+        $("explanation").textContent = "The general conclusion follows from (a−t)² − (b−t)² = (a−b)(a+b−2t), where a ≤ b are the two estimates. This inspector independently checks the selected record and its condition. A separate Lean module proves the corresponding real-number inequality; Lean does not check these JSON bytes, the source measurements, or authorship. This is an established elementary result, not a new theorem.";
         $("witness").textContent = "The chosen finite grid illustrates the statement; it is not the source of its general proof.";
       } else if (checked.counterexample) {
         const point = checked.counterexample;

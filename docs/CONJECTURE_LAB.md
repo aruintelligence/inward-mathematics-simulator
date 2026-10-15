@@ -24,12 +24,12 @@ The engine tests every eligible reading multiset and selected target, stopping a
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
-| Condition | Valid conclusion |
-| --- | --- |
-| target ≤ midpoint of the two estimates | lower estimate is no farther |
-| target ≤ both estimates | lower estimate is no farther |
-| target ≥ midpoint of the two estimates | higher estimate is no farther |
-| target ≥ both estimates | higher estimate is no farther |
+| Condition | Valid conclusion | Lean declaration |
+| --- | --- | --- |
+| target ≤ midpoint of the two estimates | lower estimate is no farther | `lower_no_worse_at_midpoint` |
+| target ≤ both estimates | lower estimate is no farther | `lower_no_worse_below_both` |
+| target ≥ midpoint of the two estimates | higher estimate is no farther | `higher_no_worse_at_midpoint` |
+| target ≥ both estimates | higher estimate is no farther | `higher_no_worse_above_both` |
 
 For any real $a\le b$ and $t$, exact expansion gives
 
@@ -46,7 +46,7 @@ python3 tools/verify_conditional_claim.py inward-conditional-claim-v1.json
 node --test tests/conjecture-lab.test.cjs
 ```
 
-It rejects inconsistent witnesses, counts, statements, status, proof fields, duplicate JSON keys, unknown fields, and oversized files. It reports the SHA-256 of exact input bytes. The checker and mathematical argument rely on arithmetic and program correctness; they are not formal proof-assistant validation. The proof concerns the specified mathematical model and does not establish the truth of an input target, quality of measurements, or practical superiority of an estimator. No inputs leave the device unless the visitor chooses to download or share the record.
+It rejects inconsistent witnesses, counts, statements, status, proof fields, duplicate JSON keys, unknown fields, and oversized files. It reports the SHA-256 of exact input bytes. The per-record checker relies on arithmetic and program correctness; Lean checks the separate general implications, not a particular JSON file. The proof concerns the specified mathematical model and does not establish the truth of an input target, quality of measurements, or practical superiority of an estimator. No inputs leave the device unless the visitor chooses to download or share the record.
 
 The [Claim Inspector](../verify-conditional-claim.html) provides a second independent check directly in a browser. It accepts a downloaded JSON file or pasted text; nothing is uploaded. Its standalone verifier does **not** import the claim builder: it independently enumerates rational cases, checks the first eligible witness, expands the squared-error polynomials, and derives the permitted factor signs. It reuses the separately tested JSON parser from the Target Lens inspector to reject duplicate keys. The interface rejects malformed UTF-8 and records over 1 MB, hides any result as soon as a file or pasted value changes, and hashes the exact accepted bytes. The Node test cross-checks all twenty condition/prediction combinations across three domains against the Python implementation. The Lean proof checks the general factor-sign implications, while the two app checkers replay individual records. None of these checks certify input provenance.
 

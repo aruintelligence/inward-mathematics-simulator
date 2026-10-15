@@ -83,8 +83,13 @@
       if (entry.kind === "conditional-claim") {
         body.append(node("p", record.claim.statement));
         body.append(node("p", `${result.casesChecked} eligible exact cases checked across ${result.readingMultisets} five-reading multisets. Reading grid: ${record.domain.readingValues.join(", ")}; target grid: ${record.domain.targetValues.join(", ")}.`));
-        if (result.proof) body.append(node("p",
-          "General result under the stated target condition: the independent checker verified the squared-distance factorization and factor signs. This is an established algebraic consequence, not a new theorem."));
+        if (result.proof) {
+          body.append(node("p",
+            "General result under the stated target condition: this record was independently replayed. A separate Lean proof checks the corresponding real-number inequality, not these JSON bytes or source measurements. This is established mathematics."));
+          const source = node("a", "Read the Lean theorem source ↗");
+          source.href = "https://github.com/aruintelligence/inward-mathematics-simulator/blob/main/formal/InwardFormal.lean";
+          body.append(source);
+        }
         else if (result.counterexample) {
           const point = result.counterexample;
           body.append(node("p", `Exact counterexample: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer.`));

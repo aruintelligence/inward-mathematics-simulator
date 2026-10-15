@@ -170,7 +170,8 @@ test('browser view renders exact counterexample maps and clears stale evidence o
     'search-form', 'reading-values', 'target-values', 'fraction-example',
     'scope-note', 'ledger', 'cards', 'fingerprint', 'claim-form', 'claim-condition',
     'claim-prediction', 'claim-download', 'claim-results', 'claim-status', 'claim-title',
-    'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-fingerprint'];
+    'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-fingerprint',
+    'claim-formal-link'];
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['reading-values'].value = '0,25,50,75,100';
   fields['target-values'].value = '0,25,50,75,100';
@@ -192,12 +193,16 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.equal(fields['claim-badge'].textContent, 'General algebraic proof');
   assert.match(fields['claim-proof'].textContent, /a−b ≤ 0/);
+  assert.match(fields['claim-summary'].textContent, /proved in Lean/);
+  assert.equal(fields['claim-formal-link'].hidden, false);
   assert.match(fields['claim-fingerprint'].textContent, /[0-9a-f]{64}/);
   fields['claim-prediction'].value = 'higher-no-worse';
   fields['claim-prediction'].handlers.change();
   assert.equal(fields['claim-results'].hidden, true);
+  assert.equal(fields['claim-formal-link'].hidden, true);
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.equal(fields['claim-badge'].textContent, 'Counterexample found');
+  assert.equal(fields['claim-formal-link'].hidden, true);
   assert.equal(fields['claim-plot'].children.length, 1);
   fields['fraction-example'].handlers.click();
   await fields['search-form'].handlers.submit({preventDefault() {}});
@@ -226,6 +231,7 @@ test('published page fingerprints exact scripts and explains finite evidence lim
   assert.match(html, /unrefuted on this finite grid/i);
   assert.match(html, /tools\/verify_conjecture_experiment\.py/);
   assert.match(html, /tools\/verify_conditional_claim\.py/);
+  assert.match(html, /id="claim-formal-link"[^>]+hidden/);
   assert.match(html, /prefers-color-scheme:light/);
   assert.match(readFileSync('discovery.html', 'utf8'), /href="conjecture-lab\.html"/);
   assert.match(readFileSync('index.html', 'utf8'), /href="conjecture-lab\.html"/);

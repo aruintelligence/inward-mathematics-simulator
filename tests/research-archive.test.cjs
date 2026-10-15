@@ -306,6 +306,9 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   assert.equal(fields['archive-cards'].children.length, 1);
   assert.equal(fields['archive-cards'].children[0].children[0].children[2].textContent,
     'General algebraic proof');
+  const provedBody = fields['archive-cards'].children[0].children[1];
+  assert.ok(provedBody.children.some(child => child.tag === 'a' &&
+    child.href.endsWith('/formal/InwardFormal.lean')));
   fields['archive-filter'].value = 'conditional-claim';
   fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 1);

@@ -43,6 +43,7 @@
     claimExportBytes = null;
     $("claim-download").disabled = true;
     $("claim-results").hidden = true;
+    $("claim-formal-link").hidden = true;
     $("claim-status").textContent = "Claim changed. Test it again.";
     $("claim-status").classList.remove("error");
   }
@@ -141,6 +142,8 @@
     claimExportBytes = null;
     $("claim-download").disabled = true;
     $("claim-results").hidden = true;
+    $("claim-formal-link").hidden = true;
+    $("claim-formal-link").hidden = true;
     $("claim-status").classList.remove("error");
     try {
       const report = engine.compose($("reading-values").value, $("target-values").value,
@@ -156,8 +159,9 @@
       $("claim-badge").textContent = label;
       $("claim-results").classList.toggle("counterexample", search.status === "counterexample-found");
       $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets. ${search.counterexample ? "Search stopped at the first counterexample." : "Search completed."}`;
+      $("claim-formal-link").hidden = !report.proof;
       if (report.proof) {
-        $("claim-summary").textContent = "This conditional statement holds for all real readings and targets, including those outside the finite grid. It follows from an established squared-distance identity; this is a reviewable algebraic argument, not a formal proof-assistant result.";
+        $("claim-summary").textContent = "This conditional statement holds for all real readings and targets under its stated guard. Its general real-number implication is proved in Lean; this exported JSON is checked separately by the app and independent verifiers. This is established mathematics, not a newly discovered theorem.";
         $("claim-proof").textContent = `Let a ≤ b be the two estimates and t the target. (a−t)² − (b−t)² = (a−b)(a+b−2t). The claim assumes ${report.proof.assumptions[1]}; hence a−b ≤ 0 and a+b−2t is ${report.proof.factorSigns[1]}. The product gives ${report.proof.result}. The same ordering holds for absolute errors. The exported certificate can be checked independently in Python.`;
       } else if (search.counterexample) {
         $("claim-summary").textContent = `Exact counterexample: ${search.counterexample.actualWinner} is closer at target ${search.counterexample.target}. One witness refutes the universal statement.`;
