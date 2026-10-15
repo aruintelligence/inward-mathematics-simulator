@@ -1,0 +1,25 @@
+{
+  "format": "inward-estimator-identities-v1",
+  "model": "Five real readings, their mean and median, and any real target",
+  "factorization": {
+    "statement": "(a-t)^2-(b-t)^2=(a-b)(a+b-2t)",
+    "expandedTerms": {
+      "a^2": "1",
+      "b^2": "-1",
+      "a*t": "-2",
+      "b*t": "2"
+    }
+  },
+  "midpoint": {
+    "statement": "At t=(a+b)/2, the two absolute errors are equal",
+    "firstResidual": {"a": "1/2", "b": "-1/2"},
+    "secondResidual": {"a": "-1/2", "b": "1/2"}
+  },
+  "permutation": {
+    "statement": "Reordering five readings preserves mean, median, and both absolute errors at every target",
+    "readingCount": 5,
+    "permutationsChecked": 120,
+    "meanCoefficients": ["1/5", "1/5", "1/5", "1/5", "1/5"],
+    "medianRank": 3
+  }
+}

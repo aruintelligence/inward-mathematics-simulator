@@ -7,7 +7,7 @@ const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 const {test}=require("node:test");
 const {proofReceipt,continuousStabilityThreshold}=require("../target-lens.js");
-const {verify}=require("../tools/target-lens-proof-core.js");
+const {verify,parseReceipt}=require("../tools/target-lens-proof-core.js");
 const root=path.join(__dirname,"..");
 const python=`import json,sys
 sys.path.insert(0,"tools")
@@ -54,19 +54,53 @@ test("independent JavaScript and Python verifiers agree across bounded cases and
   }
 });
 
+test("seeded permutation and nested uncertainty preserve exact receipt invariants",()=>{
+  let seed=7012026;
+  const next=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  const receipts=[];
+  for(let i=0;i<32;i++) {
+    const values=Array.from({length:5},()=>Math.floor(next()*1000001)/10000);
+    const ends=[Math.floor(next()*100000001)/1000000,Math.floor(next()*100000001)/1000000];
+    const [low,high]=ends.sort((a,b)=>a-b),epsilon=Math.floor(next()*25000001)/1000000;
+    const base=proofReceipt(values,low,high,epsilon,low);
+    const permuted=proofReceipt([...values].reverse(),low,high,epsilon,low);
+    const expanded=proofReceipt(values,Math.max(0,low-5),Math.min(100,high+5),epsilon+5,low);
+    for(const field of ["kind","winner","estimateRange","referenceRange","tieTargets"])
+      assert.deepEqual(permuted.claim[field],base.claim[field],`permutation ${i}: ${field}`);
+    for(const field of ["estimateRange","referenceRange"]) {
+      assert.ok(expanded.claim[field][0]<=base.claim[field][0],`nested ${i}: ${field} lower`);
+      assert.ok(expanded.claim[field][1]>=base.claim[field][1],`nested ${i}: ${field} upper`);
+    }
+    assert.ok(expanded.claim.tieTargets.lowerNumerator<=base.claim.tieTargets.lowerNumerator);
+    assert.ok(expanded.claim.tieTargets.upperNumerator>=base.claim.tieTargets.upperNumerator);
+    if(base.claim.kind!=="strict") assert.notEqual(expanded.claim.kind,"strict",`nested ${i}: tie remains possible`);
+    receipts.push(base,permuted,expanded);
+  }
+  const run=spawnSync("python3",["-c",python],{cwd:root,input:JSON.stringify(receipts),encoding:"utf8",maxBuffer:1024*1024});
+  assert.equal(run.status,0,run.stderr);
+  const checked=run.stdout.trim().split("\n").map(JSON.parse);
+  assert.equal(checked.length,receipts.length);
+  for(let i=0;i<checked.length;i++) {
+    assert.equal(checked[i].ok,true,`independent verification ${i}: ${checked[i].reason}`);
+    assert.deepEqual(checked[i].result,verify(receipts[i]));
+  }
+});
+
 test("Node and Python CLIs agree on the exact receipt fingerprint and reject altered evidence",()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),"inward-proof-"));
   try {
     const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
     const file=path.join(dir,"receipt.json");
     const source="\n"+JSON.stringify(receipt,null,2)+"\n";
-    fs.writeFileSync(file,source);
-    const expected=crypto.createHash("sha256").update(source).digest("hex");
-    for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
-      const good=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
-      assert.equal(good.status,0,good.stderr);
-      assert.match(good.stdout,/Verified tie-possible/);
-      assert.match(good.stdout,new RegExp(`Receipt SHA-256: ${expected}\\n`));
+    for(const text of [source,source.replace(/\n/g,"\r\n")]) {
+      fs.writeFileSync(file,text);
+      const expected=crypto.createHash("sha256").update(text).digest("hex");
+      for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
+        const good=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
+        assert.equal(good.status,0,good.stderr);
+        assert.match(good.stdout,/Verified tie-possible/);
+        assert.match(good.stdout,new RegExp(`Receipt SHA-256: ${expected}\\n`));
+      }
     }
     receipt.claim.witness.path.numerator="10";
     fs.writeFileSync(file,JSON.stringify(receipt));
@@ -77,6 +111,35 @@ test("Node and Python CLIs agree on the exact receipt fingerprint and reject alt
       assert.doesNotMatch(bad.stdout,/Receipt SHA-256/);
     }
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("receipt parsers reject repeated keys, including escaped and nested names",()=>{
+  const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
+  const valid=JSON.stringify(receipt);
+  assert.deepEqual(parseReceipt(valid),receipt);
+  const swapped=valid.replace('"scale":1000000', '"\\u0073cale":1000000');
+  assert.deepEqual(parseReceipt(swapped),receipt,"one escaped spelling is unambiguous");
+  const invalid=[
+    valid.replace('"scale":1000000', '"scale":1000000,"scale":1000000'),
+    valid.replace('"scale":1000000', '"scale":1000000,"\\u0073cale":1000000'),
+    valid.replace('"selectedTarget":50000000', '"selectedTarget":50000000,"selectedTarget":50000000'),
+    valid.replace('"estimateRange":', '"estimateRange":[1,2],"estimateRange":'),
+  ];
+  for(const [index,source] of invalid.entries()) {
+    assert.throws(()=>parseReceipt(source),/Duplicate JSON key/,`raw case ${index}`);
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"inward-duplicate-"));
+    try {
+      const file=path.join(dir,"receipt.json");fs.writeFileSync(file,source);
+      for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
+        const result=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
+        assert.equal(result.status,1,`${command}, case ${index}: ${result.stdout}`);
+        assert.match(result.stderr,/Duplicate JSON key/);
+        assert.doesNotMatch(result.stdout,/Receipt SHA-256/);
+      }
+    } finally {fs.rmSync(dir,{recursive:true,force:true});}
+  }
+  const html=fs.readFileSync(path.join(root,"verify-proof.html"),"utf8");
+  assert.match(html,/TargetLensVerifier\.parseReceipt\(source\)/);
 });
 
 test("independent Python audit agrees on both exact drift routes across reading boxes",()=>{
