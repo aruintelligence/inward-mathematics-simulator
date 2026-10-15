@@ -17,6 +17,8 @@ The [checked-in example](../examples/odd-sample-flip-v1.json) starts with median
 
 Open the [sample research report](../odd-flip-report.html) to inspect the five complete routes in a responsive dark or light layout and print the result. `render_odd_flip_report.py` verifies any certificate before rendering, embeds its exact checked bytes in a local download link, and shows the SHA-256 for comparison. The plots approximate positions for orientation; the fraction labels and downloaded record are exact. Use `python3 tools/render_odd_flip_report.py --check` to verify that the checked-in report matches its certificate.
 
+The [interactive research lab](../odd-flip-lab.html) applies the same partition to 3–21 visitor-supplied odd-sized samples entirely in the browser using BigInt fractions. It exports a versioned JSON certificate and can print the visual summary. The Python verifier above independently checks the exported record, rather than trusting the page's labels. `node --test tests/odd-flip-lab.test.cjs` compares the browser constructor against the Python generator for seeded cases with varied odd counts, fractional inputs, and boundary targets. The page does not place visitor values into URLs or send them to an application server. The static worked report above additionally embeds verifier-checked bytes and a SHA-256 fingerprint; the interactive page does not claim independent verification until its export is checked.
+
 ## Why the search is exhaustive over real changes
 
 Write the odd count as $n=2k+1$, and sort the other $2k$ fixed readings as $s_1\le\cdots\le s_{2k}$. With movable value $x$, fixed sum $S$, and target $t$:
