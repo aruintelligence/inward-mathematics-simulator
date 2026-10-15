@@ -9,6 +9,20 @@
     if (className) item.className = className;
     return item;
   };
+  const fraction = raw => {
+    const [n, d = "1"] = raw.split("/");
+    return {n: BigInt(n), d: BigInt(d)};
+  };
+  const difference = (a, b) => ({n: a.n * b.d - b.n * a.d, d: a.d * b.d});
+  const compareRaw = (a, b) => {
+    const delta = difference(fraction(a), fraction(b)).n;
+    return delta < 0n ? -1 : delta > 0n ? 1 : 0;
+  };
+  function scale(domain) {
+    const readings = domain.readingValues, targets = domain.targetValues;
+    return {low: compareRaw(readings[0], targets[0]) <= 0 ? readings[0] : targets[0],
+      high: compareRaw(readings.at(-1), targets.at(-1)) >= 0 ? readings.at(-1) : targets.at(-1)};
+  }
   function reset() {
     revision++;
     exportBytes = null;
@@ -19,15 +33,17 @@
     $("search-status").textContent = "Values changed. Run the search again.";
     $("search-status").classList.remove("error");
   }
-  function plot(point) {
+  function plot(point, axis) {
     const figure = node("figure", "", "figure");
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 600 86");
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-label", `Readings ${point.readings.join(", ")}; mean ${point.mean}; median ${point.median}; target ${point.target}`);
+    const span = difference(fraction(axis.high), fraction(axis.low));
     const amount = raw => {
-      const [top, bottom = "1"] = raw.split("/").map(Number);
-      return 20 + top / bottom * 5.6; // Layout only. Arithmetic and evidence remain rational.
+      const delta = difference(fraction(raw), fraction(axis.low));
+      return 20 + 560 * Number(delta.n * span.d) / Number(delta.d * span.n);
+      // Layout only. Integer fractions determine exact outcomes and evidence.
     };
     const shape = (type, attributes) => {
       const item = document.createElementNS("http://www.w3.org/2000/svg", type);
@@ -45,13 +61,13 @@
     shape("line", {x1:amount(point.target),y1:7,x2:amount(point.target),y2:69,stroke:"#ffca73","stroke-width":2,"stroke-dasharray":"3 4"});
     shape("circle", {cx:amount(point.mean),cy:63,r:6,fill:"#70e5b8",stroke:"#081922","stroke-width":1});
     shape("rect", {x:amount(point.median)-6,y:58,width:12,height:12,fill:"#ff9b9e",stroke:"#081922","stroke-width":1});
-    shape("text", {x:20,y:83,fill:"currentColor","font-size":10}).textContent = "0";
-    shape("text", {x:560,y:83,fill:"currentColor","font-size":10}).textContent = "100";
+    shape("text", {x:20,y:83,fill:"currentColor","font-size":10}).textContent = axis.low;
+    shape("text", {x:580,y:83,fill:"currentColor","font-size":10,"text-anchor":"end"}).textContent = axis.high;
     figure.append(svg);
     figure.append(node("figcaption", `Readings: ${point.readings.join(", ")} · target ${point.target} · mean ${point.mean} · median ${point.median}. Winner: ${point.actualWinner}. Dots: readings; green circle: mean; rose square: median; gold line: target.`));
     return figure;
   }
-  function card(candidate) {
+  function card(candidate, axis) {
     const refuted = candidate.status === "counterexample-found";
     const item = node("article", "", refuted ? "card counterexample" : "card");
     item.append(node("span", refuted ? "Counterexample found" : "Unrefuted on this finite grid", "badge"));
@@ -61,10 +77,10 @@
       const witness = candidate.counterexample;
       if (candidate.id === "target-independent") {
         item.append(node("p", `The same readings reverse winner as the target changes from ${witness.first.target} to ${witness.second.target}.`, "fact"));
-        item.append(plot(witness.first), plot(witness.second));
+        item.append(plot(witness.first, axis), plot(witness.second, axis));
       } else {
         item.append(node("p", `Exact counterexample: ${witness.actualWinner} wins at target ${witness.target}.`, "fact"));
-        item.append(plot(witness));
+        item.append(plot(witness, axis));
       }
     } else {
       item.append(node("p", "No counterexample was found in the selected finite domain. This status does not prove the universal claim."));
@@ -91,7 +107,8 @@
       $("ledger").replaceChildren(node("span", `${refuted} exact counterexamples`),
         node("span", `${4 - refuted} unrefuted on this finite grid`),
         node("span", `${report.domain.readingMultisets} reading multisets`));
-      $("cards").replaceChildren(...report.candidates.map(card));
+      const axis = scale(report.domain);
+      $("cards").replaceChildren(...report.candidates.map(candidate => card(candidate, axis)));
       $("fingerprint").textContent = `SHA-256 of exported JSON bytes: ${fingerprint}`;
       $("results").hidden = false;
       exportBytes = source;
