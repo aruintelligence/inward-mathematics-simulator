@@ -6,7 +6,7 @@ const os=require("node:os");
 const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 const {test}=require("node:test");
-const {proofReceipt}=require("../target-lens.js");
+const {proofReceipt,continuousStabilityThreshold}=require("../target-lens.js");
 const {verify}=require("../tools/target-lens-proof-core.js");
 const root=path.join(__dirname,"..");
 const python=`import json,sys
@@ -77,4 +77,69 @@ test("Node and Python CLIs agree on the exact receipt fingerprint and reject alt
       assert.doesNotMatch(bad.stdout,/Receipt SHA-256/);
     }
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("independent Python audit agrees on both exact drift routes across reading boxes",()=>{
+  let seed=93661;
+  const next=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+  const cases=[
+    {values:[48,49,50,51,85],low:48,high:52,mask:31},
+    {values:[48,49,50,51,85],low:0,high:1,mask:31},
+    {values:[48,49,50,51,85],low:50,high:50,mask:31},
+    {values:[48,49,50,51,85],low:48,high:52,mask:3},
+    {values:[48,49,50,51,85],low:48,high:52,mask:0},
+    {values:[0,0,50,100,100],low:48,high:52,mask:31},
+  ];
+  for(let i=0;i<45;i++) {
+    const values=Array.from({length:5},()=>Math.floor(next()*1000001)/10000);
+    const sorted=[...values].sort((a,b)=>a-b),midpoint=(values.reduce((a,b)=>a+b,0)/5+sorted[2])/2;
+    const mask=Math.floor(next()*32);
+    if(i%2===0) cases.push({values,low:0,high:Math.max(0,Math.floor((midpoint-.5)*1e6)/1e6),mask});
+    else cases.push({values,low:Math.min(100,Math.ceil((midpoint+.5)*1e6)/1e6),high:100,mask});
+  }
+  const input=cases.map(({values,low,high,mask})=>({readings:values.map(v=>Math.round(v*1e6)),
+    low:Math.round(low*1e6),high:Math.round(high*1e6),mask}));
+  const script=`import json,sys
+sys.path.insert(0,'tools')
+from audit_stability_edge import audit_edge
+print(json.dumps([audit_edge(**case) for case in json.load(sys.stdin)]))`;
+  const run=spawnSync("python3",["-c",script],{cwd:root,input:JSON.stringify(input),encoding:"utf8",maxBuffer:2*1024*1024});
+  assert.equal(run.status,0,run.stderr);
+  const audited=JSON.parse(run.stdout);
+  assert.equal(audited.length,cases.length);
+  const rational=route=>route.denominator==="1"?route.numerator:route.numerator+"/"+route.denominator;
+  for(let i=0;i<cases.length;i++) {
+    const {values,low,high,mask}=cases[i],expected=continuousStabilityThreshold(values,low,high,mask),actual=audited[i];
+    assert.equal(actual.kind,expected.kind,`case ${i} kind`);
+    if(expected.kind==="no-baseline") continue;
+    assert.equal(actual.winner,expected.winner,`case ${i} winner`);
+    if(expected.kind==="unreachable") continue;
+    assert.equal(actual.radius,rational(expected),`case ${i} first radius`);
+    assert.equal(actual.firstTieUnits,expected.firstTieUnits,`case ${i} first selectable radius`);
+    assert.equal(actual.firstRoute,expected.factor,`case ${i} first factor`);
+    for(const factor of ["estimate","reference"])
+      assert.equal(actual.routes[factor]?.radius??null,expected.routes[factor]?rational(expected.routes[factor]):null,
+        `case ${i} ${factor} route`);
+  }
+});
+
+test("stability audit accepts a valid receipt and rejects a tampered claim",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"inward-edge-"));
+  try {
+    const file=path.join(dir,"receipt.json");
+    const receipt=proofReceipt([48,49,50,51,85],0,1,4,.5);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,"examples","stability-case-a.json"),"utf8")),receipt);
+    fs.writeFileSync(file,JSON.stringify(receipt));
+    const good=spawnSync("python3",["tools/audit_stability_edge.py",file,"--json"],{cwd:root,encoding:"utf8"});
+    assert.equal(good.status,0,good.stderr);
+    const result=JSON.parse(good.stdout);
+    assert.equal(result.radius,"16/3");
+    assert.equal(result.routes.reference.radius,"75");
+    assert.deepEqual(result.routes.estimate.witness.readings,["128/3","131/3","166/3","166/3","239/3"]);
+    receipt.claim.referenceRange[0]++;
+    fs.writeFileSync(file,JSON.stringify(receipt));
+    const bad=spawnSync("python3",["tools/audit_stability_edge.py",file,"--json"],{cwd:root,encoding:"utf8"});
+    assert.equal(bad.status,1);
+    assert.match(bad.stderr,/Incorrect reference factor range/);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
