@@ -3,7 +3,8 @@
   const $ = id => document.getElementById(id);
   const archive = globalThis.InwardResearchArchive;
   const checkers = {targetBox: globalThis.InwardTargetBoxVerifier,
-    conditionalClaim: globalThis.InwardConditionalClaimVerifier};
+    conditionalClaim: globalThis.InwardConditionalClaimVerifier,
+    strictJson: globalThis.TargetLensVerifier?.parseReceipt};
   let db = null, entries = [];
   function node(tag, content, className) {
     const element = document.createElement(tag);
@@ -39,15 +40,19 @@
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
     return qualifies && (!term || searchable.includes(term));
   }
-  function download(entry) {
-    const url = URL.createObjectURL(new Blob([entry.source], {type: "application/json"}));
+  function downloadJson(source, filename) {
+    const url = URL.createObjectURL(new Blob([source], {type: "application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `inward-${entry.kind === "conditional-claim" ? "conditional-claim" : "target-box"}-${entry.digest.slice(0, 12)}.json`;
+    anchor.download = filename;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function download(entry) {
+    downloadJson(entry.source,
+      `inward-${entry.kind === "conditional-claim" ? "conditional-claim" : "target-box"}-${entry.digest.slice(0, 12)}.json`);
   }
   async function discard(entry) {
     if (!window.confirm("Remove this device's local copy? Export its JSON first if you need a backup.")) return;
@@ -141,26 +146,43 @@
     try { await refresh(); status("Every stored record was rechecked on this visit."); }
     catch (error) { status(error.message, true); }
   });
+  $("export-collection").addEventListener("click", async () => {
+    if (!db) return;
+    $("export-collection").disabled = true;
+    $("collection-status").textContent = "Rechecking every stored record before collection export...";
+    try {
+      const bundle = await archive.exportCollection(db, checkers, crypto);
+      downloadJson(bundle.source, "inward-research-collection-v1.json");
+      $("collection-status").textContent = `Exported ${bundle.count} independently checked records. Keep the JSON as a portable backup.`;
+    } catch (error) { $("collection-status").textContent = `Collection not exported: ${error.message}`; }
+    finally { $("export-collection").disabled = false; }
+  });
   $("import-button").addEventListener("click", async () => {
     if (!db) return;
     const file = $("certificate-file").files[0];
-    if (!file) { status("Choose a Target Box or conditional-claim JSON record first.", true); return; }
+    if (!file) { status("Choose a research record or collection JSON file first.", true); return; }
     $("import-button").disabled = true;
     status("Independently checking the full record...");
     try {
-      if (file.size > 2_000_000) throw new Error("Record exceeds the 2 MB limit");
+      if (file.size > archive.MAX_COLLECTION_BYTES) throw new Error("File exceeds the 10 MB collection limit");
       const source = new TextDecoder("utf-8", {fatal: true, ignoreBOM: true})
         .decode(await file.arrayBuffer());
-      const saved = await archive.add(db, source, $("certificate-label").value, checkers, crypto);
+      const isCollection = JSON.parse(source)?.format === "inward-research-collection-v1";
+      const saved = isCollection ? await archive.importCollection(db, source, checkers, crypto) :
+        await archive.add(db, source, $("certificate-label").value, checkers, crypto);
       await refresh();
-      status(saved.created ? `Checked and saved: ${saved.digest}` :
-        `Already in this local archive: ${saved.digest}`);
-      if (saved.created) { $("certificate-file").value = ""; $("certificate-label").value = ""; }
+      status(isCollection ? `Collection checked: ${saved.created} imported, ${saved.duplicates} already here.` :
+        saved.created ? `Checked and saved: ${saved.digest}` :
+          `Already in this local archive: ${saved.digest}`);
+      if (isCollection || saved.created) {
+        $("certificate-file").value = ""; $("certificate-label").value = "";
+      }
     } catch (error) { status(`Not saved: ${error.message}`, true); }
     finally { $("import-button").disabled = false; }
   });
   archive.open().then(database => {
     db = database;
+    $("export-collection").disabled = false;
     return refresh();
   }).then(() => status("Archive ready. Each visible result was checked again."))
     .catch(error => {
