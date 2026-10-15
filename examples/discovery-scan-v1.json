@@ -1,0 +1,117 @@
+{
+  "format": "inward-discovery-scan-v1",
+  "scope": "Exact rational arithmetic over this finite grid only; unrefuted is not proved.",
+  "sourceSha256": "5aa654b506dcb020201540a9716ed08e5f1f778edc3e1420531096db1dba107e",
+  "domain": {
+    "readingValues": [
+      "0",
+      "25",
+      "50",
+      "75",
+      "100"
+    ],
+    "targetValues": [
+      "0",
+      "25",
+      "50",
+      "75",
+      "100"
+    ],
+    "readingMultisets": 126
+  },
+  "candidates": [
+    {
+      "id": "median-never-worse",
+      "claim": "Median is at least as close as mean for every chosen target.",
+      "status": "counterexample-found",
+      "casesChecked": 7,
+      "counterexample": {
+        "readings": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "25"
+        ],
+        "target": "25",
+        "mean": "5",
+        "median": "0",
+        "actualWinner": "mean"
+      }
+    },
+    {
+      "id": "mean-never-worse",
+      "claim": "Mean is at least as close as median for every chosen target.",
+      "status": "counterexample-found",
+      "casesChecked": 6,
+      "counterexample": {
+        "readings": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "25"
+        ],
+        "target": "0",
+        "mean": "5",
+        "median": "0",
+        "actualWinner": "median"
+      }
+    },
+    {
+      "id": "target-independent",
+      "claim": "Changing the target cannot reverse a strict winner for fixed readings.",
+      "status": "counterexample-found",
+      "casesChecked": 2,
+      "counterexample": {
+        "readings": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "25"
+        ],
+        "first": {
+          "readings": [
+            "0",
+            "0",
+            "0",
+            "0",
+            "25"
+          ],
+          "target": "0",
+          "mean": "5",
+          "median": "0",
+          "actualWinner": "median"
+        },
+        "second": {
+          "readings": [
+            "0",
+            "0",
+            "0",
+            "0",
+            "25"
+          ],
+          "target": "25",
+          "mean": "5",
+          "median": "0",
+          "actualWinner": "mean"
+        }
+      }
+    },
+    {
+      "id": "midpoint-tie",
+      "claim": "For distinct estimates, their exact midpoint is an equal-error target.",
+      "status": "unrefuted-on-finite-grid",
+      "casesChecked": 108,
+      "counterexample": null
+    },
+    {
+      "id": "permutation-invariant",
+      "claim": "Permuting the five readings cannot change the winner at a fixed target.",
+      "status": "unrefuted-on-finite-grid",
+      "casesChecked": 15625,
+      "counterexample": null
+    }
+  ]
+}

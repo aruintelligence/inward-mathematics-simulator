@@ -10,4 +10,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: node --test tests/*.test.cjs
+      - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
