@@ -5,9 +5,14 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 const checker = require('../odd-target-box-verifier.js');
 const claimChecker = require('../tools/conditional-claim-verifier.js');
+const strictJson = require('../tools/target-lens-proof-core.js').parseReceipt;
 const maker = require('../conjecture-lab-core.js');
 const archive = require('../research-archive-core.js');
-const checkers = {targetBox: checker, conditionalClaim: claimChecker};
+const {mkdtempSync, writeFileSync, rmSync} = require('node:fs');
+const {join} = require('node:path');
+const {tmpdir} = require('node:os');
+const {spawnSync} = require('node:child_process');
+const checkers = {targetBox: checker, conditionalClaim: claimChecker, strictJson};
 
 const source = readFileSync('examples/odd-target-box-v1.json', 'utf8');
 const digest = crypto.createHash('sha256').update(source).digest('hex');
@@ -159,18 +164,99 @@ test('unsupported formats and altered claim certificates are rejected before sto
   assert.equal(db.rows.size, 0);
 });
 
+test('portable collection round trips mixed receipts and is independently replayed by Python', async () => {
+  const original = memoryDB();
+  const claim = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const refuted = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'any-target', 'mean-no-worse');
+  const claimSource = JSON.stringify(claim, null, 2) + '\n';
+  await archive.add(original, source, 'Target Box example', checkers, crypto.webcrypto);
+  await archive.add(original, claimSource, 'Proved conditional case', checkers, crypto.webcrypto);
+  await archive.add(original, JSON.stringify(refuted), 'Exact counterexample', checkers, crypto.webcrypto);
+  const collection = await archive.exportCollection(original, checkers, crypto.webcrypto);
+  assert.equal(collection.count, 3);
+  assert.equal(collection.source, (await archive.exportCollection(original, checkers, crypto.webcrypto)).source);
+  const parsed = JSON.parse(collection.source);
+  assert.equal(parsed.format, 'inward-research-collection-v1');
+  assert.deepEqual(parsed.records.map(x => x.digest), [...parsed.records.map(x => x.digest)].sort());
+  assert.equal(parsed.records.find(x => x.kind === 'conditional-claim' && x.label.startsWith('Proved')).source,
+    claimSource);
+  const dir = mkdtempSync(join(tmpdir(), 'inward-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, collection.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /Verified 3 research records/);
+    assert.match(checked.stdout, /proved-by-algebra/);
+    assert.match(checked.stdout, /counterexample-found/);
+  } finally {rmSync(dir, {recursive:true, force:true});}
+  const restored = memoryDB();
+  const imported = await archive.importCollection(restored, collection.source, checkers, crypto.webcrypto);
+  assert.deepEqual(imported, {total:3, created:3, duplicates:0});
+  assert.deepEqual(await archive.importCollection(restored, collection.source, checkers, crypto.webcrypto),
+    {total:3, created:0, duplicates:3});
+  assert.deepEqual((await archive.exportCollection(restored, checkers, crypto.webcrypto)).source,
+    collection.source);
+});
+
+test('collection rejects forged or damaged receipts before storage and refuses partial capacity imports', async () => {
+  const original = memoryDB();
+  const claim = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  await archive.add(original, source, 'Box', checkers, crypto.webcrypto);
+  await archive.add(original, JSON.stringify(claim), 'Proof', checkers, crypto.webcrypto);
+  const collection = await archive.exportCollection(original, checkers, crypto.webcrypto);
+  const restored = memoryDB();
+  const tamper = mutate => {
+    const x = JSON.parse(collection.source); mutate(x); return JSON.stringify(x);
+  };
+  const invalid = [
+    tamper(x => {x.records[0].digest = '0'.repeat(64);}),
+    tamper(x => {x.records[0].kind = 'target-box';}),
+    tamper(x => {const claim = x.records.find(item => item.kind === 'conditional-claim');
+      claim.source = claim.source.replace('"factorSigns"', '"forged"');}),
+    tamper(x => {x.records[0].label = ''; }),
+    tamper(x => x.records.reverse()),
+    tamper(x => {x.records.push(x.records[0]);}),
+    tamper(x => {x.untrusted = 'extra';}),
+    collection.source.replace('"format":', '"format":"other", "format":'),
+  ];
+  for (const bad of invalid) {
+    await assert.rejects(archive.importCollection(restored, bad, checkers, crypto.webcrypto));
+    assert.equal(restored.rows.size, 0);
+  }
+  const damaged = original.rows.values().next().value;
+  damaged.source = damaged.source + ' ';
+  await assert.rejects(archive.exportCollection(original, checkers, crypto.webcrypto), /unverified item/);
+  assert.equal(original.rows.size, 2);
+  for (let i=0;i<archive.MAX_ENTRIES-1;i++) {
+    const digest = i.toString(16).padStart(64,'0');
+    restored.rows.set(digest, {digest, source, kind:'target-box', label:'filler', savedAt:Date.now()});
+  }
+  const before = restored.rows.size;
+  await assert.rejects(archive.importCollection(restored, collection.source, checkers, crypto.webcrypto),
+    /limit of 100/);
+  assert.equal(restored.rows.size, before);
+});
+
 test('page filters rechecked records and never promotes a damaged stored claim', async () => {
+  const downloads = [];
   function element(tag) {
     const classes = new Set();
     return {tag, children: [], handlers: {}, dataset: {}, textContent: '', value: '', hidden: false,
       disabled: false, files: [], classList: {toggle(x, on) { if (on) classes.add(x); else classes.delete(x); }},
       append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = [...children]; },
+      click() { downloads.push(this.download); }, remove() {},
       addEventListener(name, handler) { this.handlers[name] = handler; }};
   }
   const ids = ['certificate-file', 'certificate-label', 'import-button', 'status',
     'archive-search', 'archive-filter', 'refresh-button', 'archive-count',
-    'archive-cards', 'archive-empty', 'verified-count', 'count-note'];
+    'archive-cards', 'archive-empty', 'verified-count', 'count-note',
+    'export-collection', 'collection-status'];
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['archive-filter'].value = 'all';
   const checked = await archive.inspect(source, digest, checker, crypto.webcrypto);
@@ -180,21 +266,35 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   let records = [{...checked, valid: true, label: 'Calibration A', savedAt: Date.now()},
     {...claimChecked, valid: true, label: 'Midpoint A', savedAt: Date.now()},
     {valid: false, digest: '1'.repeat(64), error: 'Fingerprint mismatch'}];
-  const mockArchive = {open: async () => ({}), list: async () => records,
+  let importedCollection = '';
+  const mockArchive = {MAX_COLLECTION_BYTES: 10_000_000, open: async () => ({}), list: async () => records,
+    exportCollection: async () => ({source:'{"format":"inward-research-collection-v1"}', count:2}),
+    importCollection: async (_db, source) => {importedCollection=source;
+      return {created:1, duplicates:1};},
     add: async () => { records = [records[0], records[1], records[2],
       {...checked, digest: '2'.repeat(64), valid: true, label: 'Second run', savedAt: Date.now()}];
       return {created: true, digest}; }};
   vm.runInNewContext(readFileSync('research-archive.js', 'utf8'),
     {document: {getElementById: id => fields[id], createElement: element, body: element('body')},
       InwardResearchArchive: mockArchive, InwardTargetBoxVerifier: checker,
-      InwardConditionalClaimVerifier: claimChecker,
+      InwardConditionalClaimVerifier: claimChecker, TargetLensVerifier: {parseReceipt:strictJson},
       TextDecoder, crypto: crypto.webcrypto, window: {confirm: () => false},
-      URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}}, Blob, setTimeout},
+      URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}}, Blob,
+      setTimeout: callback => callback()},
     {timeout: 5000});
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(fields['verified-count'].textContent, '2');
   assert.equal(fields['archive-cards'].children.length, 3);
   assert.equal(fields['archive-cards'].children[2].dataset.valid, 'false');
+  await fields['export-collection'].handlers.click();
+  assert.deepEqual(downloads, ['inward-research-collection-v1.json']);
+  assert.match(fields['collection-status'].textContent, /2 independently checked records/);
+  const bundle = '{"format":"inward-research-collection-v1","records":[]}';
+  fields['certificate-file'].files = [{size: bundle.length,
+    arrayBuffer: async () => new TextEncoder().encode(bundle).buffer}];
+  await fields['import-button'].handlers.click();
+  assert.equal(importedCollection, bundle);
+  assert.match(fields.status.textContent, /1 imported, 1 already here/);
   fields['archive-filter'].value = 'strict';
   fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 0);
@@ -233,5 +333,7 @@ test('published archive scripts are content fingerprinted and use local file API
   }
   assert.match(inspector, /research-archive\.html/);
   assert.match(app, /TextDecoder\("utf-8", \{fatal: true, ignoreBOM: true\}\)/);
+  assert.match(app, /archive\.exportCollection/);
+  assert.match(app, /archive\.importCollection/);
   assert.doesNotMatch(app, /fetch\(|XMLHttpRequest|location\.search/);
 });

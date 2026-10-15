@@ -9,6 +9,8 @@
   const DATABASE = "inward-mathematics-research-archive";
   const STORE = "target-box-certificates";
   const MAX_ENTRIES = 100;
+  const COLLECTION_FORMAT = "inward-research-collection-v1";
+  const MAX_COLLECTION_BYTES = 10_000_000;
   const FORMATS = {"inward-odd-target-box-v1": "target-box",
     "inward-conditional-claim-v1": "conditional-claim"};
   const fail = message => { throw new Error(message); };
@@ -130,6 +132,69 @@
     }));
     return checked.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
   }
+  async function exportCollection(db, checkers, cryptoApi) {
+    const entries = await list(db, checkers, cryptoApi);
+    if (!entries.length) fail("Archive has no records to export");
+    if (entries.some(entry => !entry.valid)) {
+      fail("Archive contains an unverified item. Remove it before exporting the collection");
+    }
+    const records = entries.map(({digest, kind, label, source}) => ({digest, kind, label, source}))
+      .sort((a, b) => a.digest < b.digest ? -1 : a.digest > b.digest ? 1 : 0);
+    // Metadata is intentionally limited to labels. The bundle asserts neither
+    // a creation date nor ownership; every receipt remains byte-identical.
+    const source = JSON.stringify({format: COLLECTION_FORMAT, records}, null, 2) + "\n";
+    if (new TextEncoder().encode(source).length > MAX_COLLECTION_BYTES) {
+      fail("Collection exceeds 10 MB. Export individual records instead");
+    }
+    return {source, count: records.length};
+  }
+  async function parseCollection(source, checkers, cryptoApi = globalThis.crypto) {
+    if (typeof source !== "string" || new TextEncoder().encode(source).length > MAX_COLLECTION_BYTES) {
+      fail("Collection must be JSON text no larger than 10 MB");
+    }
+    if (typeof checkers?.strictJson !== "function") fail("Strict collection JSON parser unavailable");
+    const bundle = checkers.strictJson(source);
+    const exact = (value, keys) => value && typeof value === "object" &&
+      !Array.isArray(value) && Object.keys(value).length === keys.length &&
+      keys.every(key => Object.hasOwn(value, key));
+    if (!exact(bundle, ["format", "records"]) || bundle.format !== COLLECTION_FORMAT ||
+        !Array.isArray(bundle.records) || bundle.records.length < 1 ||
+        bundle.records.length > MAX_ENTRIES) fail("Invalid research collection structure");
+    const checked = [];
+    let previous = "";
+    for (const item of bundle.records) {
+      if (!exact(item, ["digest", "kind", "label", "source"]) ||
+          typeof item.digest !== "string" || !/^[0-9a-f]{64}$/.test(item.digest) ||
+          item.digest <= previous || typeof item.label !== "string" ||
+          !item.label.trim() || item.label.length > 100 ||
+          (item.kind !== "target-box" && item.kind !== "conditional-claim")) {
+        fail("Invalid or unsorted collection entry");
+      }
+      const verified = await inspect(item.source, item.digest, checkers, cryptoApi, item.kind);
+      checked.push({...verified, label: item.label});
+      previous = item.digest;
+    }
+    return checked;
+  }
+  async function importCollection(db, source, checkers, cryptoApi) {
+    const checked = await parseCollection(source, checkers, cryptoApi);
+    const created = await transaction(db, "readwrite", (store, done, abort) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const present = new Set(request.result.map(entry => entry.digest));
+        const additions = checked.filter(entry => !present.has(entry.digest));
+        if (request.result.length + additions.length > MAX_ENTRIES) {
+          abort(new Error(`Archive limit of ${MAX_ENTRIES} records reached. Export and remove records first.`));
+          return;
+        }
+        done(additions.length);
+        for (const {digest, kind, source: bytes, label} of additions) {
+          store.add({digest, kind, source: bytes, label, savedAt: Date.now()});
+        }
+      };
+    });
+    return {total: checked.length, created, duplicates: checked.length - created};
+  }
   function remove(db, digest) {
     if (typeof digest !== "string" || !/^[0-9a-f]{64}$/.test(digest)) fail("Invalid fingerprint");
     return transaction(db, "readwrite", (store, done) => {
@@ -137,5 +202,6 @@
       request.onsuccess = () => done(true);
     });
   }
-  return {inspect, open, add, list, remove, labelText, shortSummary, MAX_ENTRIES};
+  return {inspect, open, add, list, remove, exportCollection, parseCollection,
+    importCollection, labelText, shortSummary, MAX_ENTRIES, MAX_COLLECTION_BYTES};
 });
