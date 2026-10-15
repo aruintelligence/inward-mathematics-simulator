@@ -1,5 +1,6 @@
 """Exact optimality and tamper checks for arbitrary odd sample sizes."""
 import copy
+import base64
 from fractions import Fraction
 import hashlib
 import json
@@ -11,9 +12,11 @@ import unittest
 
 from odd_sample_flip import certificate, winner
 from verify_odd_sample_flip import verify
+from render_odd_flip_report import render
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE = ROOT / "examples/odd-sample-flip-v1.json"
+REPORT = ROOT / "odd-flip-report.html"
 
 
 class OddFlipTests(unittest.TestCase):
@@ -94,6 +97,23 @@ class OddFlipTests(unittest.TestCase):
                                       cwd=ROOT, capture_output=True, text=True)
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("Duplicate JSON key", rejected.stderr)
+
+    def test_report_contains_exact_checked_bytes_and_refuses_forgery(self):
+        raw = EXAMPLE.read_bytes()
+        record = json.loads(raw)
+        html = render(raw)
+        self.assertEqual(REPORT.read_text(encoding="utf-8"), html)
+        self.assertIn(hashlib.sha256(raw).hexdigest(), html)
+        self.assertIn("28 units to tie", html)
+        self.assertIn("(12, 22)", html)
+        encoded = html.split('href="data:application/json;base64,', 1)[1].split('"', 1)[0]
+        self.assertEqual(base64.b64decode(encoded), raw)
+        tied = certificate(["0", "50", "100"], "25")
+        self.assertIn("Baseline <span>tie</span>", render(json.dumps(tied).encode()))
+        changed = copy.deepcopy(record)
+        changed["claim"]["best"]["distance"] = "27"
+        with self.assertRaises(ValueError):
+            render(json.dumps(changed).encode())
 
 
 if __name__ == "__main__":

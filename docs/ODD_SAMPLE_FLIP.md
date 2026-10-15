@@ -9,10 +9,13 @@ From the repository root, using Python 3.12 or later and no external packages:
 ```sh
 python3 tools/odd_sample_flip.py --readings 48,49,50,51,85 --target 50 --output example.json
 python3 tools/verify_odd_sample_flip.py example.json
+python3 tools/render_odd_flip_report.py example.json --output report.html
 python3 -m unittest discover -s tools -p 'test_odd_sample_flip.py' -v
 ```
 
 The [checked-in example](../examples/odd-sample-flip-v1.json) starts with median winning. Changing the third reading from 50 down to 22 ties the errors; moving it strictly below 22 makes the mean win. The infimum distance is 28. Changing the fourth reading down to 23 also has distance 28; the global certificate chooses the lower index deterministically. Some individual readings cannot reverse the winner anywhere in `[0,100]`.
+
+Open the [sample research report](../odd-flip-report.html) to inspect the five complete routes in a responsive dark or light layout and print the result. `render_odd_flip_report.py` verifies any certificate before rendering, embeds its exact checked bytes in a local download link, and shows the SHA-256 for comparison. The plots approximate positions for orientation; the fraction labels and downloaded record are exact. Use `python3 tools/render_odd_flip_report.py --check` to verify that the checked-in report matches its certificate.
 
 ## Why the search is exhaustive over real changes
 
