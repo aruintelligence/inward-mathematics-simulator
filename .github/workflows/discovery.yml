@@ -14,3 +14,7 @@ jobs:
       - run: python3 tools/verify_discovery_archive.py examples/discovery-scan-v1.json
       - run: python3 tools/verify_estimator_identities.py examples/estimator-identities-v1.json
       - run: python3 tools/render_discovery_page.py --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/conjecture-lab.test.cjs
