@@ -13,6 +13,11 @@ function check(report, dir) {
   writeFileSync(path, typeof report === 'string' ? report : JSON.stringify(report, null, 2) + '\n');
   return spawnSync('python3', ['tools/verify_conjecture_experiment.py', path], {encoding: 'utf8'});
 }
+function checkClaim(report, dir) {
+  const path = join(dir, 'claim.json');
+  writeFileSync(path, typeof report === 'string' ? report : JSON.stringify(report, null, 2) + '\n');
+  return spawnSync('python3', ['tools/verify_conditional_claim.py', path], {encoding: 'utf8'});
+}
 const clone = value => JSON.parse(JSON.stringify(value));
 
 test('default browser search agrees with independently checked public discovery results', () => {
@@ -81,11 +86,77 @@ test('invalid or oversized grids are rejected before a mathematical claim is sho
   ]) assert.throws(() => lab.scan(readings, targets));
 });
 
+test('every supported condition and prediction has an independently replayed status', () => {
+  const conditions = ['any-target', 'target-at-or-below-midpoint', 'target-at-or-above-midpoint',
+    'target-at-or-below-both', 'target-at-or-above-both'];
+  const predictions = ['lower-no-worse', 'higher-no-worse', 'mean-no-worse', 'median-no-worse'];
+  const dir = mkdtempSync(join(tmpdir(), 'conditional-claims-'));
+  try {
+    let proved = 0;
+    for (const condition of conditions) for (const prediction of predictions) {
+      const report = lab.compose('0,25,50,75,100', '0,25,50,75,100', condition, prediction);
+      const verified = checkClaim(report, dir);
+      assert.equal(verified.status, 0, `${condition}/${prediction}: ${verified.stderr}`);
+      if (report.proof) {
+        assert.equal(report.search.status, 'proved-by-algebra');
+        assert.equal(report.search.counterexample, null);
+        proved++;
+      } else assert.equal(report.search.status, 'counterexample-found');
+    }
+    assert.equal(proved, 4, 'only the four sign arguments may claim a general proof');
+    const narrow = lab.compose('0,100', '0,1', 'target-at-or-above-both', 'mean-no-worse');
+    assert.equal(checkClaim(narrow, dir).status, 0);
+    assert.equal(narrow.search.status, 'unrefuted-on-finite-grid');
+    const noCases = lab.compose('50,100', '0,1', 'target-at-or-above-both', 'mean-no-worse');
+    assert.equal(checkClaim(noCases, dir).status, 0);
+    assert.equal(noCases.search.casesChecked, 0);
+    const proofWithoutGridCases = lab.compose('50,100', '0,1',
+      'target-at-or-above-both', 'higher-no-worse');
+    assert.equal(proofWithoutGridCases.search.casesChecked, 0);
+    assert.equal(proofWithoutGridCases.search.status, 'proved-by-algebra');
+    assert.equal(checkClaim(proofWithoutGridCases, dir).status, 0);
+    const pool = ['0', '1/4', '1/2', '1', '3/2', '2', '25', '50', '100'];
+    for (let index = 0; index < 8; index++) {
+      const readings = pool.filter((_, i) => i % 3 !== index % 3);
+      const targets = pool.filter((_, i) => i % 4 !== index % 4);
+      const report = lab.compose(readings.join(','), targets.join(','),
+        conditions[(index * 3) % conditions.length], predictions[(index * 7) % predictions.length]);
+      const verified = checkClaim(report, dir);
+      assert.equal(verified.status, 0, `fractional case ${index}: ${verified.stderr}`);
+    }
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('independent checker rejects forged universal proof, witness, status, inputs, and duplicate keys', () => {
+  const proved = lab.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const refuted = lab.compose('0,25,50,75,100', '0,25,50,75,100',
+    'any-target', 'mean-no-worse');
+  const dir = mkdtempSync(join(tmpdir(), 'claim-forge-'));
+  try {
+    for (const [base, mutate] of [
+      [proved, x => { x.proof.identity.expanded['a*t'] = -3; }],
+      [proved, x => { x.proof.factorSigns[1] = 'nonpositive'; }],
+      [proved, x => { x.claim.condition = 'any-target'; }],
+      [proved, x => { x.search.status = 'unrefuted-on-finite-grid'; }],
+      [refuted, x => { x.proof = clone(proved.proof); }],
+      [refuted, x => { x.search.counterexample.target = '100'; }],
+      [refuted, x => { x.domain.readingMultisets = true; }],
+    ]) {
+      const forged = clone(base); mutate(forged);
+      assert.notEqual(checkClaim(forged, dir).status, 0);
+    }
+    const duplicate = JSON.stringify(proved).replace('"format":', '"format":"fake","format":');
+    assert.match(checkClaim(duplicate, dir).stderr, /Duplicate JSON key/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
 test('browser view renders exact counterexample maps and clears stale evidence on edit', async () => {
   function element(tag) {
     const classes = new Set();
     return {tag, children: [], handlers: {}, value: '', textContent: '', hidden: false,
-      disabled: false, attrs: {}, classList: {add: x => classes.add(x), remove: x => classes.delete(x)},
+      disabled: false, attrs: {}, classList: {add: x => classes.add(x), remove: x => classes.delete(x),
+        toggle: (x, enabled) => enabled ? classes.add(x) : classes.delete(x)},
       setAttribute(name, value) { this.attrs[name] = value; },
       append(...items) { this.children.push(...items); },
       replaceChildren(...items) { this.children = items; },
@@ -94,10 +165,14 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   }
   const ids = ['download', 'results', 'headline', 'headline-note', 'search-status',
     'search-form', 'reading-values', 'target-values', 'fraction-example',
-    'scope-note', 'ledger', 'cards', 'fingerprint'];
+    'scope-note', 'ledger', 'cards', 'fingerprint', 'claim-form', 'claim-condition',
+    'claim-prediction', 'claim-download', 'claim-results', 'claim-status', 'claim-title',
+    'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-fingerprint'];
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['reading-values'].value = '0,25,50,75,100';
   fields['target-values'].value = '0,25,50,75,100';
+  fields['claim-condition'].value = 'target-at-or-below-midpoint';
+  fields['claim-prediction'].value = 'lower-no-worse';
   vm.runInNewContext(readFileSync('conjecture-lab.js', 'utf8'),
     {document: {getElementById: id => fields[id], createElement: element,
       createElementNS: (_uri, tag) => element(tag), body: element('body')},
@@ -111,6 +186,16 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   assert.equal(fields.cards.children[2].children.filter(x => x.tag === 'figure').length, 2);
   assert.match(fields.fingerprint.textContent, /SHA-256 of exported JSON bytes: [0-9a-f]{64}/);
   assert.equal(fields.results.hidden, false);
+  await fields['claim-form'].handlers.submit({preventDefault() {}});
+  assert.equal(fields['claim-badge'].textContent, 'General algebraic proof');
+  assert.match(fields['claim-proof'].textContent, /a−b ≤ 0/);
+  assert.match(fields['claim-fingerprint'].textContent, /[0-9a-f]{64}/);
+  fields['claim-prediction'].value = 'higher-no-worse';
+  fields['claim-prediction'].handlers.change();
+  assert.equal(fields['claim-results'].hidden, true);
+  await fields['claim-form'].handlers.submit({preventDefault() {}});
+  assert.equal(fields['claim-badge'].textContent, 'Counterexample found');
+  assert.equal(fields['claim-plot'].children.length, 1);
   fields['fraction-example'].handlers.click();
   await fields['search-form'].handlers.submit({preventDefault() {}});
   const figure = fields.cards.children[0].children.find(x => x.tag === 'figure');
@@ -137,6 +222,7 @@ test('published page fingerprints exact scripts and explains finite evidence lim
   }
   assert.match(html, /unrefuted on this finite grid/i);
   assert.match(html, /tools\/verify_conjecture_experiment\.py/);
+  assert.match(html, /tools\/verify_conditional_claim\.py/);
   assert.match(html, /prefers-color-scheme:light/);
   assert.match(readFileSync('discovery.html', 'utf8'), /href="conjecture-lab\.html"/);
   assert.match(readFileSync('index.html', 'utf8'), /href="conjecture-lab\.html"/);

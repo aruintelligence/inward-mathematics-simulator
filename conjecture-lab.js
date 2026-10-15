@@ -2,7 +2,7 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const engine = globalThis.InwardConjectureLab;
-  let exportBytes = null, revision = 0;
+  let exportBytes = null, claimExportBytes = null, revision = 0;
   const node = (tag, value, className) => {
     const item = document.createElement(tag);
     item.textContent = value;
@@ -26,12 +26,25 @@
   function reset() {
     revision++;
     exportBytes = null;
+    claimExportBytes = null;
     $("download").disabled = true;
+    $("claim-download").disabled = true;
     $("results").hidden = true;
+    $("claim-results").hidden = true;
     $("headline").textContent = "Ready";
     $("headline-note").textContent = "Run a new exact experiment.";
     $("search-status").textContent = "Values changed. Run the search again.";
     $("search-status").classList.remove("error");
+    $("claim-status").textContent = "Values changed. Test the claim again.";
+    $("claim-status").classList.remove("error");
+  }
+  function resetClaim() {
+    revision++;
+    claimExportBytes = null;
+    $("claim-download").disabled = true;
+    $("claim-results").hidden = true;
+    $("claim-status").textContent = "Claim changed. Test it again.";
+    $("claim-status").classList.remove("error");
   }
   function plot(point, axis) {
     const figure = node("figure", "", "figure");
@@ -122,8 +135,56 @@
       $("search-status").classList.add("error");
     }
   }
+  async function runClaim(event) {
+    event.preventDefault();
+    const started = ++revision;
+    claimExportBytes = null;
+    $("claim-download").disabled = true;
+    $("claim-results").hidden = true;
+    $("claim-status").classList.remove("error");
+    try {
+      const report = engine.compose($("reading-values").value, $("target-values").value,
+        $("claim-condition").value, $("claim-prediction").value);
+      const source = JSON.stringify(report, null, 2) + "\n";
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+      if (started !== revision) return;
+      const fingerprint = [...new Uint8Array(hash)].map(x => x.toString(16).padStart(2, "0")).join("");
+      const search = report.search;
+      $("claim-title").textContent = report.claim.statement;
+      const label = search.status === "proved-by-algebra" ? "General algebraic proof" :
+        search.status === "counterexample-found" ? "Counterexample found" : "Unrefuted on this finite grid";
+      $("claim-badge").textContent = label;
+      $("claim-results").classList.toggle("counterexample", search.status === "counterexample-found");
+      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets. ${search.counterexample ? "Search stopped at the first counterexample." : "Search completed."}`;
+      if (report.proof) {
+        $("claim-summary").textContent = "This conditional statement holds for all real readings and targets, including those outside the finite grid. It follows from an established squared-distance identity; this is a reviewable algebraic argument, not a formal proof-assistant result.";
+        $("claim-proof").textContent = `Let a ≤ b be the two estimates and t the target. (a−t)² − (b−t)² = (a−b)(a+b−2t). The claim assumes ${report.proof.assumptions[1]}; hence a−b ≤ 0 and a+b−2t is ${report.proof.factorSigns[1]}. The product gives ${report.proof.result}. The same ordering holds for absolute errors. The exported certificate can be checked independently in Python.`;
+      } else if (search.counterexample) {
+        $("claim-summary").textContent = `Exact counterexample: ${search.counterexample.actualWinner} is closer at target ${search.counterexample.target}. One witness refutes the universal statement.`;
+        $("claim-proof").textContent = "";
+      } else {
+        $("claim-summary").textContent = search.casesChecked === 0 ?
+          "No chosen grid point met the claim's condition. This search supplies no eligible case and no general proof." :
+          "No counterexample appeared on this finite grid. The general statement remains unproved.";
+        $("claim-proof").textContent = "";
+      }
+      const axis = scale(report.domain);
+      $("claim-plot").replaceChildren(...(search.counterexample ? [plot(search.counterexample, axis)] : []));
+      $("claim-fingerprint").textContent = `SHA-256 of exported claim JSON bytes: ${fingerprint}`;
+      $("claim-results").hidden = false;
+      claimExportBytes = source;
+      $("claim-download").disabled = false;
+      $("claim-status").textContent = "Exact claim analysis complete. Export the record for independent verification.";
+    } catch (error) {
+      if (started !== revision) return;
+      $("claim-status").textContent = error.message;
+      $("claim-status").classList.add("error");
+    }
+  }
   $("search-form").addEventListener("submit", run);
+  $("claim-form").addEventListener("submit", runClaim);
   for (const id of ["reading-values", "target-values"]) $(id).addEventListener("input", reset);
+  for (const id of ["claim-condition", "claim-prediction"]) $(id).addEventListener("change", resetClaim);
   $("fraction-example").addEventListener("click", () => {
     $("reading-values").value = "0,1/2,1,3/2,2";
     $("target-values").value = "0,1/4,1/2,1,3/2,2";
@@ -136,6 +197,17 @@
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = "inward-conjecture-experiment-v1.json";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $("claim-download").addEventListener("click", () => {
+    if (!claimExportBytes) return;
+    const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "inward-conditional-claim-v1.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
