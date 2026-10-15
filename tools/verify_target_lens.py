@@ -3,6 +3,7 @@
 from fractions import Fraction
 from itertools import combinations
 from pathlib import Path
+import hashlib
 import json
 import re
 import sys
@@ -140,8 +141,10 @@ def main():
         path = Path(sys.argv[1])
         if path.stat().st_size > 1_000_000:
             raise ValueError("Receipt too large")
-        result = verify(json.loads(path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        result = verify(json.loads(text))
         print("Verified " + result["kind"] + (" · " + result["winner"] + " throughout" if result["winner"] else ""))
+        print("Receipt SHA-256: " + hashlib.sha256(text.encode("utf-8")).hexdigest())
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)
         return 1

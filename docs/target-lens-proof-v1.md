@@ -15,6 +15,8 @@ python3 tools/verify_target_lens.py receipt.json
 
 Both exit nonzero for a rejected receipt. The browser and Node use the same JavaScript verifier; Python is a separate implementation. The automated cross-check generates varied cases and deliberately alters claims to compare the implementations.
 
+After a successful check, the browser's printable sheet and both command line checkers show a `Receipt SHA-256` fingerprint. It hashes the **exact UTF-8 text fed to the verifier**, including whitespace and key order. Receipt files must contain valid UTF-8; their bytes are hashed without reformatting. To pair a printed sheet with a saved receipt, run either checker on that file and compare all 64 hexadecimal characters. Paste input is hashed as pasted, including leading and trailing whitespace. Reserializing the same JSON changes the fingerprint even when the mathematical claim stays the same. The fingerprint identifies matching text; it does not prove who made the receipt or whether its inputs are true.
+
 ## Integer encoding
 
 The format is `inward-target-lens-proof-v1` with `scale: 1000000`. Each reading is an integer number of millionths of a unit in `[0, 100]`, divisible by 100 because input readings have at most four decimal places. The target bounds, selected target, and drift are also integer millionths. Both verifiers reject out-of-range values and reversed target bounds. The selected target is contextual; the certificate quantifies over **every real target** in the closed interval.

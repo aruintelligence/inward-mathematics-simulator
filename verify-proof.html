@@ -62,6 +62,9 @@
     .measure small {display:block;color:var(--muted);font-size:.8rem;margin-bottom:4px}
     .measure strong {font:700 .98rem/1.35 ui-monospace,SFMono-Regular,monospace}
     .result .witness {border-top:1px solid #567a7d;padding-top:16px;margin-top:18px;overflow-wrap:anywhere}
+    .fingerprint {border-top:1px solid #567a7d;padding-top:16px;margin-top:18px;break-inside:avoid}
+    .fingerprint small {display:block;color:var(--muted);margin-bottom:6px}
+    .fingerprint code {font:.88rem/1.5 ui-monospace,SFMono-Regular,monospace;overflow-wrap:anywhere;word-break:break-all}
     .report-actions {display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px}
     .report-actions small {color:var(--muted)}
     .scope {margin:32px 0 55px;border-left:3px solid var(--gold);padding:5px 0 5px 20px;color:var(--muted)}
@@ -110,7 +113,8 @@
         <p class="eyebrow">02 / Independently checked · <span id="case-origin"></span></p><h3 id="conclusion"></h3><p id="explanation"></p>
         <div class="measures"><div class="measure"><small>Five original readings</small><strong id="readings"></strong></div><div class="measure"><small>Target interval · allowed drift</small><strong id="domain"></strong></div><div class="measure"><small>Mean − median factor</small><strong id="estimate-factor"></strong></div><div class="measure"><small>Mean + median − 2 × target factor</small><strong id="reference-factor"></strong></div></div>
         <p class="witness" id="witness-note"></p><p id="witness-detail"></p><p id="tie-targets"></p><p>Selected hypothetical target: <strong id="selected-target"></strong>. This selection is context; the claim covers every target in the interval above.</p>
-        <div class="report-actions"><button id="print-report" type="button">Print verified sheet / save PDF ↗</button><small>Keep the JSON receipt with the sheet for independent rechecking.</small></div>
+        <div class="fingerprint"><small>Receipt fingerprint · SHA-256 of the exact UTF-8 text checked</small><code id="receipt-fingerprint"></code></div>
+        <div class="report-actions"><button id="print-report" type="button">Print verified sheet / save PDF ↗</button><small>Keep the JSON receipt with the sheet. The fingerprint links the two; it does not authenticate the author or inputs.</small></div>
       </div>
     </section>
     <p class="scope"><strong>What verification means.</strong> The inspector checks the claimed exact extrema, strict winner or attainable tie, tie-target band, and any tie witness against the stated bounds. It does not authenticate where the five numbers came from, validate the target, or establish performance on real populations. <a href="tools/target-lens-proof-core.js">Inspect the verifier source</a> or run it offline with <a href="tools/verify-target-lens.cjs">Node</a> or <a href="tools/verify_target_lens.py">Python</a>. Read the <a href="docs/target-lens-proof-v1.md">receipt format and proof</a>.</p>
@@ -122,7 +126,7 @@
   (()=>{
     "use strict";
     const $=id=>document.getElementById(id);
-    let fileText="";
+    let fileText="",revision=0;
     let origin="Selected receipt";
     const examples=JSON.parse($("proof-examples").textContent);
     const number=units=>String(Number((units/1000000).toFixed(6)));
@@ -145,10 +149,11 @@
         target:BigInt(path.targetFromUnits)*d+(BigInt(path.targetToUnits)-BigInt(path.targetFromUnits))*n,
         denominator:d*1000000n};
     };
-    const reset=()=>{$("result").hidden=true;};
+    const reset=()=>{revision++;$("result").hidden=true;};
     const status=(message,state)=>{$("status").textContent=message;$("status").dataset.state=state;};
     $("receipt-file").addEventListener("change",async event=>{
       reset();
+      const activeRevision=revision;
       const file=event.target.files?.[0];
       fileText="";
       origin="Selected file";
@@ -157,18 +162,25 @@
       $("file-name").textContent=file?file.name:"No file selected";
       if(!file) return status("Choose a receipt or paste JSON.","error");
       if(file.size>1000000) return status("Receipt exceeds the 1 MB limit.","error");
-      try {fileText=await file.text();status("Receipt loaded. Select Verify receipt.","");}
-      catch (_) {status("Could not read this file.","error");}
+      try {const loaded=new TextDecoder("utf-8",{fatal:true,ignoreBOM:true}).decode(await file.arrayBuffer());if(activeRevision!==revision) return;fileText=loaded;status("Receipt loaded. Select Verify receipt.","");}
+      catch (_) {if(activeRevision===revision) status("Could not read this file.","error");}
     });
     $("receipt-json").addEventListener("input",()=>{reset();fileText="";origin="Pasted receipt";$("receipt-file").value="";$("file-name").textContent="Using pasted JSON";document.querySelectorAll(".example").forEach(button=>button.setAttribute("aria-pressed","false"));status("Ready to verify pasted JSON.","");});
-    const verifyCurrent=()=>{
+    const verifyCurrent=async()=>{
       reset();
-      const source=$("receipt-json").value.trim()||fileText;
+      const activeRevision=revision;
+      const pasted=$("receipt-json").value;
+      const source=pasted.trim()?pasted:fileText;
       if(!source) return status("Choose a receipt or paste its JSON first.","error");
-      if(source.length>1000000) return status("Receipt exceeds the 1 MB limit.","error");
+      const bytes=new TextEncoder().encode(source);
+      if(bytes.byteLength>1000000) return status("Receipt exceeds the 1 MB limit.","error");
       try {
         const receipt=JSON.parse(source);
         const verdict=window.TargetLensVerifier.verify(receipt);
+        status("Mathematics checked. Fingerprinting the receipt…","");
+        const digest=await crypto.subtle.digest("SHA-256",bytes);
+        if(activeRevision!==revision) return;
+        const fingerprint=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
         const claim=receipt.claim,inputs=receipt.inputs;
         $("case-origin").textContent=origin;
         $("conclusion").textContent=verdict.kind==="strict"?verdict.winner+" wins throughout":verdict.kind==="all-tie"?"Every configuration ties":"A tie is attainable";
@@ -192,9 +204,10 @@
           "Tie-reachable target band: "+rational(claim.tieTargets.lowerNumerator,BigInt(claim.tieTargets.denominator))+" to "+
           rational(claim.tieTargets.upperNumerator,BigInt(claim.tieTargets.denominator))+".";
         $("selected-target").textContent=number(inputs.selectedTarget);
+        $("receipt-fingerprint").textContent=fingerprint;
         $("result").hidden=false;
         status("Verified. The receipt's mathematical claim matches its inputs.","success");
-      } catch(error) {status("Could not verify: "+error.message,"error");}
+      } catch(error) {if(activeRevision===revision) status("Could not verify: "+error.message,"error");}
     };
     $("verify-button").addEventListener("click",verifyCurrent);
     document.querySelectorAll(".example").forEach(button=>button.addEventListener("click",()=>{
@@ -204,8 +217,8 @@
       fileText=JSON.stringify(examples[button.dataset.example]);
       origin={strict:"Worked example 01 · strict guarantee",path:"Worked example 02 · rational tie",all:"Worked example 03 · permanent tie"}[button.dataset.example];
       $("file-name").textContent="Worked example loaded";
-      verifyCurrent();
       $("inspector").scrollIntoView({block:"start"});
+      return verifyCurrent();
     }));
     $("print-report").addEventListener("click",()=>{if(!$("result").hidden) window.print();});
   })();
