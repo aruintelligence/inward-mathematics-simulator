@@ -46,6 +46,14 @@
     .status {min-height:27px;font-weight:750;color:var(--muted)}
     .status[data-state="error"] {color:var(--rose)}
     .status[data-state="success"] {color:var(--mint)}
+    .showcase {margin:0 0 24px}
+    .showcase h2 {margin-bottom:16px}
+    .examples {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .example {display:block;width:100%;min-height:150px;text-align:left;border:1px solid #628b8e;background:linear-gradient(145deg,#163847,#0c2637);color:var(--text);padding:18px;border-radius:15px}
+    .example small {display:block;color:var(--mint);font-size:.73rem;letter-spacing:.12em;text-transform:uppercase}
+    .example strong {display:block;font-size:1.23rem;line-height:1.2;margin:9px 0 7px}
+    .example span {display:block;color:var(--muted);font-size:.88rem;line-height:1.35}
+    .example:hover,.example[aria-pressed="true"] {border-color:var(--gold);background:linear-gradient(145deg,#1e4751,#11354a)}
     .result {margin:26px 0 0;border:1px solid #68ad99;border-radius:18px;background:#0c2d38;padding:clamp(18px,3vw,26px)}
     .result h3 {font-size:1.65rem;letter-spacing:-.03em;margin:0 0 8px}
     .result p {color:var(--muted);margin:6px 0 17px}
@@ -53,10 +61,26 @@
     .measure {border:1px solid #49717b;background:#0b2330;padding:15px;border-radius:11px;overflow-wrap:anywhere}
     .measure small {display:block;color:var(--muted);font-size:.8rem;margin-bottom:4px}
     .measure strong {font:700 .98rem/1.35 ui-monospace,SFMono-Regular,monospace}
+    .result .witness {border-top:1px solid #567a7d;padding-top:16px;margin-top:18px;overflow-wrap:anywhere}
+    .report-actions {display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px}
+    .report-actions small {color:var(--muted)}
     .scope {margin:32px 0 55px;border-left:3px solid var(--gold);padding:5px 0 5px 20px;color:var(--muted)}
     .scope strong {color:var(--text)}
     footer {border-top:1px solid #ffffff28;padding:22px 0 35px;font-size:.83rem;color:var(--muted)}
-    @media(max-width:720px) {.hero {grid-template-columns:1fr;padding-top:45px}.seal {max-width:460px}.measures {grid-template-columns:1fr}}
+    @media(max-width:720px) {.hero {grid-template-columns:1fr;padding-top:45px}.seal {max-width:460px}.measures,.examples {grid-template-columns:1fr}.example {min-height:0}}
+    @media print {
+      :root {color-scheme:light}
+      body {background:#fff;color:#152632;font-size:11pt}
+      header,.hero,.showcase,.controls,details,.status,.report-actions,.skip,footer {display:none!important}
+      .wrap {width:100%}.card,.result {box-shadow:none;background:#fff;color:#152632;border:0;padding:0}
+      .card {margin:0}.card>.eyebrow,.card>h2,.card>.intro {display:none}
+      .result {display:block!important;margin:0}.result[hidden] {display:none!important}.result h3 {font-size:23pt}
+      .result p,.scope,.measure small {color:#314858}
+      .result .eyebrow {color:#146454}.measure {background:#fff;border-color:#8a9ba3;break-inside:avoid}
+      .scope {margin:15mm 0 0;border-color:#146454}
+      a {color:#146454;text-decoration:none}
+      @page {size:letter;margin:17mm}
+    }
     @media(prefers-reduced-motion:reduce) {* {scroll-behavior:auto!important}}
   </style>
 </head>
@@ -68,6 +92,14 @@
       <div><p class="eyebrow">Proof inspector / exact arithmetic</p><h1 id="title">Bring the claim.<br><em>Check the math.</em></h1><p class="lead">A Target Lens receipt is a portable claim about five readings and a range of possible targets. This page recomputes its bounds and checks any tie witness in your browser.</p></div>
       <div class="seal"><span class="icon" aria-hidden="true">(x − m)(x + m − 2t)</span><strong>One equation.<br>Every allowed configuration.</strong><p>Five reading intervals, one target interval, exact integer arithmetic.</p></div>
     </section>
+    <section class="showcase" id="examples" aria-labelledby="examples-title">
+      <p class="eyebrow">Three claims / three different conclusions</p><h2 id="examples-title">Open a worked proof</h2>
+      <div class="examples">
+        <button class="example" type="button" data-example="strict" aria-pressed="false"><small>01 / universal guarantee</small><strong>Median wins throughout</strong><span>Five drifting readings; every target in 0–1. The simple 2ε shortcut cannot decide this case.</span></button>
+        <button class="example" type="button" data-example="path" aria-pressed="false"><small>02 / constructive counterexample</small><strong>A rational tie exists</strong><span>Same original readings, wider target range. Verify a tie at an exact point along a path.</span></button>
+        <button class="example" type="button" data-example="all" aria-pressed="false"><small>03 / identity case</small><strong>Every target ties</strong><span>Coincident estimates show why no strict winner exists for this fixed case.</span></button>
+      </div>
+    </section>
     <section class="card" id="inspector" aria-labelledby="inspector-title">
       <p class="eyebrow">01 / Inspect a receipt</p><h2 id="inspector-title">Verify a JSON proof receipt</h2>
       <p class="intro">Download a receipt from Target Lens, then choose it here or paste its JSON. The file stays on this device; verification does not upload it.</p>
@@ -75,29 +107,52 @@
       <details id="paste-details"><summary>Or paste receipt JSON</summary><label for="receipt-json">Receipt JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste the complete Target Lens proof receipt here"></textarea></details>
       <p class="status" id="status" role="status" aria-live="polite">Ready to inspect.</p>
       <div class="result" id="result" hidden>
-        <p class="eyebrow">02 / Independently checked</p><h3 id="conclusion"></h3><p id="explanation"></p>
+        <p class="eyebrow">02 / Independently checked · <span id="case-origin"></span></p><h3 id="conclusion"></h3><p id="explanation"></p>
         <div class="measures"><div class="measure"><small>Five original readings</small><strong id="readings"></strong></div><div class="measure"><small>Target interval · allowed drift</small><strong id="domain"></strong></div><div class="measure"><small>Mean − median factor</small><strong id="estimate-factor"></strong></div><div class="measure"><small>Mean + median − 2 × target factor</small><strong id="reference-factor"></strong></div></div>
-        <p id="witness-note"></p>
+        <p class="witness" id="witness-note"></p><p id="witness-detail"></p><p id="tie-targets"></p><p>Selected hypothetical target: <strong id="selected-target"></strong>. This selection is context; the claim covers every target in the interval above.</p>
+        <div class="report-actions"><button id="print-report" type="button">Print verified sheet / save PDF ↗</button><small>Keep the JSON receipt with the sheet for independent rechecking.</small></div>
       </div>
     </section>
     <p class="scope"><strong>What verification means.</strong> The inspector checks the claimed exact extrema, strict winner or attainable tie, tie-target band, and any tie witness against the stated bounds. It does not authenticate where the five numbers came from, validate the target, or establish performance on real populations. <a href="tools/target-lens-proof-core.js">Inspect the verifier source</a> or run it offline with <a href="tools/verify-target-lens.cjs">Node</a> or <a href="tools/verify_target_lens.py">Python</a>. Read the <a href="docs/target-lens-proof-v1.md">receipt format and proof</a>.</p>
   </main>
   <footer><div class="wrap">Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="index.html">Full lab</a> · <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</div></footer>
+  <script id="proof-examples" type="application/json">{"strict":{"format":"inward-target-lens-proof-v1","scale":1000000,"inputs":{"readings":[48000000,49000000,50000000,51000000,85000000],"low":0,"high":1000000,"drift":4000000,"selectedTarget":500000},"claim":{"kind":"strict","winner":"Median","estimateRange":[8000000,52000000],"referenceRange":[483000000,573000000],"tieTargets":{"kind":"band","lowerNumerator":493000000,"upperNumerator":573000000,"denominator":10000000},"witness":null}},"path":{"format":"inward-target-lens-proof-v1","scale":1000000,"inputs":{"readings":[48000000,49000000,50000000,51000000,85000000],"low":48000000,"high":52000000,"drift":4000000,"selectedTarget":50000000},"claim":{"kind":"tie-possible","winner":null,"estimateRange":[8000000,52000000],"referenceRange":[-27000000,93000000],"tieTargets":{"kind":"band","lowerNumerator":493000000,"upperNumerator":573000000,"denominator":10000000},"witness":{"path":{"from":[44000000,45000000,46000000,47000000,81000000],"to":[52000000,53000000,54000000,55000000,89000000],"targetFromUnits":52000000,"targetToUnits":48000000,"numerator":"9","denominator":"40"}}}},"all":{"format":"inward-target-lens-proof-v1","scale":1000000,"inputs":{"readings":[0,0,50000000,100000000,100000000],"low":48000000,"high":52000000,"drift":0,"selectedTarget":50000000},"claim":{"kind":"all-tie","winner":null,"estimateRange":[0,0],"referenceRange":[-20000000,20000000],"tieTargets":{"kind":"all","lowerNumerator":500000000,"upperNumerator":500000000,"denominator":10000000},"witness":null}}}</script>
   <script src="tools/target-lens-proof-core.js?v=574194b568fd"></script>
   <script>
   (()=>{
     "use strict";
     const $=id=>document.getElementById(id);
     let fileText="";
+    let origin="Selected receipt";
+    const examples=JSON.parse($("proof-examples").textContent);
     const number=units=>String(Number((units/1000000).toFixed(6)));
     const factor=units=>String(Number((units/5000000).toFixed(7)));
     const range=(values,format)=>"["+values.map(format).join(", ")+"]";
+    const rational=(numerator,denominator)=>{
+      let n=BigInt(numerator),d=BigInt(denominator);
+      let a=n<0n?-n:n,b=d;
+      while(b) {[a,b]=[b,a%b];}
+      n/=a;d/=a;
+      if(d===1n) return String(n);
+      if(1000000n%d===0n) return number(Number(n*1000000n/d));
+      return n+"/"+d;
+    };
+    const witnessPoint=witness=>{
+      if(!witness) return null;
+      if(!witness.path) return {readings:witness.readings.map(BigInt),target:BigInt(witness.targetUnits),denominator:1000000n};
+      const path=witness.path,n=BigInt(path.numerator),d=BigInt(path.denominator);
+      return {readings:path.from.map((value,i)=>BigInt(value)*d+(BigInt(path.to[i])-BigInt(value))*n),
+        target:BigInt(path.targetFromUnits)*d+(BigInt(path.targetToUnits)-BigInt(path.targetFromUnits))*n,
+        denominator:d*1000000n};
+    };
     const reset=()=>{$("result").hidden=true;};
     const status=(message,state)=>{$("status").textContent=message;$("status").dataset.state=state;};
     $("receipt-file").addEventListener("change",async event=>{
       reset();
       const file=event.target.files?.[0];
       fileText="";
+      origin="Selected file";
+      document.querySelectorAll(".example").forEach(button=>button.setAttribute("aria-pressed","false"));
       $("receipt-json").value="";
       $("file-name").textContent=file?file.name:"No file selected";
       if(!file) return status("Choose a receipt or paste JSON.","error");
@@ -105,8 +160,8 @@
       try {fileText=await file.text();status("Receipt loaded. Select Verify receipt.","");}
       catch (_) {status("Could not read this file.","error");}
     });
-    $("receipt-json").addEventListener("input",()=>{reset();fileText="";$("receipt-file").value="";$("file-name").textContent="Using pasted JSON";status("Ready to verify pasted JSON.","");});
-    $("verify-button").addEventListener("click",()=>{
+    $("receipt-json").addEventListener("input",()=>{reset();fileText="";origin="Pasted receipt";$("receipt-file").value="";$("file-name").textContent="Using pasted JSON";document.querySelectorAll(".example").forEach(button=>button.setAttribute("aria-pressed","false"));status("Ready to verify pasted JSON.","");});
+    const verifyCurrent=()=>{
       reset();
       const source=$("receipt-json").value.trim()||fileText;
       if(!source) return status("Choose a receipt or paste its JSON first.","error");
@@ -115,6 +170,7 @@
         const receipt=JSON.parse(source);
         const verdict=window.TargetLensVerifier.verify(receipt);
         const claim=receipt.claim,inputs=receipt.inputs;
+        $("case-origin").textContent=origin;
         $("conclusion").textContent=verdict.kind==="strict"?verdict.winner+" wins throughout":verdict.kind==="all-tie"?"Every configuration ties":"A tie is attainable";
         $("explanation").textContent=verdict.kind==="strict"?"Both factor ranges stay away from zero. Their signs certify the same strict winner for every allowed reading and target.":verdict.kind==="all-tie"?"The estimates coincide throughout the allowed readings, so every target ties.":"The exact witness ties the two absolute errors within the stated reading and target bounds.";
         $("readings").textContent=inputs.readings.map(number).join(" · ");
@@ -122,10 +178,36 @@
         $("estimate-factor").textContent=range(claim.estimateRange,factor);
         $("reference-factor").textContent=range(claim.referenceRange,factor);
         $("witness-note").textContent=verdict.kind==="tie-possible"?(claim.witness.path?"Rational path witness checked at fraction "+claim.witness.path.numerator+"/"+claim.witness.path.denominator+" between admissible endpoints.":"Exact endpoint tie witness checked inside the allowed box."):"The universal conclusion follows from the complete factor bounds; no single witness is needed.";
+        const point=witnessPoint(claim.witness);
+        if(point) {
+          const sum=point.readings.reduce((a,b)=>a+b,0n);
+          const median=[...point.readings].sort((a,b)=>a<b?-1:a>b?1:0)[2];
+          const gap=sum-5n*point.target;
+          $("witness-detail").textContent="Verified tie: readings ["+point.readings.map(value=>rational(value,point.denominator)).join(", ")+
+            "]; target "+rational(point.target,point.denominator)+". Mean "+rational(sum,5n*point.denominator)+
+            " · median "+rational(median,point.denominator)+" · equal absolute errors "+
+            rational(gap<0n?-gap:gap,5n*point.denominator)+".";
+        } else $("witness-detail").textContent="";
+        $("tie-targets").textContent=claim.tieTargets.kind==="all"?"Tie-reachable targets: every value from 0 to 100.":
+          "Tie-reachable target band: "+rational(claim.tieTargets.lowerNumerator,BigInt(claim.tieTargets.denominator))+" to "+
+          rational(claim.tieTargets.upperNumerator,BigInt(claim.tieTargets.denominator))+".";
+        $("selected-target").textContent=number(inputs.selectedTarget);
         $("result").hidden=false;
         status("Verified. The receipt's mathematical claim matches its inputs.","success");
       } catch(error) {status("Could not verify: "+error.message,"error");}
-    });
+    };
+    $("verify-button").addEventListener("click",verifyCurrent);
+    document.querySelectorAll(".example").forEach(button=>button.addEventListener("click",()=>{
+      document.querySelectorAll(".example").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));
+      $("receipt-file").value="";
+      $("receipt-json").value="";
+      fileText=JSON.stringify(examples[button.dataset.example]);
+      origin={strict:"Worked example 01 · strict guarantee",path:"Worked example 02 · rational tie",all:"Worked example 03 · permanent tie"}[button.dataset.example];
+      $("file-name").textContent="Worked example loaded";
+      verifyCurrent();
+      $("inspector").scrollIntoView({block:"start"});
+    }));
+    $("print-report").addEventListener("click",()=>{if(!$("result").hidden) window.print();});
   })();
   </script>
 </body>
