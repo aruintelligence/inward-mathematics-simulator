@@ -1,0 +1,16 @@
+name: Verify odd-sample flip certificates
+on:
+  push:
+  pull_request:
+jobs:
+  exact-partition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s tools -p 'test_odd_sample_flip.py' -v
+      - run: python3 tools/verify_odd_sample_flip.py examples/odd-sample-flip-v1.json
+      - run: python3 tools/odd_sample_flip.py --readings 48,49,50,51,85 --target 50 | diff - examples/odd-sample-flip-v1.json
+      - run: python3 tools/render_odd_flip_report.py --check
