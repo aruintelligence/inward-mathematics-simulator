@@ -3,6 +3,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const path=require("node:path");
 const vm=require("node:vm");
+const crypto=require("node:crypto");
 const {test}=require("node:test");
 
 const root=path.join(__dirname,"..");
@@ -12,6 +13,11 @@ const archive=JSON.parse(fs.readFileSync(path.join(root,"examples/discovery-scan
 test("research page exposes all five verified records and distinguishes finite evidence",()=>{
   assert.match(html,/<title>Discovery Archive \| Inward Mathematics™<\/title>/);
   assert.match(html,/href="examples\/discovery-scan-v1\.json" download/);
+  assert.match(html,/href="examples\/estimator-identities-v1\.json" download/);
+  assert.match(html,/not claims of novel theorems or proof-assistant formalization/);
+  assert.match(html,/all 120 permutations of five formal positions/);
+  const proofBytes=fs.readFileSync(path.join(root,"examples/estimator-identities-v1.json"));
+  assert.ok(html.includes(crypto.createHash("sha256").update(proofBytes).digest("hex")));
   assert.match(html,/role="status">Showing 5 of 5 candidates/);
   assert.match(html,/This status alone is not a proof over all real values/);
   assert.match(html,/prefers-color-scheme:light/);

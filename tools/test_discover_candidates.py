@@ -7,14 +7,18 @@ import copy
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from discover_candidates import points, scan
 from query_discovery import search
 from verify_discovery_archive import verify
 from render_discovery_page import render_page
+import render_discovery_page
+from verify_estimator_identities import verify as verify_identities
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
+IDENTITIES = ROOT / "examples/estimator-identities-v1.json"
 
 
 def independent_winner(witness):
@@ -116,6 +120,53 @@ class DiscoveryTests(unittest.TestCase):
         altered["candidates"][0]["counterexample"]["target"] = "0"
         with self.assertRaises(ValueError):
             render_page(altered)
+
+    def test_symbolic_record_covers_general_identities_and_all_reorderings(self):
+        record = json.loads(IDENTITIES.read_text(encoding="utf-8"))
+        self.assertEqual(verify_identities(record),
+                         {"symbolicIdentities": 2, "formalIndexPermutations": 120})
+        mutations = (
+            lambda r: r["factorization"]["expandedTerms"].update({"a*t": "-1"}),
+            lambda r: r["midpoint"]["firstResidual"].update({"a": "1/3"}),
+            lambda r: r["permutation"].update({"permutationsChecked": 119}),
+            lambda r: r["permutation"].update({"medianRank": 2}),
+            lambda r: r["permutation"].update({"statement": "Every estimator is invariant"}),
+        )
+        for index, mutate in enumerate(mutations):
+            altered = copy.deepcopy(record)
+            mutate(altered)
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                verify_identities(altered)
+
+    def test_symbolic_cli_rejects_duplicate_fields_and_fingerprints_checked_bytes(self):
+        result = subprocess.run(["python3", "tools/verify_estimator_identities.py", str(IDENTITIES)],
+                                cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Proof record SHA-256: " + hashlib.sha256(IDENTITIES.read_bytes()).hexdigest(),
+                      result.stdout)
+        duplicate = IDENTITIES.read_text(encoding="utf-8").replace(
+            '"format": "inward-estimator-identities-v1",',
+            '"format": "inward-estimator-identities-v1", "format": "inward-estimator-identities-v1",', 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            path.write_text(duplicate, encoding="utf-8")
+            bad = subprocess.run(["python3", "tools/verify_estimator_identities.py", str(path)],
+                                 cwd=ROOT, capture_output=True, text=True)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("Duplicate JSON key", bad.stderr)
+            archive = json.loads(ARCHIVE.read_text(encoding="utf-8"))
+            with patch.object(render_discovery_page, "IDENTITIES", path), self.assertRaises(ValueError):
+                render_page(archive)
+
+    def test_page_refuses_changed_symbolic_record(self):
+        altered = json.loads(IDENTITIES.read_text(encoding="utf-8"))
+        altered["midpoint"]["secondResidual"]["b"] = "-1/2"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "changed.json"
+            path.write_text(json.dumps(altered), encoding="utf-8")
+            archive = json.loads(ARCHIVE.read_text(encoding="utf-8"))
+            with patch.object(render_discovery_page, "IDENTITIES", path), self.assertRaises(ValueError):
+                render_page(archive)
 
 
 if __name__ == "__main__":

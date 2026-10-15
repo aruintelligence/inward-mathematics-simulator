@@ -2,15 +2,18 @@
 """Render the static Discovery Archive only from independently checked data."""
 import argparse
 from fractions import Fraction
+import hashlib
 from html import escape
 import json
 from pathlib import Path
 import sys
 
 from verify_discovery_archive import verify
+from verify_estimator_identities import load_record as load_identities, verify as verify_identities
 
 ROOT = Path(__file__).resolve().parent.parent
 ARCHIVE = ROOT / "examples/discovery-scan-v1.json"
+IDENTITIES = ROOT / "examples/estimator-identities-v1.json"
 TEMPLATE = ROOT / "tools/discovery-page.template.html"
 OUTPUT = ROOT / "discovery.html"
 
@@ -80,12 +83,17 @@ def candidate_card(item, index):
 
 def render_page(archive):
     verify(archive)
+    # The general-proof panel must never be published from unchecked proof data.
+    proof_record, proof_bytes = load_identities(IDENTITIES)
+    verified_identities = verify_identities(proof_record)
     template = TEMPLATE.read_text(encoding="utf-8")
     substitutions = {
         "@@MULTISETS@@": str(archive["domain"]["readingMultisets"]),
         "@@READINGS@@": ", ".join(map(safe, archive["domain"]["readingValues"])),
         "@@TARGETS@@": ", ".join(map(safe, archive["domain"]["targetValues"])),
         "@@SOURCE_SHA@@": safe(archive["sourceSha256"]),
+        "@@PERMUTATIONS@@": str(verified_identities["formalIndexPermutations"]),
+        "@@IDENTITY_SHA@@": hashlib.sha256(proof_bytes).hexdigest(),
         "@@CARDS@@": "\n".join(candidate_card(item, index)
                                for index, item in enumerate(archive["candidates"])),
     }
@@ -107,11 +115,11 @@ def main():
         if args.check:
             if OUTPUT.read_text(encoding="utf-8") != output:
                 raise ValueError("Discovery page is stale; rerun python3 tools/render_discovery_page.py")
-            print("Discovery page matches independently verified archive")
+            print("Discovery page matches independently verified archive and identity record")
         else:
             OUTPUT.write_text(output, encoding="utf-8")
-            print(f"Wrote {OUTPUT.name} from five checked candidates")
-    except (OSError, ValueError, KeyError, TypeError) as error:
+            print(f"Wrote {OUTPUT.name} from five checked candidates and an identity record")
+    except (OSError, ValueError, KeyError, TypeError, UnicodeError) as error:
         parser.exit(1, f"Discovery page failed: {error}\n")
 
 
