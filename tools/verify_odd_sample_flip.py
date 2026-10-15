@@ -8,7 +8,9 @@ import re
 import sys
 
 FORMAT = "inward-odd-sample-flip-v1"
-RATIONAL = re.compile(r"(?:0|[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
+BOUNDED_FORMAT = "inward-odd-sample-flip-v2"
+RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
+LIMIT = Fraction(1_000_000)
 
 
 def fields(obj, expected, name):
@@ -16,11 +18,11 @@ def fields(obj, expected, name):
         raise ValueError(f"Invalid {name} fields")
 
 
-def rational(value, name, bounded=False):
+def rational(value, name, low=None, high=None):
     if type(value) is not str or RATIONAL.fullmatch(value) is None:
         raise ValueError(f"Invalid {name} rational")
     number = Fraction(value)
-    if str(number) != value or bounded and number > 100:
+    if str(number) != value or low is not None and number < low or high is not None and number > high:
         raise ValueError(f"Noncanonical or out-of-range {name}")
     return number
 
@@ -34,14 +36,14 @@ def outcome(fixed, moved, target):
     return "Mean" if delta < 0 else "Median" if delta > 0 else "Tie"
 
 
-def all_roots(fixed, target):
+def all_roots(fixed, target, low=Fraction(0), high=Fraction(100)):
     """Closed-form roots of each factor on the three possible median cells."""
     n = len(fixed) + 1
     ordered = sorted(fixed)
     lower, upper = ordered[n // 2 - 1], ordered[n // 2]
     total = sum(fixed)
-    roots = {Fraction(0), Fraction(100), lower, upper}
-    for start, end, median in ((Fraction(0), lower, lower), (upper, Fraction(100), upper)):
+    roots = {low, high, lower, upper}
+    for start, end, median in ((low, lower, lower), (upper, high, upper)):
         for root in (n * median - total, n * (2 * target - median) - total):
             if start <= root <= end:
                 roots.add(root)
@@ -62,15 +64,27 @@ def no_duplicates(pairs):
 
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] != FORMAT:
+    version = record["format"]
+    if version not in (FORMAT, BOUNDED_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
-    fields(inputs, {"readings", "target"}, "inputs")
+    fields(inputs, {"readings", "target", "bounds"} if version == BOUNDED_FORMAT
+           else {"readings", "target"}, "inputs")
+    if version == BOUNDED_FORMAT:
+        fields(inputs["bounds"], {"low", "high"}, "bounds")
+        low = rational(inputs["bounds"]["low"], "lower bound", -LIMIT, LIMIT)
+        high = rational(inputs["bounds"]["high"], "upper bound", -LIMIT, LIMIT)
+        if low >= high:
+            raise ValueError("Movement bounds must have positive width")
+        target_low, target_high = -LIMIT, LIMIT
+    else:
+        low, high = Fraction(0), Fraction(100)
+        target_low, target_high = low, high
     raw = inputs["readings"]
     if type(raw) is not list or not 3 <= len(raw) <= 21 or len(raw) % 2 != 1:
         raise ValueError("Reading count must be odd and between 3 and 21")
-    values = [rational(value, "reading", True) for value in raw]
-    target = rational(inputs["target"], "target", True)
+    values = [rational(value, "reading", low, high) for value in raw]
+    target = rational(inputs["target"], "target", target_low, target_high)
     claim = record["claim"]
     fields(claim, {"kind", "baseline", "routes", "best"}, "claim")
     baseline = outcome(values[:-1], values[-1], target)
@@ -90,9 +104,9 @@ def verify(record):
             raise ValueError("Incorrect route index")
         fixed = values[:index] + values[index + 1:]
         original = values[index]
-        expected_knots = all_roots(fixed, target)
+        expected_knots = all_roots(fixed, target, low, high)
         knots = route["knots"]
-        if type(knots) is not list or len(knots) != len(expected_knots) or [rational(k, "knot", True) for k in knots] != expected_knots:
+        if type(knots) is not list or len(knots) != len(expected_knots) or [rational(k, "knot", low, high) for k in knots] != expected_knots:
             raise ValueError(f"Incomplete factor-root partition in route {index}")
         point_winners = [outcome(fixed, x, target) for x in expected_knots]
         interval_winners = [outcome(fixed, (a + b) / 2, target)
@@ -114,12 +128,12 @@ def verify(record):
                 raise ValueError(f"Unreachable route {index} claims a reversal")
             continue
         distance, threshold, _, _ = min(candidates)
-        if rational(route["threshold"], "threshold", True) != threshold or \
-                rational(route["distance"], "distance", True) != distance:
+        if rational(route["threshold"], "threshold", low, high) != threshold or \
+                rational(route["distance"], "distance", Fraction(0), high - low) != distance:
             raise ValueError(f"Incorrect optimal threshold in route {index}")
         if outcome(fixed, threshold, target) != "Tie":
             raise ArithmeticError("The claimed strict reversal infimum is not a tie")
-        witness = rational(route["witness"], "witness", True)
+        witness = rational(route["witness"], "witness", low, high)
         if not any(left < witness < right and edge == threshold
                    for _, edge, left, right in candidates):
             raise ValueError(f"Witness not on the optimal opposing side in route {index}")

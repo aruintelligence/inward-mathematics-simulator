@@ -20,23 +20,27 @@ def safe(value):
     return escape(str(value), quote=True)
 
 
-def coordinate(value):
+def coordinate(value, low="0", high="100"):
     """Approximate screen position; rational labels remain the authority."""
+    if low != "0" or high != "100":
+        return f"{20 + float((Fraction(value)-Fraction(low))/(Fraction(high)-Fraction(low))) * 960:.3f}"
     return f"{20 + float(Fraction(value)) * 9.6:.3f}"
 
 
-def card(route, readings, best_index):
+def card(route, readings, best_index, low="0", high="100"):
     index = route["index"]
     original = readings[index]
     knots = route["knots"]
+    width = lambda a, b: (float(Fraction(b)-Fraction(a))*9.6 if low == "0" and high == "100"
+                          else float((Fraction(b)-Fraction(a))/(Fraction(high)-Fraction(low)))*960)
     rectangles = "".join(
-        f'<rect x="{coordinate(a)}" y="20" width="{float(Fraction(b)-Fraction(a))*9.6:.3f}" '
+        f'<rect x="{coordinate(a, low, high)}" y="20" width="{width(a, b):.3f}" '
         f'height="17" fill="{COLORS[status]}"/>'
         for a, b, status in zip(knots, knots[1:], route["intervalWinners"]))
-    marker = (f'<line x1="{coordinate(original)}" x2="{coordinate(original)}" y1="6" y2="43" '
+    marker = (f'<line x1="{coordinate(original, low, high)}" x2="{coordinate(original, low, high)}" y1="6" y2="43" '
               'stroke="#fff" stroke-width="3"/>')
     if route["threshold"] is not None:
-        marker += (f'<circle cx="{coordinate(route["threshold"])}" cy="28.5" r="7" '
+        marker += (f'<circle cx="{coordinate(route["threshold"], low, high)}" cy="28.5" r="7" '
                    'fill="#f6c477" stroke="#11283a" stroke-width="2"/>')
     intervals = "".join(
         f'<li><code>({safe(a)}, {safe(b)})</code> — {safe(status)} throughout</li>'
@@ -44,7 +48,7 @@ def card(route, readings, best_index):
     verdict = (f'<strong>{safe(route["distance"])} units to tie</strong>'
                f'<span>Boundary {safe(route["threshold"])} · strict opposing witness {safe(route["witness"])}</span>'
                if route["threshold"] is not None else
-               '<strong>No reversal in 0–100</strong><span>This reading alone cannot reverse the strict winner.</span>')
+               f'<strong>No reversal in {safe(low)}–{safe(high)}</strong><span>This reading alone cannot reverse the strict winner.</span>')
     badge = '<span class="best">Nearest route</span>' if index == best_index else ''
     label = (f'Reading {index + 1} starts at {original}. '
              + (f'Tie at {route["threshold"]}; opposing witness {route["witness"]}.'
@@ -53,7 +57,7 @@ def card(route, readings, best_index):
             f'<h3>Move reading {index + 1}</h3></div>{badge}</div><div class="route-verdict">{verdict}</div>'
             f'<svg viewBox="0 0 1000 48" role="img" aria-label="{safe(label)}">'
             '<rect x="20" y="20" width="960" height="17" fill="#223a48"/>' + rectangles + marker + '</svg>'
-            '<div class="axis"><span>0</span><span>100</span></div>'
+            f'<div class="axis"><span>{safe(low)}</span><span>{safe(high)}</span></div>'
             '<details><summary>Inspect exact winning intervals</summary><ol>' + intervals + '</ol>'
             '<p>Intervals are open. Winner at each boundary is recorded in the downloadable certificate.</p>'
             '</details></article>')
@@ -65,6 +69,9 @@ def render(raw):
                         parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Invalid JSON constant")))
     verified = verify(record)
     claim, inputs = record["claim"], record["inputs"]
+    bounds = inputs.get("bounds", {"low": "0", "high": "100"})
+    low, high = bounds["low"], bounds["high"]
+    custom = "bounds" in inputs
     best = claim["best"]
     best_index = best["index"] if best else None
     if best:
@@ -77,8 +84,11 @@ def render(raw):
         finding = 'Both estimators start with equal absolute error. No opposite strict baseline winner is defined.'
     else:
         headline = 'No <span>reversal</span>'
-        finding = 'No single reading can reverse the current winner within the allowed 0–100 domain.'
-    routes = "\n".join(card(route, inputs["readings"], best_index) for route in claim["routes"])
+        finding = f'No single reading can reverse the current winner within the allowed {safe(low)}–{safe(high)} domain.'
+    routes = "\n".join(card(route, inputs["readings"], best_index, low, high) for route in claim["routes"])
+    domain_description = f"the interval [{safe(low)},{safe(high)}]" if custom else "every real setting from 0 to 100"
+    domain_assumption = f"[{safe(low)},{safe(high)}]" if custom else "[0,100]"
+    version = "v2" if custom else "v1"
     fingerprint = hashlib.sha256(raw).hexdigest()
     download = base64.b64encode(raw).decode("ascii")
     return f'''<!doctype html>
@@ -99,8 +109,8 @@ details{{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;color
 @media(max-width:760px){{.hero,.routes{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:light){{:root{{--bg:#f4f7f6;--panel:#fff;--ink:#163742;--muted:#405c62;--line:#859fa3;--mint:#006653;--cyan:#09617a;--gold:#745017}}body{{background:radial-gradient(circle at 90% 0%,#e0efea,transparent 38%),var(--bg)}}.result{{background:#f5efe1}}.best{{background:#f6c477}}}}
 @media print{{:root{{color-scheme:light;--bg:#fff;--panel:#fff;--ink:#132b32;--muted:#304c51;--line:#9aadb0;--mint:#126153;--gold:#724c18}}body{{background:#fff}}.hero{{padding:18px 0}}.section{{padding:20px 0}}.route{{break-inside:avoid}}svg{{print-color-adjust:exact}}footer{{display:none}}}}
 </style></head><body><header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong></div></header>
-<main class="wrap"><section class="hero"><div><p class="eyebrow">Exact research report / certificate v1</p><h1>How close is a real reversal?</h1><p class="lede">One reading moves, the others stay fixed. An exact factor-root partition covers every real setting from 0 to 100 for this odd-sized sample.</p></div><aside class="result"><small>Strict reversal infimum</small><strong>{headline}</strong><p>{finding}</p></aside></section>
-<section class="section"><p class="eyebrow">01 / Model assumptions</p><h2>Stipulated inputs</h2><p class="intro">{len(inputs["readings"])} readings. Chosen target {safe(inputs["target"])}. Starting winner: {safe(claim["baseline"])}. Only one reading may change at a time; the allowed domain is the continuous real interval [0,100].</p><div class="facts">{''.join(f'<span>r<sub>{i+1}</sub> = <strong>{safe(v)}</strong></span>' for i,v in enumerate(inputs["readings"]))}</div><p class="intro">A threshold is a tie, not a strict winning move. The exact infimum can be approached from the opposing interval; the recorded witness is an explicit strict reversal.</p></section>
+<main class="wrap"><section class="hero"><div><p class="eyebrow">Exact research report / certificate {version}</p><h1>How close is a real reversal?</h1><p class="lede">One reading moves, the others stay fixed. An exact factor-root partition covers {domain_description} for this odd-sized sample.</p></div><aside class="result"><small>Strict reversal infimum</small><strong>{headline}</strong><p>{finding}</p></aside></section>
+<section class="section"><p class="eyebrow">01 / Model assumptions</p><h2>Stipulated inputs</h2><p class="intro">{len(inputs["readings"])} readings. Chosen target {safe(inputs["target"])}. Starting winner: {safe(claim["baseline"])}. Only one reading may change at a time; the allowed domain is the continuous real interval {domain_assumption}.</p><div class="facts">{''.join(f'<span>r<sub>{i+1}</sub> = <strong>{safe(v)}</strong></span>' for i,v in enumerate(inputs["readings"]))}</div><p class="intro">A threshold is a tie, not a strict winning move. The exact infimum can be approached from the opposing interval; the recorded witness is an explicit strict reversal.</p></section>
 <section class="section"><p class="eyebrow">02 / Exhaustive routes</p><h2>Every movable reading</h2><p class="intro">Colors summarize open intervals. Markers show the original reading (white line) and any nearest tie boundary (gold circle). Position is approximate; exact fractions below and in the certificate carry the result.</p><div class="legend"><span><i></i>Mean wins</span><span class="median"><i></i>Median wins</span><span class="tie"><i></i>Tie interval or boundary</span></div><div class="routes">{routes}</div></section>
 <section class="section"><p class="eyebrow">03 / Reproduce</p><h2>Take the evidence with you</h2><p class="intro">The embedded download contains the exact bytes checked by the independent Python verifier. Its fingerprint identifies matching bytes; it does not authenticate their source or establish that the inputs reflect real measurements.</p><div class="provenance">Certificate SHA-256: <code>{fingerprint}</code><a href="data:application/json;base64,{download}" download="odd-sample-flip-certificate.json">Download checked JSON certificate</a><p>Run <code>python3 tools/verify_odd_sample_flip.py odd-sample-flip-certificate.json</code> using the repository checker. Verified status: {safe(verified["kind"])}.</p></div></section></main>
 <footer><div class="wrap">Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Exact result under stated assumptions; no empirical or commercial validation is claimed.</div></footer></body></html>

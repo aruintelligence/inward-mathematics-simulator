@@ -7,7 +7,8 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-odd-sample-flip-v1";
-  const INPUT = /^(?:(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
+  const BOUNDED_FORMAT = "inward-odd-sample-flip-v2";
+  const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
     a = abs(a); b = abs(b);
@@ -21,6 +22,7 @@
     return { n: n / common, d: d / common };
   }
   const ZERO = q(0n), ONE = q(1n), HUNDRED = q(100n);
+  const LIMIT = q(1000000n);
   const add = (a, b) => q(a.n * b.d + b.n * a.d, a.d * b.d);
   const neg = a => q(-a.n, a.d);
   const sub = (a, b) => add(a, neg(b));
@@ -36,9 +38,9 @@
     const a = typeof value === "string" ? canonical(value) : value;
     return Number(a.n) / Number(a.d);
   };
-  function exact(raw) {
+  function exact(raw, low = ZERO, high = HUNDRED) {
     if (typeof raw !== "string" || !INPUT.test(raw)) {
-      throw new Error("Use nonnegative decimals (up to six places) or fractions such as 99/2.");
+      throw new Error("Use decimals (up to six places) or fractions with at most nine digits per part.");
     }
     let value;
     if (raw.includes("/")) {
@@ -48,8 +50,8 @@
       const [whole, decimal] = raw.split(".");
       value = q(BigInt(whole + decimal), 10n ** BigInt(decimal.length));
     } else value = q(BigInt(raw));
-    if (cmp(value, ZERO) < 0 || cmp(value, HUNDRED) > 0) {
-      throw new Error("Readings and target must be between 0 and 100.");
+    if (cmp(value, low) < 0 || cmp(value, high) > 0) {
+      throw new Error(`Value must be between ${string(low)} and ${string(high)}.`);
     }
     return value;
   }
@@ -62,16 +64,16 @@
     const sign = factorA.n * factorB.n;
     return sign < 0n ? "Mean" : sign > 0n ? "Median" : "Tie";
   }
-  function partitions(fixed, target) {
+  function partitions(fixed, target, low = ZERO, high = HUNDRED) {
     const n = fixed.length + 1;
     const ordered = [...fixed].sort(cmp);
     const lower = ordered[(n - 1) / 2 - 1], upper = ordered[(n - 1) / 2];
     const total = fixed.reduce(add, ZERO);
     const unit = div(ONE, q(BigInt(n)));
     const base = div(total, q(BigInt(n)));
-    const segments = [[ZERO, lower, lower, ZERO], [lower, upper, ZERO, ONE],
-      [upper, HUNDRED, upper, ZERO]];
-    const knots = new Map([ZERO, HUNDRED, lower, upper].map(x => [string(x), x]));
+    const segments = [[low, lower, lower, ZERO], [lower, upper, ZERO, ONE],
+      [upper, high, upper, ZERO]];
+    const knots = new Map([low, high, lower, upper].map(x => [string(x), x]));
     for (const [start, end, intercept, slope] of segments) {
       const factors = [[sub(base, intercept), sub(unit, slope)],
         [sub(add(base, intercept), mul(q(2n), target)), add(unit, slope)]];
@@ -83,10 +85,10 @@
     }
     return [...knots.values()].sort(cmp);
   }
-  function route(readings, index, target, baseline) {
+  function route(readings, index, target, baseline, low = ZERO, high = HUNDRED) {
     const fixed = readings.filter((_, i) => i !== index);
     const original = readings[index];
-    const knots = partitions(fixed, target);
+    const knots = partitions(fixed, target, low, high);
     const pointWinners = knots.map(value => winner([...fixed, value], target));
     const intervalWinners = knots.slice(1).map((value, i) =>
       winner([...fixed, div(add(knots[i], value), q(2n))], target));
@@ -114,24 +116,37 @@
       witness: best ? string(best.witness) : null};
   }
   const absQ = a => q(abs(a.n), a.d);
-  function certificate(rawReadings, rawTarget) {
+  function certificate(rawReadings, rawTarget, rawLow, rawHigh) {
     if (!Array.isArray(rawReadings) || rawReadings.length < 3 ||
         rawReadings.length > 21 || rawReadings.length % 2 !== 1) {
       throw new Error("Supply an odd count of 3 through 21 readings.");
     }
-    const readings = rawReadings.map(exact), target = exact(rawTarget);
+    const custom = rawLow !== undefined || rawHigh !== undefined;
+    if (custom && (rawLow === undefined || rawHigh === undefined)) {
+      throw new Error("Supply both movement bounds.");
+    }
+    const low = custom ? exact(rawLow, neg(LIMIT), LIMIT) : ZERO;
+    const high = custom ? exact(rawHigh, neg(LIMIT), LIMIT) : HUNDRED;
+    if (cmp(low, high) >= 0) throw new Error("Movement bounds must have positive width.");
+    const readings = rawReadings.map(value => exact(value, low, high));
+    const target = exact(rawTarget, custom ? neg(LIMIT) : ZERO, custom ? LIMIT : HUNDRED);
     const inputs = {readings: readings.map(string), target: string(target)};
+    if (custom) inputs.bounds = {low: string(low), high: string(high)};
     const baseline = winner(readings, target);
-    if (baseline === "Tie") return {format: FORMAT, inputs,
+    if (baseline === "Tie") return {format: custom ? BOUNDED_FORMAT : FORMAT, inputs,
       claim: {kind: "baseline-tie", baseline, routes: [], best: null}};
-    const routes = readings.map((_, index) => route(readings, index, target, baseline));
+    const routes = readings.map((_, index) => route(readings, index, target, baseline, low, high));
     const feasible = routes.filter(item => item.threshold !== null);
     feasible.sort((a, b) => cmp(canonical(a.distance), canonical(b.distance)) || a.index - b.index);
     const bestRoute = feasible[0];
     const best = bestRoute ? {index: bestRoute.index, threshold: bestRoute.threshold,
       distance: bestRoute.distance, witness: bestRoute.witness} : null;
-    return {format: FORMAT, inputs,
+    return {format: custom ? BOUNDED_FORMAT : FORMAT, inputs,
       claim: {kind: "strict-baseline", baseline, routes, best}};
   }
-  return {certificate, exact, number};
+  const position = (value, low, high) => {
+    const ratio = div(sub(canonical(value), canonical(low)), sub(canonical(high), canonical(low)));
+    return Number(ratio.n * 1000000000000n / ratio.d) / 1e12;
+  };
+  return {certificate, exact, number, position};
 });

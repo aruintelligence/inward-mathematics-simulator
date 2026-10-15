@@ -9,8 +9,10 @@ const verifier = require('../odd-flip-verifier.js');
 const source = readFileSync('examples/odd-sample-flip-v1.json', 'utf8');
 const original = verifier.parseReceipt(source);
 const clone = value => JSON.parse(JSON.stringify(value));
-const python = (readings, target) => {
-  const child = spawnSync('python3', ['tools/odd_sample_flip.py', '--readings', readings.join(','), '--target', target],
+const python = (readings, target, low, high) => {
+  const args = ['tools/odd_sample_flip.py', `--readings=${readings.join(',')}`, `--target=${target}`];
+  if (low !== undefined) args.push(`--low=${low}`, `--high=${high}`);
+  const child = spawnSync('python3', args,
     {encoding: 'utf8'});
   assert.equal(child.status, 0, child.stderr);
   return JSON.parse(child.stdout);
@@ -25,6 +27,31 @@ test('independent browser verifier accepts the checked-in example and flexible o
   assert.equal(verifier.verify(alternate).best.witness, '21');
   const shuffled = JSON.stringify({claim: original.claim, inputs: original.inputs, format: original.format});
   assert.equal(verifier.verify(verifier.parseReceipt(shuffled)).routes, 5);
+});
+
+test('both independent checkers accept signed bounds and reject forged domains', () => {
+  const record = python(['-2','-1','0','1','35'], '0', '-10', '40');
+  assert.equal(verifier.verify(record).best.distance, '71/2');
+  assert.deepEqual(record, verifier.parseReceipt(readFileSync('examples/odd-sample-flip-v2.json', 'utf8')));
+  const file = join(mkdtempSync(join(tmpdir(), 'odd-bounds-')), 'certificate.json');
+  try {
+    writeFileSync(file, JSON.stringify(record));
+    const checked = spawnSync('python3', ['tools/verify_odd_sample_flip.py', file], {encoding:'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(join(file, '..'), {recursive:true, force:true});}
+  const edits = [
+    c => {c.inputs.bounds.low = '0';},
+    c => {c.inputs.bounds.high = '-10';},
+    c => {c.inputs.bounds.low = '-10/1';},
+    c => {c.inputs.bounds.low = '-1000001';},
+    c => {c.claim.routes[4].distance = '35';},
+    c => {c.claim.routes[4].witness = '-1/2';},
+    c => {c.claim.routes[4].knots.pop();},
+  ];
+  edits.forEach(edit => {const changed = clone(record); edit(changed);
+    assert.throws(() => verifier.verify(changed));});
+  const legacy = clone(original); legacy.inputs.readings[0] = '-1';
+  assert.throws(() => verifier.verify(legacy));
 });
 
 test('browser and Python checkers agree across seeded samples, rational inputs, and tied baselines', () => {

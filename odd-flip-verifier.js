@@ -7,7 +7,8 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-odd-sample-flip-v1";
-  const RATIONAL = /^(?:0|[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
+  const BOUNDED_FORMAT = "inward-odd-sample-flip-v2";
+  const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const fail = message => { throw new Error(message); };
   const abs = x => x < 0n ? -x : x;
   function gcd(a, b) {
@@ -22,6 +23,7 @@
     return {n: n / divisor, d: d / divisor};
   }
   const ZERO = fraction(0n), HUNDRED = fraction(100n);
+  const LIMIT = fraction(1000000n), NEGATIVE_LIMIT = fraction(-1000000n);
   const plus = (a, b) => fraction(a.n * b.d + b.n * a.d, a.d * b.d);
   const minus = (a, b) => fraction(a.n * b.d - b.n * a.d, a.d * b.d);
   const times = (a, b) => fraction(a.n * b.n, a.d * b.d);
@@ -29,11 +31,12 @@
   const compare = (a, b) => a.n * b.d < b.n * a.d ? -1 : a.n * b.d > b.n * a.d ? 1 : 0;
   const notation = a => a.d === 1n ? String(a.n) : `${a.n}/${a.d}`;
   const magnitude = a => fraction(abs(a.n), a.d);
-  function rational(value, label, bounded = false) {
+  function rational(value, label, low, high) {
     if (typeof value !== "string" || !RATIONAL.test(value)) fail(`Invalid ${label} rational`);
     const [top, bottom = "1"] = value.split("/");
     const result = fraction(BigInt(top), BigInt(bottom));
-    if (notation(result) !== value || bounded && compare(result, HUNDRED) > 0) {
+    if (notation(result) !== value || low && compare(result, low) < 0 ||
+        high && compare(result, high) > 0) {
       fail(`Noncanonical or out-of-range ${label}`);
     }
     return result;
@@ -104,21 +107,21 @@
     const sign = compare(delta, ZERO);
     return sign < 0 ? "Mean" : sign > 0 ? "Median" : "Tie";
   }
-  function roots(fixed, target) {
+  function roots(fixed, target, low = ZERO, high = HUNDRED) {
     const n = fixed.length + 1;
     const sorted = [...fixed].sort(compare);
     const lower = sorted[(n - 1) / 2 - 1], upper = sorted[(n - 1) / 2];
     const sum = fixed.reduce(plus, ZERO), count = fraction(BigInt(n));
     const two = fraction(2n);
-    const knots = new Map([ZERO, HUNDRED, lower, upper].map(x => [notation(x), x]));
+    const knots = new Map([low, high, lower, upper].map(x => [notation(x), x]));
     const left = [minus(times(count, lower), sum),
       minus(times(count, minus(times(two, target), lower)), sum)];
     const right = [minus(times(count, upper), sum),
       minus(times(count, minus(times(two, target), upper)), sum)];
     const middle = [divide(sum, fraction(BigInt(n - 1))),
       divide(minus(times(times(two, count), target), sum), fraction(BigInt(n + 1)))];
-    for (const [start, end, candidates] of [[ZERO, lower, left], [lower, upper, middle],
-      [upper, HUNDRED, right]]) {
+    for (const [start, end, candidates] of [[low, lower, left], [lower, upper, middle],
+      [upper, high, right]]) {
       for (const point of candidates) {
         if (compare(start, point) <= 0 && compare(point, end) <= 0) knots.set(notation(point), point);
       }
@@ -127,14 +130,20 @@
   }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (record.format !== FORMAT) fail("Unknown certificate format");
-    fields(record.inputs, ["readings", "target"], "inputs");
+    if (record.format !== FORMAT && record.format !== BOUNDED_FORMAT) fail("Unknown certificate format");
+    const custom = record.format === BOUNDED_FORMAT;
+    fields(record.inputs, custom ? ["readings", "target", "bounds"] : ["readings", "target"], "inputs");
+    if (custom) fields(record.inputs.bounds, ["low", "high"], "bounds");
+    const low = custom ? rational(record.inputs.bounds.low, "lower bound", NEGATIVE_LIMIT, LIMIT) : ZERO;
+    const high = custom ? rational(record.inputs.bounds.high, "upper bound", NEGATIVE_LIMIT, LIMIT) : HUNDRED;
+    if (compare(low, high) >= 0) fail("Movement bounds must have positive width");
     const raw = record.inputs.readings;
     if (!Array.isArray(raw) || raw.length < 3 || raw.length > 21 || raw.length % 2 !== 1) {
       fail("Reading count must be odd and between 3 and 21");
     }
-    const values = raw.map((value, index) => rational(value, `reading ${index + 1}`, true));
-    const target = rational(record.inputs.target, "target", true);
+    const values = raw.map((value, index) => rational(value, `reading ${index + 1}`, low, high));
+    const target = rational(record.inputs.target, "target", custom ? NEGATIVE_LIMIT : ZERO,
+      custom ? LIMIT : HUNDRED);
     fields(record.claim, ["kind", "baseline", "routes", "best"], "claim");
     const {claim} = record;
     const baseline = outcome(values.slice(0, -1), values.at(-1), target);
@@ -153,9 +162,9 @@
         "threshold", "distance", "witness"], `route ${index + 1}`);
       if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
       const fixed = values.filter((_, i) => i !== index), original = values[index];
-      const partition = roots(fixed, target);
+      const partition = roots(fixed, target, low, high);
       if (!Array.isArray(route.knots) || route.knots.length !== partition.length ||
-          route.knots.some((value, i) => compare(rational(value, "knot", true), partition[i]) !== 0)) {
+          route.knots.some((value, i) => compare(rational(value, "knot", low, high), partition[i]) !== 0)) {
         fail(`Incomplete factor-root partition in route ${index + 1}`);
       }
       const points = partition.map(x => outcome(fixed, x, target));
@@ -182,12 +191,12 @@
       candidates.sort((a, b) => compare(a.distance, b.distance) || compare(a.edge, b.edge) ||
         compare(a.left, b.left) || compare(a.right, b.right));
       const nearest = candidates[0];
-      if (compare(rational(route.threshold, "threshold", true), nearest.edge) !== 0 ||
-          compare(rational(route.distance, "distance", true), nearest.distance) !== 0) {
+      if (compare(rational(route.threshold, "threshold", low, high), nearest.edge) !== 0 ||
+          compare(rational(route.distance, "distance", ZERO, minus(high, low)), nearest.distance) !== 0) {
         fail(`Incorrect optimal threshold in route ${index + 1}`);
       }
       if (outcome(fixed, nearest.edge, target) !== "Tie") fail("Claimed boundary is not a tie");
-      const witness = rational(route.witness, "witness", true);
+      const witness = rational(route.witness, "witness", low, high);
       if (!candidates.some(candidate => compare(candidate.edge, nearest.edge) === 0 &&
           compare(candidate.left, witness) < 0 && compare(witness, candidate.right) < 0) ||
           outcome(fixed, witness, target) !== opposite) fail("Witness does not strictly reverse the winner");
