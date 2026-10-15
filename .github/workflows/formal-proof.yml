@@ -1,0 +1,28 @@
+name: Formal midpoint proof
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    env:
+      LEAN_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve pinned Lean dependencies
+        working-directory: formal
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/v4.2.2/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lake" update
+      - uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: formal
+          auto-config: false
+          build: true
+          use-mathlib-cache: true
+          leanchecker: true
+          leanchecker-args: InwardFormal
+          axiom-audit: true
+          axiom-audit-root: InwardFormal
