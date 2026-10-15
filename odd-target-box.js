@@ -1,0 +1,123 @@
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const svgNS = "http://www.w3.org/2000/svg";
+  let latest = null;
+  function element(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+  function svg(tag, attrs) {
+    const node = document.createElementNS(svgNS, tag);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+    return node;
+  }
+  function chart(route, inputs) {
+    const figure = element("figure");
+    const plot = svg("svg", {viewBox: "0 0 600 190", role: "img",
+      "aria-label": `Reading ${route.index + 1}: exact witness positions within the movement and target ranges`});
+    const x = value => 45 + 520 * InwardTargetBox.position(value, inputs.movement.low, inputs.movement.high);
+    const y = value => inputs.target.low === inputs.target.high ? 94 :
+      164 - 140 * InwardTargetBox.position(value, inputs.target.low, inputs.target.high);
+    plot.append(svg("rect", {x: 45, y: 24, width: 520, height: 140, fill: "none", stroke: "currentColor", opacity: ".45"}));
+    for (const value of route.knots) {
+      const line = svg("line", {x1: x(value), x2: x(value), y1: 24, y2: 164,
+        stroke: "currentColor", opacity: ".23", "stroke-width": 1});
+      plot.append(line);
+    }
+    for (const name of route.reachable) {
+      const witness = route.witnesses[name];
+      const color = {Mean: "#40cfa7", Median: "#8abffd", Tie: "#f2b85c"}[name];
+      const marker = svg("circle", {cx: x(witness.reading), cy: y(witness.target), r: 8,
+        fill: color, stroke: "#10283a", "stroke-width": 2});
+      marker.append(svg("title", {})).textContent = `${name} at reading ${witness.reading}, target ${witness.target}`;
+      plot.append(marker);
+    }
+    figure.append(plot);
+    figure.append(element("figcaption", "Horizontal: moved reading. Vertical: target. Lines mark exact partition knots; dots are certified witnesses."));
+    return figure;
+  }
+  function show(record) {
+    latest = record;
+    const {inputs, claim} = record;
+    const guaranteedRoutes = claim.routes.filter(route => route.guarantee);
+    $("headline").textContent = claim.guarantee ? `${claim.guarantee} throughout` :
+      `${claim.reachable.length} reachable outcome${claim.reachable.length === 1 ? "" : "s"}`;
+    $("headline-detail").textContent = claim.guarantee ?
+      "A strict winner for every permitted one-reading move and target." :
+      `${guaranteedRoutes.length} of ${claim.routes.length} individual routes have a strict winner throughout the target box.`;
+    $("summary-copy").textContent = "Exact outcomes across all routes: " + claim.reachable.join(", ") +
+      ". A route marked guaranteed has the same strict winner for every real value in its rectangle.";
+    const facts = $("facts"); facts.replaceChildren();
+    for (const value of [`${inputs.readings.length} readings`,
+      `Movement [${inputs.movement.low}, ${inputs.movement.high}]`,
+      `Target [${inputs.target.low}, ${inputs.target.high}]`,
+      `${guaranteedRoutes.length} guaranteed routes`]) facts.append(element("span", value));
+    const routes = $("routes"); routes.replaceChildren();
+    for (const route of claim.routes) {
+      const card = element("article", undefined, "route");
+      const head = element("div", undefined, "route-head");
+      const label = element("div"); label.append(element("small", `Reading ${route.index + 1}`));
+      label.append(element("h3", `Start: ${inputs.readings[route.index]}`));
+      head.append(label, element("span", route.guarantee ? `${route.guarantee} throughout` : "Outcome varies",
+        route.guarantee ? "badge guarantee" : "badge"));
+      card.append(head);
+      const pills = element("div", undefined, "pills");
+      for (const outcome of route.reachable) pills.append(element("span", outcome, `pill ${outcome.toLowerCase()}`));
+      card.append(pills, chart(route, inputs));
+      const list = element("ul");
+      for (const outcome of route.reachable) {
+        const witness = route.witnesses[outcome];
+        const item = element("li");
+        item.append(document.createTextNode(`${outcome} witness: moved reading `));
+        item.append(element("code", witness.reading));
+        item.append(document.createTextNode(", target "));
+        item.append(element("code", witness.target));
+        list.append(item);
+      }
+      card.append(list, element("p", `${route.knots.length} exact partition knots: ${route.knots.join(" · ")}`, "meta"));
+      routes.append(card);
+    }
+    $("download").disabled = false;
+  }
+  function analyze(event) {
+    if (event) event.preventDefault();
+    try {
+      const readings = $("readings").value.split(",").map(part => part.trim());
+      const result = InwardTargetBox.certificate(readings, $("move-low").value.trim(),
+        $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
+      $("input-error").textContent = "";
+      show(result);
+    } catch (error) {
+      latest = null;
+      $("download").disabled = true;
+      $("headline").textContent = "Check the inputs";
+      $("headline-detail").textContent = "The earlier result has been cleared.";
+      $("summary-copy").textContent = "No certificate for these inputs.";
+      $("facts").replaceChildren(); $("routes").replaceChildren();
+      $("input-error").textContent = error.message;
+    }
+  }
+  function example(values) {
+    for (const [key, value] of Object.entries(values)) $(key).value = value;
+    analyze();
+    $("results").scrollIntoView({behavior: "smooth"});
+  }
+  $("box-form").addEventListener("submit", analyze);
+  $("locked-example").addEventListener("click", () => example({readings: "24, 13, 45, 41, 38",
+    "move-low": "13", "move-high": "45", "target-low": "49", "target-high": "51"}));
+  $("signed-example").addEventListener("click", () => example({readings: "-2, -1, 0, 1, 35",
+    "move-low": "-10", "move-high": "40", "target-low": "-1", "target-high": "1"}));
+  $("download").addEventListener("click", () => {
+    if (!latest) return;
+    const blob = new Blob([JSON.stringify(latest, null, 2) + "\n"], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const anchor = element("a"); anchor.href = url; anchor.download = "inward-target-box-v1.json";
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $("print").addEventListener("click", () => window.print());
+  analyze();
+})();
