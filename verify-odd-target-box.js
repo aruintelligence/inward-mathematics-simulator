@@ -2,8 +2,10 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const checker = globalThis.InwardTargetBoxVerifier;
+  const archive = globalThis.InwardResearchArchive;
   let file = null;
   let revision = 0;
+  let lastValid = null;
   function node(tag, content, className) {
     const element = document.createElement(tag);
     element.textContent = content;
@@ -12,7 +14,11 @@
   }
   function reset(message) {
     revision++;
+    lastValid = null;
     $("report").hidden = true;
+    $("save-to-archive").disabled = true;
+    $("save-status").textContent = "This device keeps a copy only when you choose Save.";
+    $("save-status").classList.remove("error");
     $("routes").replaceChildren();
     $("fingerprint").textContent = "";
     $("seal-status").textContent = "Awaiting certificate";
@@ -53,6 +59,8 @@
       const digest = await crypto.subtle.digest("SHA-256", bytes);
       if (started !== revision) return; // A newer edit or file replaced this result.
       const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
+      lastValid = {source, hash};
+      $("save-to-archive").disabled = false;
       $("seal-status").textContent = "Mathematics verified";
       $("seal-note").textContent = `${result.routes} exhaustive routes checked with exact rational arithmetic.`;
       $("status").textContent = "Certificate accepted under its stated inputs.";
@@ -90,5 +98,29 @@
     }
   }
   $("verify-button").addEventListener("click", inspect);
+  $("save-to-archive").addEventListener("click", async () => {
+    if (!lastValid) return;
+    const started = revision, {source, hash} = lastValid;
+    $("save-to-archive").disabled = true;
+    $("save-status").classList.remove("error");
+    $("save-status").textContent = "Rechecking and saving on this device...";
+    let db;
+    try {
+      db = await archive.open();
+      const saved = await archive.add(db, source, $("archive-label").value, checker, crypto);
+      if (saved.digest !== hash) throw new Error("Fingerprint changed during saving");
+      if (started === revision) $("save-status").textContent = saved.created ?
+        "Saved locally. Open the archive to search, recheck, and export it." :
+        "This exact certificate is already in the local archive.";
+    } catch (error) {
+      if (started === revision) {
+        $("save-status").textContent = `Could not save locally: ${error.message}`;
+        $("save-status").classList.add("error");
+      }
+    } finally {
+      if (db) db.close();
+      if (started === revision) $("save-to-archive").disabled = false;
+    }
+  });
   $("print").addEventListener("click", () => window.print());
 })();
