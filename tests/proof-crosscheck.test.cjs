@@ -1,6 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
+const crypto=require("node:crypto");
 const os=require("node:os");
 const path=require("node:path");
 const {spawnSync}=require("node:child_process");
@@ -53,19 +54,27 @@ test("independent JavaScript and Python verifiers agree across bounded cases and
   }
 });
 
-test("Python CLI verifies a receipt file and fails for altered evidence",()=>{
+test("Node and Python CLIs agree on the exact receipt fingerprint and reject altered evidence",()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),"inward-proof-"));
   try {
     const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
     const file=path.join(dir,"receipt.json");
-    fs.writeFileSync(file,JSON.stringify(receipt));
-    const good=spawnSync("python3",["tools/verify_target_lens.py",file],{cwd:root,encoding:"utf8"});
-    assert.equal(good.status,0,good.stderr);
-    assert.match(good.stdout,/Verified tie-possible/);
+    const source="\n"+JSON.stringify(receipt,null,2)+"\n";
+    fs.writeFileSync(file,source);
+    const expected=crypto.createHash("sha256").update(source).digest("hex");
+    for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
+      const good=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
+      assert.equal(good.status,0,good.stderr);
+      assert.match(good.stdout,/Verified tie-possible/);
+      assert.match(good.stdout,new RegExp(`Receipt SHA-256: ${expected}\\n`));
+    }
     receipt.claim.witness.path.numerator="10";
     fs.writeFileSync(file,JSON.stringify(receipt));
-    const bad=spawnSync("python3",["tools/verify_target_lens.py",file],{cwd:root,encoding:"utf8"});
-    assert.equal(bad.status,1);
-    assert.match(bad.stderr,/Witness does not tie/);
+    for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
+      const bad=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
+      assert.equal(bad.status,1);
+      assert.match(bad.stderr,/Witness does not tie/);
+      assert.doesNotMatch(bad.stdout,/Receipt SHA-256/);
+    }
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
