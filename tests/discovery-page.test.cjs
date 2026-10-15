@@ -14,7 +14,8 @@ test("research page exposes all five verified records and distinguishes finite e
   assert.match(html,/<title>Discovery Archive \| Inward Mathematics™<\/title>/);
   assert.match(html,/href="examples\/discovery-scan-v1\.json" download/);
   assert.match(html,/href="examples\/estimator-identities-v1\.json" download/);
-  assert.match(html,/not claims of novel theorems or proof-assistant formalization/);
+  assert.match(html,/Lean module proves the midpoint identity/);
+  assert.match(html,/Reordering invariance has a symbolic check here, but is not formalized in Lean/);
   assert.match(html,/all 120 permutations of five formal positions/);
   const proofBytes=fs.readFileSync(path.join(root,"examples/estimator-identities-v1.json"));
   assert.ok(html.includes(crypto.createHash("sha256").update(proofBytes).digest("hex")));

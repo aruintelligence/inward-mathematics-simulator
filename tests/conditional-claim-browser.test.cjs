@@ -71,7 +71,7 @@ test('browser inspector refuses stale results when source changes and fingerprin
   }
   const ids=['claim-file','claim-json','file-name','verify-button','status','verdict','verdict-note',
     'result','badge','statement','count','explanation','witness','fingerprint','print-report',
-    'save-to-archive','save-status','archive-label'];
+    'save-to-archive','save-status','archive-label','formal-reference'];
   const nodes=Object.fromEntries(ids.map(id=>[id,element()]));
   const stored=[];
   const context={document:{getElementById:id=>nodes[id]},InwardConditionalClaimVerifier:checker,
@@ -91,6 +91,8 @@ test('browser inspector refuses stale results when source changes and fingerprin
   await nodes['verify-button'].handlers.click();
   assert.equal(nodes.result.hidden,false);
   assert.equal(nodes.badge.textContent,'General algebraic proof');
+  assert.equal(nodes['formal-reference'].hidden,false);
+  assert.match(nodes.explanation.textContent,/Lean module proves/);
   assert.equal(nodes.fingerprint.textContent,
     crypto.createHash('sha256').update(source).digest('hex'));
   assert.equal(nodes['save-to-archive'].disabled,false);
@@ -98,9 +100,17 @@ test('browser inspector refuses stale results when source changes and fingerprin
   await nodes['save-to-archive'].handlers.click();
   assert.deepEqual(stored,[{source,label:'Midpoint proof'}]);
   assert.match(nodes['save-status'].textContent,/saved locally/);
+  const refuted=maker.compose('0,25,50,75,100','0,25,50,75,100',
+    'any-target','mean-no-worse');
+  nodes['claim-json'].value=JSON.stringify(refuted);
+  nodes['claim-json'].handlers.input();
+  await nodes['verify-button'].handlers.click();
+  assert.equal(nodes.badge.textContent,'Counterexample found');
+  assert.equal(nodes['formal-reference'].hidden,true);
   nodes['claim-json'].value='{"format":"forged"}';
   nodes['claim-json'].handlers.input();
   assert.equal(nodes.result.hidden,true);
+  assert.equal(nodes['formal-reference'].hidden,true);
   assert.equal(nodes['save-to-archive'].disabled,true);
   await nodes['save-to-archive'].handlers.click();
   assert.equal(stored.length,1);
@@ -119,5 +129,6 @@ test('published inspector fingerprints scripts and links to the claim builder', 
   }
   assert.match(page,/prefers-color-scheme:light/);
   assert.match(page,/conjecture-lab\.html#compose/);
+  assert.match(page,/id="formal-reference"[^>]+hidden/);
   assert.match(readFileSync('conjecture-lab.html','utf8'),/href="verify-conditional-claim\.html"/);
 });
