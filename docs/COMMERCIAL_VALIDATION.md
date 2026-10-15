@@ -4,7 +4,7 @@ Updated 2026-10-15. This is a set of testable product hypotheses, not evidence o
 
 ## Actual product boundary
 
-The public lab demonstrates two toy models. Its strongest mathematical feature today is a narrow, inspectable certificate for the mean-versus-median comparison of five stipulated readings under a target interval and bounded reading changes. It provides local JSON exports, browser inspection, Node and independent Python verification, teaching activities, and a seeded differential CI gate. It has no hosted customer accounts, generalized symbolic algebra engine, proof-assistant integration, developer API, enterprise controls, or validated physical/psychological measurement.
+The public lab demonstrates two toy models. Its strongest mathematical feature today is a narrow, inspectable certificate for the mean-versus-median comparison of five stipulated readings under a target interval and bounded reading changes. It also lets visitors compose a restricted conditional claim, find exact counterexamples, or verify four established algebraic implications. Both the builder and the separate browser inspector are usable on a phone; the latter can check a shared JSON record without Python. The project provides local JSON exports, browser inspection, Node and independent Python verification, teaching activities, and a seeded differential CI gate. It has no hosted customer accounts, generalized symbolic algebra engine, proof-assistant integration, developer API, enterprise controls, or validated physical/psychological measurement.
 
 ## Market context and differentiation hypothesis
 
@@ -19,7 +19,7 @@ These references describe the vendors' own products as checked on the date above
 
 ## Three offers to test, in order
 
-1. **Teaching pilot:** a reproducible mean-versus-median lesson with printable worksheets and an instructor guide. Ask instructors whether students can explain assumptions, construct a counterexample, and reproduce a checked receipt. Keep the public lab freely accessible during the trial; do not assume schools will pay for content that overlaps free tools.
+1. **Teaching pilot:** a reproducible mean-versus-median lesson with printable worksheets and an instructor guide. Ask instructors whether students can compose a conditional claim, distinguish a counterexample from an unrefuted finite search and a general argument, and independently check a receipt on a phone. Keep the public lab freely accessible during the trial; do not assume schools will pay for content that overlaps free tools.
 2. **Research-methods pilot:** an offline workflow for teams comparing estimators under explicit target uncertainty. Ask whether exporting and independently checking a receipt saves review time or catches a decision error. Restrict claims to the five-reading model and record the exact use case.
 3. **Developer verification service:** consider a versioned API for validating the current receipt format only after a real integration request. A service would need authentication, resource limits, rate limits, privacy terms, versioned schemas, audit logs, incident response, and support ownership. The CLI is available today; the API is not.
 
