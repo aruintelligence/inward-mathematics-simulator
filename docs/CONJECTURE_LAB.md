@@ -20,7 +20,7 @@ Existing work and attribution remain with Daniel Jacob Read IV / ĀRU Intelligen
 
 The same page now lets a visitor form a precise universal statement: select a condition on the target (`any`, at/below or at/above the estimates' midpoint, at/below both estimates, or at/above both) and predict whether the lower, higher, mean, or median estimate is no farther from the target. This is a deliberately small mathematical language. A phrase like “no farther” includes ties; no free-form or unsupported theorem is silently interpreted.
 
-The engine tests every eligible reading multiset and selected target, stopping at the first counterexample. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v1` record, leaving the fixed four-candidate v1 experiment unchanged.
+The engine tests every eligible reading multiset and selected target, stopping at the first counterexample. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v2` record, leaving the fixed four-candidate v1 experiment unchanged. Existing v1 conditional-claim files remain checkable.
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
@@ -49,10 +49,24 @@ fixed witness's mean and median, including a crossover that may not be in the
 chosen target grid. The partition explains the witness; it does not turn the
 refuted universal claim into a theorem.
 
+Version 2 adds a `formal` field to the receipt. For each of the four
+proof-bearing condition/prediction pairs in the table, it names the exact
+`InwardFormal` declaration and pins the source revision to commit
+`59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705`. For a counterexample or an
+unrefuted finite search, `formal` must be `null`. The independent browser and
+Python verifiers derive the expected mapping from the claim choices and reject
+missing, swapped, altered, or invented references. A legacy v1 receipt has no
+machine-readable theorem reference, and is displayed as such. The pinned link
+supports inspection of the Lean proof that CI built and audited; the per-file
+verifiers do not invoke Lean on arbitrary JSON, authenticate a source commit,
+or validate the supplied measurements.
+The checked [v2 example](../examples/conditional-claim-v2.json) is a
+reproducible starting point for an offline audit.
+
 Other composed statements receive a counterexample if one appears; otherwise their status is `unrefuted-on-finite-grid` and there is no proof. A genuine universal counterexample settles its universal claim even when the finite search was small; absence of one does not. The Python checker recomputes the full finite search with `Fraction`, expands both polynomials with integer exponent vectors, and derives the permitted factor signs from the selected condition:
 
 ```sh
-python3 tools/verify_conditional_claim.py inward-conditional-claim-v1.json
+python3 tools/verify_conditional_claim.py inward-conditional-claim-v2.json
 node --test tests/conjecture-lab.test.cjs
 ```
 

@@ -29,6 +29,9 @@ The `Formal midpoint proof` GitHub Actions job builds the module with
 Lean 4 v4.35.0 and Mathlib v4.35.0, also runs Lean's checker and audits the
 theorems' axioms. The declaration names in this file can be compared with
 the four proof-bearing pairs documented in `docs/CONJECTURE_LAB.md`.
+The v2 claim exporter names one of those four declarations and pins this
+file's source revision. Its independent receipt verifiers check the mapping
+and schema; they do not turn a JSON file into a Lean proof object.
 
 This verifies the **general mathematical implications**, not the app's JSON
 parser, the authenticity of measurements, the correctness of an arbitrary

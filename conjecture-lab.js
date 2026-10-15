@@ -71,6 +71,7 @@
     $("claim-results").hidden = true;
     $("claim-crossover").hidden = true;
     $("claim-formal-link").hidden = true;
+    $("claim-formal-ref").hidden = true;
     $("headline").textContent = "Ready";
     $("headline-note").textContent = "Run a new exact experiment.";
     $("search-status").textContent = "Values changed. Run the search again.";
@@ -85,6 +86,7 @@
     $("claim-results").hidden = true;
     $("claim-crossover").hidden = true;
     $("claim-formal-link").hidden = true;
+    $("claim-formal-ref").hidden = true;
     $("claim-status").textContent = "Claim changed. Test it again.";
     $("claim-status").classList.remove("error");
   }
@@ -184,6 +186,7 @@
     $("claim-download").disabled = true;
     $("claim-results").hidden = true;
     $("claim-formal-link").hidden = true;
+    $("claim-formal-ref").hidden = true;
     $("claim-crossover").hidden = true;
     $("claim-status").classList.remove("error");
     try {
@@ -201,6 +204,11 @@
       $("claim-results").classList.toggle("counterexample", search.status === "counterexample-found");
       $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets. ${search.counterexample ? "Search stopped at the first counterexample." : "Search completed."}`;
       $("claim-formal-link").hidden = !report.proof;
+      $("claim-formal-ref").hidden = !report.formal;
+      if (report.formal) {
+        $("claim-formal-ref").textContent = `Checked theorem mapping: ${report.formal.declaration} · source revision ${report.formal.sourceCommit.slice(0, 12)}. The exported record names this general implication; it is not a Lean-checked JSON file.`;
+        $("claim-formal-link").href = `https://github.com/aruintelligence/inward-mathematics-simulator/blob/${report.formal.sourceCommit}/formal/InwardFormal.lean`;
+      }
       if (report.proof) {
         $("claim-summary").textContent = "This conditional statement holds for all real readings and targets under its stated guard. Its general real-number implication is proved in Lean; this exported JSON is checked separately by the app and independent verifiers. This is established mathematics, not a newly discovered theorem.";
         $("claim-proof").textContent = `Let a ≤ b be the two estimates and t the target. (a−t)² − (b−t)² = (a−b)(a+b−2t). The claim assumes ${report.proof.assumptions[1]}; hence a−b ≤ 0 and a+b−2t is ${report.proof.factorSigns[1]}. The product gives ${report.proof.result}. The same ordering holds for absolute errors. The exported certificate can be checked independently in Python.`;
@@ -254,7 +262,7 @@
     const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "inward-conditional-claim-v1.json";
+    anchor.download = "inward-conditional-claim-v2.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

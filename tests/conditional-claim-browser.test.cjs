@@ -48,9 +48,13 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
     [proved, x => {x.proof.factorSigns[1] = 'nonpositive';}],
     [proved, x => {x.claim.condition = 'any-target';}],
     [proved, x => {x.domain.readingMultisets++;}],
+    [proved, x => {x.formal.declaration = 'InwardFormal.higher_no_worse_at_midpoint';}],
+    [proved, x => {x.formal.sourceCommit = '0'.repeat(40);}],
+    [proved, x => {delete x.formal;}],
     [refuted, x => {x.search.counterexample.target = '100';}],
     [refuted, x => {x.search.status = 'proved-by-algebra';}],
     [refuted, x => {x.proof = clone(proved.proof);}],
+    [refuted, x => {x.formal = clone(proved.formal);}],
   ]) {
     const modified = clone(base); mutate(modified);
     assert.throws(() => checker.verify(checker.parseClaim(JSON.stringify(modified))));
@@ -60,6 +64,13 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
   const floating = JSON.stringify(proved).replace('"a^2":1', '"a^2":1.0');
   assert.throws(() => checker.verify(checker.parseClaim(floating)), /Noninteger/);
   assert.throws(() => checker.parseClaim('{'), /JSON/);
+  const legacy = clone(proved);
+  legacy.format = 'inward-conditional-claim-v1';
+  delete legacy.formal;
+  assert.equal(checker.verify(legacy).formal, null);
+  const dir = mkdtempSync(join(tmpdir(), 'legacy-claim-'));
+  try { assert.equal(python(legacy, dir).status, 0); }
+  finally { rmSync(dir, {recursive:true, force:true}); }
 });
 
 test('browser inspector refuses stale results when source changes and fingerprints exact bytes', async () => {
@@ -71,7 +82,7 @@ test('browser inspector refuses stale results when source changes and fingerprin
   }
   const ids=['claim-file','claim-json','file-name','verify-button','status','verdict','verdict-note',
     'result','badge','statement','count','explanation','witness','fingerprint','print-report',
-    'save-to-archive','save-status','archive-label','formal-reference'];
+    'save-to-archive','save-status','archive-label','formal-reference','formal-declaration','formal-source'];
   const nodes=Object.fromEntries(ids.map(id=>[id,element()]));
   const stored=[];
   const context={document:{getElementById:id=>nodes[id]},InwardConditionalClaimVerifier:checker,
@@ -92,6 +103,8 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.equal(nodes.result.hidden,false);
   assert.equal(nodes.badge.textContent,'General algebraic proof');
   assert.equal(nodes['formal-reference'].hidden,false);
+  assert.match(nodes['formal-declaration'].textContent,/InwardFormal\.lower_no_worse_at_midpoint/);
+  assert.match(nodes['formal-source'].href,/blob\/59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705/);
   assert.match(nodes.explanation.textContent,/Lean module proves/);
   assert.equal(nodes.fingerprint.textContent,
     crypto.createHash('sha256').update(source).digest('hex'));
@@ -107,6 +120,16 @@ test('browser inspector refuses stale results when source changes and fingerprin
   await nodes['verify-button'].handlers.click();
   assert.equal(nodes.badge.textContent,'Counterexample found');
   assert.equal(nodes['formal-reference'].hidden,true);
+  assert.equal(nodes['formal-source'].hidden,true);
+  const legacy=clone(proof);
+  legacy.format='inward-conditional-claim-v1';
+  delete legacy.formal;
+  nodes['claim-json'].value=JSON.stringify(legacy);
+  nodes['claim-json'].handlers.input();
+  await nodes['verify-button'].handlers.click();
+  assert.equal(nodes['formal-reference'].hidden,false);
+  assert.equal(nodes['formal-source'].hidden,true);
+  assert.match(nodes['formal-declaration'].textContent,/Legacy v1 record/);
   nodes['claim-json'].value='{"format":"forged"}';
   nodes['claim-json'].handlers.input();
   assert.equal(nodes.result.hidden,true);

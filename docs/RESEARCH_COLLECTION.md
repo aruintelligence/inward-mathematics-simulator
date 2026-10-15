@@ -28,4 +28,9 @@ This is a schema illustration, not a valid receipt. The actual file contains 1â€
 
 Export rechecks every item currently in IndexedDB. If any item cannot be verified, the collection is **not** produced, so a backup never silently omits or blesses damaged data. A user can export a valid individual record or remove a damaged local item. Import verifies **all** entries before opening one read/write transaction; the transaction either adds all missing entries or adds none if the 100-record limit would be exceeded. Existing identical bytes keep their local labels and are counted as duplicates. Imported labels are convenience metadata. The file carries no timestamp, signature, encryption, user account, synchronization, or authentication.
 
+Conditional claim receipts may be legacy v1 or theorem-bound v2 in the same
+collection. The v2 verifier checks the embedded declaration and pinned source
+revision for proof-bearing claims, and requires `formal: null` for claims
+without a proof. Existing v1 bytes remain unchanged and verifiable.
+
 The collection format is versioned. Future receipt kinds or manifest fields require a new version and explicit verifier support. The independently checked statuses remain distinct: an elementary general algebraic implication, an exact counterexample to a universal claim, and an unrefuted finite search do not express the same level of evidence.

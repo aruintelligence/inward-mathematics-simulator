@@ -13,7 +13,15 @@
     ["target-independent", "Changing the target cannot reverse a strict winner for fixed readings."],
     ["midpoint-tie", "For distinct estimates, their exact midpoint is an equal-error target."],
   ];
-  const CLAIM_FORMAT = "inward-conditional-claim-v1";
+  const CLAIM_FORMAT = "inward-conditional-claim-v2";
+  // Immutable source revision containing the four Lean declarations below.
+  const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
+  const FORMAL_THEOREMS = {
+    "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
+    "target-at-or-above-midpoint": "InwardFormal.higher_no_worse_at_midpoint",
+    "target-at-or-below-both": "InwardFormal.lower_no_worse_below_both",
+    "target-at-or-above-both": "InwardFormal.higher_no_worse_above_both",
+  };
   const CONDITIONS = {
     "any-target": "at any target",
     "target-at-or-below-midpoint": "if the target is at or below the estimates' midpoint",
@@ -184,10 +192,12 @@
     }
     const proof = proofFor(condition, prediction);
     if (proof && counterexample) fail("An algebraic theorem disagrees with exact enumeration");
+    const formal = proof ? {system: "Lean 4/Mathlib", declaration: FORMAL_THEOREMS[condition],
+      sourceCommit: FORMAL_COMMIT} : null;
     return {format: CLAIM_FORMAT, claim,
       domain: {readingValues: values.map(notation), targetValues: targets.map(notation), readingMultisets},
       search: {casesChecked, status: counterexample ? "counterexample-found" :
-        proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof};
+        proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof, formal};
   }
   return {scan, compose, parseGrid, FORMAT, SCOPE, CLAIMS, CLAIM_FORMAT};
 });

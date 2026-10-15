@@ -12,7 +12,8 @@
   const COLLECTION_FORMAT = "inward-research-collection-v1";
   const MAX_COLLECTION_BYTES = 10_000_000;
   const FORMATS = {"inward-odd-target-box-v1": "target-box",
-    "inward-conditional-claim-v1": "conditional-claim"};
+    "inward-conditional-claim-v1": "conditional-claim",
+    "inward-conditional-claim-v2": "conditional-claim"};
   const fail = message => { throw new Error(message); };
   function labelText(raw, fallback) {
     if (typeof raw !== "string" || raw.length > 100) fail("Label must have at most 100 characters");
@@ -20,7 +21,7 @@
     return value.length > 100 ? `${value.slice(0, 99)}…` : value;
   }
   function shortSummary(record) {
-    if (record.format === "inward-conditional-claim-v1") return record.claim.statement;
+    if (FORMATS[record.format] === "conditional-claim") return record.claim.statement;
     const {readings, target} = record.inputs;
     return `${readings.length} readings · target ${target.low}–${target.high}`;
   }

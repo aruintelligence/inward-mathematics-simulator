@@ -100,8 +100,12 @@ test('every supported condition and prediction has an independently replayed sta
       if (report.proof) {
         assert.equal(report.search.status, 'proved-by-algebra');
         assert.equal(report.search.counterexample, null);
+        assert.match(report.formal.declaration, /^InwardFormal\./);
         proved++;
-      } else assert.equal(report.search.status, 'counterexample-found');
+      } else {
+        assert.equal(report.formal, null);
+        assert.equal(report.search.status, 'counterexample-found');
+      }
     }
     assert.equal(proved, 4, 'only the four sign arguments may claim a general proof');
     const narrow = lab.compose('0,100', '0,1', 'target-at-or-above-both', 'mean-no-worse');
@@ -127,6 +131,19 @@ test('every supported condition and prediction has an independently replayed sta
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
+test('published theorem-bound example reproduces exact bytes and independent verification', () => {
+  const regenerated = lab.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const source = JSON.stringify(regenerated, null, 2) + '\n';
+  assert.equal(readFileSync('examples/conditional-claim-v2.json', 'utf8'), source);
+  const dir = mkdtempSync(join(tmpdir(), 'theorem-bound-example-'));
+  try {
+    const verified = checkClaim(source, dir);
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.match(verified.stdout, /Verified proved-by-algebra; 324 exact eligible cases/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
 test('independent checker rejects forged universal proof, witness, status, inputs, and duplicate keys', () => {
   const proved = lab.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse');
@@ -140,7 +157,11 @@ test('independent checker rejects forged universal proof, witness, status, input
       [proved, x => { x.proof.factorSigns[1] = 'nonpositive'; }],
       [proved, x => { x.claim.condition = 'any-target'; }],
       [proved, x => { x.search.status = 'unrefuted-on-finite-grid'; }],
+      [proved, x => { x.formal.declaration = 'InwardFormal.higher_no_worse_at_midpoint'; }],
+      [proved, x => { x.formal.sourceCommit = '0'.repeat(40); }],
+      [proved, x => { delete x.formal; }],
       [refuted, x => { x.proof = clone(proved.proof); }],
+      [refuted, x => { x.formal = clone(proved.formal); }],
       [refuted, x => { x.search.counterexample.target = '100'; }],
       [refuted, x => { x.domain.readingMultisets = true; }],
     ]) {
@@ -151,6 +172,12 @@ test('independent checker rejects forged universal proof, witness, status, input
     assert.match(checkClaim(duplicate, dir).stderr, /Duplicate JSON key/);
     const floating = JSON.stringify(proved).replace('"a^2":1', '"a^2":1.0');
     assert.match(checkClaim(floating, dir).stderr, /coefficients must be integers/);
+    const legacy = clone(proved);
+    legacy.format = 'inward-conditional-claim-v1';
+    delete legacy.formal;
+    assert.equal(checkClaim(legacy, dir).status, 0, 'existing v1 receipts remain checkable');
+    legacy.formal = clone(proved.formal);
+    assert.notEqual(checkClaim(legacy, dir).status, 0, 'v1 does not silently accept new fields');
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
@@ -171,7 +198,7 @@ test('browser view renders exact counterexample maps and clears stale evidence o
     'scope-note', 'ledger', 'cards', 'fingerprint', 'claim-form', 'claim-condition',
     'claim-prediction', 'claim-download', 'claim-results', 'claim-status', 'claim-title',
     'claim-badge', 'claim-count', 'claim-summary', 'claim-proof', 'claim-plot', 'claim-crossover', 'claim-fingerprint',
-    'claim-formal-link'];
+    'claim-formal-link', 'claim-formal-ref'];
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['reading-values'].value = '0,25,50,75,100';
   fields['target-values'].value = '0,25,50,75,100';
@@ -195,12 +222,15 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   assert.match(fields['claim-proof'].textContent, /a−b ≤ 0/);
   assert.match(fields['claim-summary'].textContent, /proved in Lean/);
   assert.equal(fields['claim-formal-link'].hidden, false);
+  assert.match(fields['claim-formal-ref'].textContent, /InwardFormal\.lower_no_worse_at_midpoint/);
+  assert.match(fields['claim-formal-link'].href, /blob\/59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705/);
   assert.equal(fields['claim-crossover'].hidden, true);
   assert.match(fields['claim-fingerprint'].textContent, /[0-9a-f]{64}/);
   fields['claim-prediction'].value = 'higher-no-worse';
   fields['claim-prediction'].handlers.change();
   assert.equal(fields['claim-results'].hidden, true);
   assert.equal(fields['claim-formal-link'].hidden, true);
+  assert.equal(fields['claim-formal-ref'].hidden, true);
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.equal(fields['claim-badge'].textContent, 'Counterexample found');
   assert.equal(fields['claim-formal-link'].hidden, true);
@@ -247,6 +277,7 @@ test('published page fingerprints exact scripts and explains finite evidence lim
   assert.match(html, /tools\/verify_conditional_claim\.py/);
   assert.match(html, /id="claim-formal-link"[^>]+hidden/);
   assert.match(html, /id="claim-crossover" hidden/);
+  assert.match(html, /id="claim-formal-ref"[^>]+hidden/);
   assert.match(html, /prefers-color-scheme:light/);
   assert.match(readFileSync('discovery.html', 'utf8'), /href="conjecture-lab\.html"/);
   assert.match(readFileSync('index.html', 'utf8'), /href="conjecture-lab\.html"/);
