@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Reproduce Target Lens's exact rational stability threshold with an independent Python audit and a worked receipt.">
+  <title>Audit the Stability Edge | Inward Mathematics™</title>
+  <style>
+    :root { color-scheme:dark; --bg:#071722; --panel:#0d2b36; --ink:#eff7f2; --muted:#bfd2d0; --mint:#63e8bd; --gold:#f0c784; --line:#5b8384; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:radial-gradient(circle at 85% 0%,#1d504b 0,transparent 32%),radial-gradient(circle at 0% 54%,#153d54 0,transparent 36%),var(--bg); color:var(--ink); font:16px/1.57 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:var(--mint); text-underline-offset:3px; }
+    a:focus-visible,button:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+    .wrap { width:min(1120px,calc(100% - 36px)); margin:auto; }
+    .skip { position:absolute; top:-100px; background:var(--mint); color:#06252a; padding:8px 13px; }
+    .skip:focus { top:8px; }
+    header { border-bottom:1px solid #ffffff25; }
+    header .wrap { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px 0; }
+    .brand { color:var(--ink); text-decoration:none; font-size:.8rem; font-weight:850; letter-spacing:.09em; }
+    header nav a { font-size:.84rem; font-weight:700; white-space:nowrap; }
+    .hero { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(245px,.7fr); gap:clamp(25px,6vw,70px); align-items:center; padding:clamp(54px,8vw,100px) 0 72px; }
+    .eyebrow { color:var(--mint); font-size:.73rem; font-weight:850; letter-spacing:.17em; text-transform:uppercase; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { max-width:740px; margin-bottom:18px; font-size:clamp(2.7rem,6.5vw,5.7rem); letter-spacing:-.065em; line-height:1.01; }
+    h1 em { color:var(--gold); font-style:normal; }
+    .lede { max-width:660px; color:#d5e5e1; font-size:1.12rem; line-height:1.56; }
+    .hero-links { display:flex; gap:12px; flex-wrap:wrap; margin-top:27px; }
+    .button { display:inline-block; border:1px solid var(--mint); border-radius:9px; padding:11px 16px; background:var(--mint); color:#092c30; text-decoration:none; font-size:.88rem; font-weight:850; }
+    .button.secondary { background:transparent; color:var(--mint); }
+    .edge-number { padding:27px; border:1px solid var(--gold); border-radius:20px; background:linear-gradient(145deg,#203f40,#0b2535); box-shadow:0 28px 80px #0005; }
+    .edge-number small { display:block; color:#d2e2df; text-transform:uppercase; letter-spacing:.12em; font-size:.69rem; font-weight:800; }
+    .edge-number strong { display:block; margin:8px 0; color:var(--gold); font:850 clamp(3.2rem,7vw,5.4rem)/1 ui-monospace,SFMono-Regular,monospace; }
+    .edge-number p { margin:18px 0 0; border-top:1px solid var(--line); padding-top:16px; color:var(--muted); font-size:.84rem; }
+    .section { border-top:1px solid #ffffff2f; padding:clamp(40px,6vw,70px) 0; }
+    .section h2 { margin-bottom:10px; font-size:clamp(1.7rem,3.6vw,2.5rem); letter-spacing:-.04em; line-height:1.12; }
+    .section .intro { max-width:750px; color:var(--muted); }
+    .terminal { margin:23px 0 14px; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#071c29; }
+    .terminal>span { display:block; border-bottom:1px solid #ffffff2d; padding:9px 15px; color:var(--mint); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; }
+    pre { margin:0; padding:17px 19px; overflow:auto; color:#f4f2df; font: .89rem/1.65 ui-monospace,SFMono-Regular,monospace; }
+    .small { color:var(--muted); font-size:.86rem; }
+    .route-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:25px 0; }
+    .route { min-width:0; border:1px solid var(--line); border-radius:15px; padding:23px; background:var(--panel); }
+    .route:first-child { border-color:var(--gold); background:linear-gradient(130deg,#243f3d,#102e39); }
+    .route small { color:var(--mint); text-transform:uppercase; font-weight:850; letter-spacing:.08em; font-size:.72rem; }
+    .route h3 { margin:7px 0 0; font-size:1.2rem; }
+    .route strong { display:block; margin:8px 0 16px; color:var(--gold); font:850 2rem ui-monospace,SFMono-Regular,monospace; }
+    .route p { margin:8px 0; color:#d7e8e2; font-size:.88rem; overflow-wrap:anywhere; }
+    .route code { color:var(--mint); }
+    .equation { margin:22px 0; padding:19px; border-left:3px solid var(--gold); background:#0c2c37; overflow-x:auto; color:var(--gold); font:800 clamp(.84rem,2vw,1.15rem)/1.6 ui-monospace,SFMono-Regular,monospace; white-space:nowrap; }
+    .proof-steps { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; padding:0; list-style:none; counter-reset:step; }
+    .proof-steps li { counter-increment:step; padding:20px 21px; border:1px solid #456e75; border-radius:13px; background:#0b2734; color:#d5e8e2; font-size:.91rem; }
+    .proof-steps li::before { content:"0" counter(step); display:block; margin-bottom:10px; color:var(--gold); font:850 1.3rem ui-monospace,SFMono-Regular,monospace; }
+    .proof-steps strong { color:#fff; }
+    .scope { margin:24px 0 0; border-left:3px solid var(--mint); padding:4px 0 4px 16px; color:var(--muted); font-size:.88rem; }
+    footer { border-top:1px solid #ffffff2a; padding:24px 0 35px; color:var(--muted); font-size:.8rem; }
+    @media(max-width:720px) { .hero,.route-grid,.proof-steps { grid-template-columns:1fr; } .hero { padding-bottom:46px; } .brand { max-width:195px; } .edge-number { max-width:440px; } }
+    @media print { :root { color-scheme:light; } body { background:#fff; color:#132832; } header,.hero-links,footer { display:none; } .section { padding:16px 0; } .edge-number,.route,.proof-steps li,.terminal,.equation { background:#fff; color:#132832; box-shadow:none; break-inside:avoid; } .lede,.small,.section .intro,.route p,.scope,.proof-steps li,.edge-number p { color:#314754; } a { color:#155c50; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to proof</a>
+  <header><div class="wrap"><a class="brand" href="index.html">ĀRU INTELLIGENCE / INWARD MATHEMATICS™</a><nav><a href="target-lens.html">Back to Target Lens ↗</a></nav></div></header>
+  <main id="content" class="wrap">
+    <section class="hero" aria-labelledby="title">
+      <div><p class="eyebrow">Independent audit / exact rational arithmetic</p><h1 id="title">Find the first tie.<br><em>Check every step.</em></h1><p class="lede">Target Lens finds the smallest reading drift that allows a tie. A separate Python calculation derives the threshold, checks both possible routes, and builds exact readings that attain each one.</p><div class="hero-links"><a class="button" href="#run">Run the worked audit ↓</a><a class="button secondary" href="#proof">Read the proof ↓</a></div></div>
+      <aside class="edge-number" aria-label="Worked example exact threshold"><small>Five readings · target 0–1</small><strong>16/3</strong><small>First continuous tie radius</small><p>Inputs 48, 49, 50, 51, 85. The last strict six-decimal setting is 5.333333; the first selectable tie setting is 5.333334.</p></aside>
+    </section>
+    <section class="section" id="run" aria-labelledby="run-title"><p class="eyebrow">01 / Reproduce</p><h2 id="run-title">One command. Two exact routes.</h2><p class="intro">The included <a href="examples/stability-case-a.json">JSON receipt</a> is checked before the audit starts. Save your own receipt from <a href="target-lens.html">Target Lens</a> and replace the file path to audit your case. Python 3 needs no third-party packages.</p><div class="terminal"><span>From the repository root</span><pre><code>python3 tools/audit_stability_edge.py examples/stability-case-a.json</code></pre></div><p class="small">Use <code>--mask 5</code> to allow only readings one and three to move; <code>--json</code> emits machine-readable exact fractions. <a href="tools/audit_stability_edge.py">Inspect the independent script</a> and <a href="https://github.com/aruintelligence/inward-mathematics-simulator/blob/main/docs/stability-edge-audit.md">the full derivation</a>.</p>
+      <div class="route-grid" aria-label="Two exact routes to a tie">
+        <article class="route"><small>Route 01 / first</small><h3>The estimates meet</h3><strong>ε = 16/3</strong><p>Readings <code>[128/3, 131/3, 166/3, 166/3, 239/3]</code>; target 0.</p><p>Mean = median = 166/3. Both absolute errors are 166/3.</p></article>
+        <article class="route"><small>Route 02 / later</small><h3>Target meets the midpoint</h3><strong>ε = 75</strong><p>Readings <code>[0, 0, 0, 0, 10]</code>; target 1.</p><p>Mean = 2, median = 0. Both absolute errors are 1.</p></article>
+      </div><p class="small">The later route remains a valid tie construction even though the universal strict guarantee ended at the first route.</p>
+    </section>
+    <section class="section" id="proof" aria-labelledby="proof-title"><p class="eyebrow">02 / Why the boundary is exact</p><h2 id="proof-title">A finite scan covers every real drift.</h2><p class="intro">Write S for the sum of the five allowed readings, M for their median, and t for any target in the selected closed interval. The squared-error difference factors as:</p><div class="equation">(|mean − t|² − |median − t|²) × 25 = (S − 5M)(S + 5M − 10t)</div>
+      <ol class="proof-steps"><li><strong>Fix the baseline signs.</strong> At zero drift, a strict winner gives each factor a fixed nonzero sign over the entire target interval. A tie first appears when either signed factor can reach zero.</li><li><strong>Check all configurations.</strong> The target factor reaches its extremes at all-low or all-high readings and a target endpoint. For the estimate factor, five possible median indices and six choices of two lower readings give 30 ordering cells.</li><li><strong>Scan every change point.</strong> Within an ordering cell the extremal expression is affine until a reading clips at 0 or 100, or two reading intervals meet. Those finitely many landmarks include half-gaps for two moving readings and full gaps for one moving reading.</li><li><strong>Exhibit the boundary.</strong> The audit solves each affine zero as an exact fraction, chooses the earliest one, and checks that its rational witness stays inside the box and ties the two errors. Smaller boxes preserve the strict signs; larger boxes retain the witness.</li></ol>
+      <p class="scope">This result is conditional on the five stipulated readings, target interval, and independent symmetric drift bounds. It does not establish the true target, input provenance, probabilities, or real-world estimator performance.</p>
+    </section>
+  </main>
+  <footer><div class="wrap">Developed by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. <a href="https://github.com/aruintelligence/inward-mathematics-simulator">Source and methods</a> · MIT license.</div></footer>
+</body>
+</html>
