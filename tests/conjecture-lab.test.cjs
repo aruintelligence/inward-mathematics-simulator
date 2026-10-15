@@ -136,6 +136,7 @@ test('independent checker rejects forged universal proof, witness, status, input
   try {
     for (const [base, mutate] of [
       [proved, x => { x.proof.identity.expanded['a*t'] = -3; }],
+      [proved, x => { x.proof.identity.expanded['a^2'] = true; }],
       [proved, x => { x.proof.factorSigns[1] = 'nonpositive'; }],
       [proved, x => { x.claim.condition = 'any-target'; }],
       [proved, x => { x.search.status = 'unrefuted-on-finite-grid'; }],
@@ -148,6 +149,8 @@ test('independent checker rejects forged universal proof, witness, status, input
     }
     const duplicate = JSON.stringify(proved).replace('"format":', '"format":"fake","format":');
     assert.match(checkClaim(duplicate, dir).stderr, /Duplicate JSON key/);
+    const floating = JSON.stringify(proved).replace('"a^2":1', '"a^2":1.0');
+    assert.match(checkClaim(floating, dir).stderr, /coefficients must be integers/);
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 

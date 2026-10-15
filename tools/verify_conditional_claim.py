@@ -169,6 +169,11 @@ def verify(report):
         raise ValueError("Incorrect independent finite replay")
     if witness and proof:
         raise ValueError("Universal argument contradicted by a finite case")
+    if proof is not None and type(report["proof"]) is dict:
+        identity = report["proof"].get("identity")
+        expanded = identity.get("expanded") if type(identity) is dict else None
+        if type(expanded) is not dict or any(type(value) is not int for value in expanded.values()):
+            raise ValueError("Algebraic coefficients must be integers")
     if report["proof"] != proof:
         raise ValueError("Algebraic certificate is absent or inconsistent")
     return status, count
