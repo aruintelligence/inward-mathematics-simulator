@@ -10,8 +10,63 @@ const array=(value,length,name)=>{
   if(!Array.isArray(value)||value.length!==length) fail(`Invalid ${name}`);
   return value;
 };
+const same=(actual,claimed)=>{
+  if(Array.isArray(actual)) return Array.isArray(claimed)&&actual.length===claimed.length&&
+    actual.every((value,index)=>same(value,claimed[index]));
+  if(actual!==null&&typeof actual==="object") return claimed!==null&&typeof claimed==="object"&&
+    !Array.isArray(claimed)&&Object.keys(actual).length===Object.keys(claimed).length&&
+    Object.keys(actual).every(key=>Object.prototype.hasOwnProperty.call(claimed,key)&&same(actual[key],claimed[key]));
+  return actual===claimed;
+};
+// JSON.parse keeps only the final occurrence of a repeated key. Check raw
+// object keys first so portable receipts cannot have parser-dependent meaning.
+function parseReceipt(source) {
+  const parsed=JSON.parse(source);
+  let index=0;
+  const space=()=>{while(index<source.length&&/[ \t\r\n]/.test(source[index])) index++;};
+  const string=()=>{
+    const start=index++;
+    while(index<source.length) {
+      const character=source[index++];
+      if(character==='"') return JSON.parse(source.slice(start,index));
+      if(character==='\\') index++; // JSON.parse above validated the escape.
+    }
+    fail("Unterminated JSON string");
+  };
+  const value=depth=>{
+    if(depth>64) fail("Receipt JSON nesting too deep");
+    space();
+    if(source[index]==='{') {
+      index++;
+      const keys=new Set();
+      space();
+      while(source[index]!=='}') {
+        const key=string();
+        if(keys.has(key)) fail(`Duplicate JSON key: ${key}`);
+        keys.add(key);
+        space();index++; // colon, validated by JSON.parse
+        value(depth+1);
+        space();
+        if(source[index]===',') {index++;space();} else break;
+      }
+      index++; // closing brace
+    } else if(source[index]==='[') {
+      index++;
+      space();
+      while(source[index]!==']') {
+        value(depth+1);
+        space();
+        if(source[index]===',') {index++;space();} else break;
+      }
+      index++; // closing bracket
+    } else if(source[index]==='"') string();
+    else while(index<source.length&&!/[ \t\r\n,\]}]/.test(source[index])) index++;
+  };
+  value(0);
+  return parsed;
+}
 const equal=(actual,claimed,name)=>{
-  if(JSON.stringify(actual)!==JSON.stringify(claimed)) fail(`Incorrect ${name}`);
+  if(!same(actual,claimed)) fail(`Incorrect ${name}`);
 };
 const median=values=>[...values].sort((a,b)=>a-b)[2];
 const sum=values=>values.reduce((a,b)=>a+b,0);
@@ -89,5 +144,5 @@ function verify(receipt) {
   }
   return {kind,winner};
 }
-if(typeof module==="object"&&module.exports) module.exports={verify};
-else if(typeof window!=="undefined") window.TargetLensVerifier={verify};
+if(typeof module==="object"&&module.exports) module.exports={verify,parseReceipt};
+else if(typeof window!=="undefined") window.TargetLensVerifier={verify,parseReceipt};
