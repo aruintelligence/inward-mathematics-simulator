@@ -4,7 +4,10 @@ const {readFileSync} = require('node:fs');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 const checker = require('../odd-target-box-verifier.js');
+const claimChecker = require('../tools/conditional-claim-verifier.js');
+const maker = require('../conjecture-lab-core.js');
 const archive = require('../research-archive-core.js');
+const checkers = {targetBox: checker, conditionalClaim: claimChecker};
 
 const source = readFileSync('examples/odd-target-box-v1.json', 'utf8');
 const digest = crypto.createHash('sha256').update(source).digest('hex');
@@ -99,6 +102,63 @@ test('archive limit is explicit and a duplicate still resolves when full', async
   assert.equal(db.rows.size, archive.MAX_ENTRIES);
 });
 
+test('mixed archive preserves legacy Target Box entries and independently rechecks conditional claims', async () => {
+  const db = memoryDB();
+  await archive.add(db, source, 'Legacy calibration', checker, crypto.webcrypto);
+  delete db.rows.get(digest).kind; // Simulates a record written by the original archive.
+  const proof = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const refuted = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'any-target', 'mean-no-worse');
+  const unresolved = maker.compose('0,100', '0,1',
+    'any-target', 'lower-no-worse');
+  const proofSource = JSON.stringify(proof) + '\n';
+  const refutedSource = JSON.stringify(refuted) + '\n';
+  const first = await archive.add(db, proofSource, '', checkers, crypto.webcrypto);
+  assert.equal(first.created, true);
+  assert.equal(first.kind, 'conditional-claim');
+  assert.equal(first.result.status, 'proved-by-algebra');
+  const second = await archive.add(db, refutedSource, 'Counterexample A', checkers, crypto.webcrypto);
+  assert.equal(second.result.status, 'counterexample-found');
+  const third = await archive.add(db, JSON.stringify(unresolved), 'Finite case A', checkers, crypto.webcrypto);
+  assert.equal(third.result.status, 'unrefuted-on-finite-grid');
+  assert.equal(third.result.proof, false);
+  assert.ok(third.result.casesChecked > 0);
+  assert.equal((await archive.add(db, proofSource, 'Changed', checkers, crypto.webcrypto)).created, false);
+  let items = await archive.list(db, checkers, crypto.webcrypto);
+  assert.deepEqual(items.map(x => [x.kind, x.valid]).sort(),
+    [['conditional-claim', true], ['conditional-claim', true],
+      ['conditional-claim', true], ['target-box', true]]);
+  assert.match(items.find(x => x.digest === first.digest).label, /five real readings/);
+  assert.equal(items.find(x => x.digest === digest).label, 'Legacy calibration');
+
+  db.rows.get(first.digest).kind = 'target-box';
+  items = await archive.list(db, checkers, crypto.webcrypto);
+  const wrongType = items.find(x => x.digest === first.digest);
+  assert.equal(wrongType.valid, false);
+  assert.equal(wrongType.result, undefined);
+  assert.match(wrongType.error, /type/);
+  db.rows.get(first.digest).kind = 'conditional-claim';
+  db.rows.get(second.digest).source = refutedSource.replace('"counterexample-found"', '"proved-by-algebra"');
+  items = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(items.find(x => x.digest === second.digest).valid, false);
+  assert.equal(items.find(x => x.digest === second.digest).result, undefined);
+  assert.equal(items.find(x => x.digest === first.digest).valid, true);
+});
+
+test('unsupported formats and altered claim certificates are rejected before storage', async () => {
+  const db = memoryDB();
+  const proof = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  proof.proof.factorSigns[1] = 'nonpositive';
+  await assert.rejects(archive.add(db, JSON.stringify(proof), '', checkers, crypto.webcrypto));
+  await assert.rejects(archive.add(db, '{"format":"unknown"}', '', checkers, crypto.webcrypto), /Unsupported/);
+  await assert.rejects(archive.add(db, '{"format":"__proto__"}', '', checkers, crypto.webcrypto), /Unsupported/);
+  await assert.rejects(archive.add(db, '{"format":"inward-conditional-claim-v1","format":"unknown"}',
+    '', checkers, crypto.webcrypto), /Duplicate/);
+  assert.equal(db.rows.size, 0);
+});
+
 test('page filters rechecked records and never promotes a damaged stored claim', async () => {
   function element(tag) {
     const classes = new Set();
@@ -114,26 +174,39 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
   fields['archive-filter'].value = 'all';
   const checked = await archive.inspect(source, digest, checker, crypto.webcrypto);
+  const claim = maker.compose('0,25,50,75,100', '0,25,50,75,100',
+    'target-at-or-below-midpoint', 'lower-no-worse');
+  const claimChecked = await archive.inspect(JSON.stringify(claim), null, checkers, crypto.webcrypto);
   let records = [{...checked, valid: true, label: 'Calibration A', savedAt: Date.now()},
+    {...claimChecked, valid: true, label: 'Midpoint A', savedAt: Date.now()},
     {valid: false, digest: '1'.repeat(64), error: 'Fingerprint mismatch'}];
   const mockArchive = {open: async () => ({}), list: async () => records,
-    add: async () => { records = [records[0], records[1],
+    add: async () => { records = [records[0], records[1], records[2],
       {...checked, digest: '2'.repeat(64), valid: true, label: 'Second run', savedAt: Date.now()}];
       return {created: true, digest}; }};
   vm.runInNewContext(readFileSync('research-archive.js', 'utf8'),
     {document: {getElementById: id => fields[id], createElement: element, body: element('body')},
       InwardResearchArchive: mockArchive, InwardTargetBoxVerifier: checker,
+      InwardConditionalClaimVerifier: claimChecker,
       TextDecoder, crypto: crypto.webcrypto, window: {confirm: () => false},
       URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}}, Blob, setTimeout},
     {timeout: 5000});
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(fields['verified-count'].textContent, '1');
-  assert.equal(fields['archive-cards'].children.length, 2);
-  assert.equal(fields['archive-cards'].children[1].dataset.valid, 'false');
+  assert.equal(fields['verified-count'].textContent, '2');
+  assert.equal(fields['archive-cards'].children.length, 3);
+  assert.equal(fields['archive-cards'].children[2].dataset.valid, 'false');
   fields['archive-filter'].value = 'strict';
   fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 0);
   fields['archive-filter'].value = 'Tie';
+  fields['archive-filter'].handlers.change();
+  assert.equal(fields['archive-cards'].children.length, 1);
+  fields['archive-filter'].value = 'proved-by-algebra';
+  fields['archive-filter'].handlers.change();
+  assert.equal(fields['archive-cards'].children.length, 1);
+  assert.equal(fields['archive-cards'].children[0].children[0].children[2].textContent,
+    'General algebraic proof');
+  fields['archive-filter'].value = 'conditional-claim';
   fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 1);
   fields['archive-search'].value = 'unfindable';
@@ -141,6 +214,9 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   assert.equal(fields['archive-empty'].hidden, false);
   fields['archive-search'].value = 'Calibration';
   fields['archive-search'].handlers.input();
+  assert.equal(fields['archive-cards'].children.length, 0);
+  fields['archive-filter'].value = 'all';
+  fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 1);
 });
 
@@ -148,7 +224,8 @@ test('published archive scripts are content fingerprinted and use local file API
   const html = readFileSync('research-archive.html', 'utf8');
   const app = readFileSync('research-archive.js', 'utf8');
   const inspector = readFileSync('verify-odd-target-box.html', 'utf8');
-  for (const script of ['odd-target-box-verifier.js', 'research-archive-core.js', 'research-archive.js']) {
+  for (const script of ['odd-target-box-verifier.js', 'tools/target-lens-proof-core.js',
+    'tools/conditional-claim-verifier.js', 'research-archive-core.js', 'research-archive.js']) {
     const version = html.match(new RegExp(`${script.replace('.', '\\.') }\\?v=([0-9a-f]{12})`));
     assert.ok(version, `${script} needs a content fingerprint`);
     assert.equal(version[1], crypto.createHash('sha256').update(readFileSync(script))

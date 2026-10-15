@@ -2,7 +2,8 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const archive = globalThis.InwardResearchArchive;
-  const checker = globalThis.InwardTargetBoxVerifier;
+  const checkers = {targetBox: globalThis.InwardTargetBoxVerifier,
+    conditionalClaim: globalThis.InwardConditionalClaimVerifier};
   let db = null, entries = [];
   function node(tag, content, className) {
     const element = document.createElement(tag);
@@ -19,13 +20,22 @@
     const filter = $("archive-filter").value;
     if (!entry.valid) return filter === "all" && (!term || String(entry.digest).includes(term));
     const {record, result, label, digest} = entry;
+    if (entry.kind === "conditional-claim") {
+      const witness = result.counterexample;
+      const searchable = [label, digest, record.claim.statement, record.claim.condition,
+        record.claim.prediction, result.status, ...record.domain.readingValues,
+        ...record.domain.targetValues, ...(witness?.readings || []), witness?.target,
+        witness?.mean, witness?.median].join(" ").toLocaleLowerCase();
+      return (filter === "all" || filter === "conditional-claim" || filter === result.status) &&
+        (!term || searchable.includes(term));
+    }
     const witnessValues = record.claim.routes.flatMap(route =>
       route.reachable.flatMap(name => [route.witnesses[name].reading, route.witnesses[name].target]));
     const searchable = [label, digest, ...record.inputs.readings,
       record.inputs.movement.low, record.inputs.movement.high,
       record.inputs.target.low, record.inputs.target.high, ...result.reachable,
       ...witnessValues].join(" ").toLocaleLowerCase();
-    const qualifies = filter === "all" || filter === "strict" &&
+    const qualifies = filter === "all" || filter === "target-box" || filter === "strict" &&
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
     return qualifies && (!term || searchable.includes(term));
   }
@@ -33,7 +43,7 @@
     const url = URL.createObjectURL(new Blob([entry.source], {type: "application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `inward-target-box-${entry.digest.slice(0, 12)}.json`;
+    anchor.download = `inward-${entry.kind === "conditional-claim" ? "conditional-claim" : "target-box"}-${entry.digest.slice(0, 12)}.json`;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
@@ -51,27 +61,44 @@
     const item = node("details", "", "card");
     item.dataset.valid = String(entry.valid);
     const summary = node("summary", "");
-    summary.append(node("small", entry.valid ? "Independently rechecked" : "Stored item needs attention"));
+    summary.append(node("small", entry.valid ?
+      `${entry.kind === "conditional-claim" ? "Conditional claim" : "Target Box"} · independently rechecked` :
+      "Stored item needs attention"));
     summary.append(node("h3", entry.valid ? entry.label : "Record cannot be verified"));
-    summary.append(node("span", entry.valid ? entry.result.reachable.join(" · ") : "Not verified",
-      entry.valid ? "badge" : "badge warning"));
+    const claimStatus = {"proved-by-algebra": "General algebraic proof",
+      "counterexample-found": "Counterexample found",
+      "unrefuted-on-finite-grid": "Unrefuted on finite grid"};
+    const badge = entry.valid ? entry.kind === "conditional-claim" ?
+      claimStatus[entry.result.status] : entry.result.reachable.join(" · ") : "Not verified";
+    summary.append(node("span", badge, entry.valid ? "badge" : "badge warning"));
     item.append(summary);
     const body = node("div", "", "card-body");
     if (entry.valid) {
       const {record, result} = entry;
-      body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
-      body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
-        "No strict global guarantee under these exact inputs."));
-      const strict = record.claim.routes.filter(route => route.guarantee).length;
-      body.append(node("p", `${strict} of ${result.routes} routes have a strict guarantee.`));
-      const routes = node("ol", "", "route-list");
-      record.claim.routes.forEach(route => {
-        const witnesses = route.reachable.map(name =>
-          `${name} at x=${route.witnesses[name].reading}, t=${route.witnesses[name].target}`).join("; ");
-        routes.append(node("li",
-          `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.`));
-      });
-      body.append(routes);
+      if (entry.kind === "conditional-claim") {
+        body.append(node("p", record.claim.statement));
+        body.append(node("p", `${result.casesChecked} eligible exact cases checked across ${result.readingMultisets} five-reading multisets. Reading grid: ${record.domain.readingValues.join(", ")}; target grid: ${record.domain.targetValues.join(", ")}.`));
+        if (result.proof) body.append(node("p",
+          "General result under the stated target condition: the independent checker verified the squared-distance factorization and factor signs. This is an established algebraic consequence, not a new theorem."));
+        else if (result.counterexample) {
+          const point = result.counterexample;
+          body.append(node("p", `Exact counterexample: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer.`));
+        } else body.append(node("p", "No counterexample on this finite grid. This does not prove a general claim."));
+      } else {
+        body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
+        body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
+          "No strict global guarantee under these exact inputs."));
+        const strict = record.claim.routes.filter(route => route.guarantee).length;
+        body.append(node("p", `${strict} of ${result.routes} routes have a strict guarantee.`));
+        const routes = node("ol", "", "route-list");
+        record.claim.routes.forEach(route => {
+          const witnesses = route.reachable.map(name =>
+            `${name} at x=${route.witnesses[name].reading}, t=${route.witnesses[name].target}`).join("; ");
+          routes.append(node("li",
+            `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.`));
+        });
+        body.append(routes);
+      }
     } else {
       body.append(node("p", `This local item was not accepted: ${entry.error}. Its mathematical claims are hidden.`));
     }
@@ -100,31 +127,31 @@
     const verified = entries.filter(item => item.valid).length;
     $("verified-count").textContent = String(verified);
     $("count-note").textContent = entries.length === verified ?
-      `${verified} certificate${verified === 1 ? "" : "s"} checked under the supplied inputs.` :
+      `${verified} record${verified === 1 ? "" : "s"} checked under the supplied inputs.` :
       `${entries.length - verified} stored item${entries.length - verified === 1 ? "" : "s"} could not be verified.`;
   }
   async function refresh() {
-    entries = await archive.list(db, checker, crypto);
+    entries = await archive.list(db, checkers, crypto);
     render();
   }
   $("archive-search").addEventListener("input", render);
   $("archive-filter").addEventListener("change", render);
   $("refresh-button").addEventListener("click", async () => {
     if (!db) return;
-    try { await refresh(); status("Every stored certificate was rechecked on this visit."); }
+    try { await refresh(); status("Every stored record was rechecked on this visit."); }
     catch (error) { status(error.message, true); }
   });
   $("import-button").addEventListener("click", async () => {
     if (!db) return;
     const file = $("certificate-file").files[0];
-    if (!file) { status("Choose a Target Box JSON certificate first.", true); return; }
+    if (!file) { status("Choose a Target Box or conditional-claim JSON record first.", true); return; }
     $("import-button").disabled = true;
-    status("Independently checking every route and witness...");
+    status("Independently checking the full record...");
     try {
-      if (file.size > 2_000_000) throw new Error("Certificate exceeds the 2 MB limit");
+      if (file.size > 2_000_000) throw new Error("Record exceeds the 2 MB limit");
       const source = new TextDecoder("utf-8", {fatal: true, ignoreBOM: true})
         .decode(await file.arrayBuffer());
-      const saved = await archive.add(db, source, $("certificate-label").value, checker, crypto);
+      const saved = await archive.add(db, source, $("certificate-label").value, checkers, crypto);
       await refresh();
       status(saved.created ? `Checked and saved: ${saved.digest}` :
         `Already in this local archive: ${saved.digest}`);
@@ -140,6 +167,6 @@
       $("import-button").disabled = true;
       status(`Local archive unavailable: ${error.message}`, true);
       $("verified-count").textContent = "—";
-      $("count-note").textContent = "You can still download certificates from Target Box.";
+      $("count-note").textContent = "You can still download JSON from the research labs.";
     });
 })();

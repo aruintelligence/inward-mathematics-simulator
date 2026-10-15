@@ -2,9 +2,14 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const checker = globalThis.InwardConditionalClaimVerifier;
+  const archive = globalThis.InwardResearchArchive;
   let selectedFile = null, revision = 0;
+  let verifiedSource = null, verifiedDigest = null;
   function reset(message) {
     revision++;
+    verifiedSource = verifiedDigest = null;
+    $("save-to-archive").disabled = true;
+    $("save-status").textContent = "";
     $("result").hidden = true;
     $("verdict").textContent = "Awaiting record";
     $("verdict-note").textContent = "Choose an exported claim JSON file or paste its full text.";
@@ -64,6 +69,9 @@
           "No chosen grid point met the condition; this record has no eligible finite case.";
       }
       $("fingerprint").textContent = fingerprint;
+      verifiedSource = source;
+      verifiedDigest = fingerprint;
+      $("save-to-archive").disabled = false;
       $("result").hidden = false;
     } catch (error) {
       if (started !== revision) return;
@@ -75,4 +83,25 @@
   }
   $("verify-button").addEventListener("click", inspect);
   $("print-report").addEventListener("click", () => window.print());
+  $("save-to-archive").addEventListener("click", async () => {
+    if (!verifiedSource || !verifiedDigest) return;
+    const started = revision, source = verifiedSource, digest = verifiedDigest;
+    $("save-to-archive").disabled = true;
+    $("save-status").textContent = "Rechecking the original JSON before local storage...";
+    let db;
+    try {
+      db = await archive.open();
+      const saved = await archive.add(db, source, $("archive-label").value,
+        {conditionalClaim: checker}, crypto);
+      if (saved.digest !== digest) throw new Error("Rechecked fingerprint changed");
+      if (started === revision) $("save-status").textContent = saved.created ?
+        "Checked claim saved locally. Open the archive to search, recheck, and export it." :
+        "These exact JSON bytes are already in your local archive.";
+    } catch (error) {
+      if (started === revision) $("save-status").textContent = `Not saved: ${error.message}`;
+    } finally {
+      db?.close();
+      if (started === revision) $("save-to-archive").disabled = false;
+    }
+  });
 })();
