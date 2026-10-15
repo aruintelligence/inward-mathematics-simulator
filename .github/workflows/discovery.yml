@@ -18,3 +18,4 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/conjecture-lab.test.cjs
+      - run: node --test tests/conditional-claim-browser.test.cjs
