@@ -1,0 +1,19 @@
+name: Verify odd target-box certificates
+on:
+  push:
+  pull_request:
+jobs:
+  exact-target-box:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 -m unittest discover -s tools -p 'test_odd_target_box.py' -v
+      - run: node --test tests/odd-target-box.test.cjs
+      - run: python3 tools/verify_odd_target_box.py examples/odd-target-box-v1.json
+      - run: python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --target-low 48 --target-high 52 | diff - examples/odd-target-box-v1.json
