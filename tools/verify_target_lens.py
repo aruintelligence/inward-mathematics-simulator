@@ -32,6 +32,15 @@ def same_json(actual, expected):
     return type(actual) is type(expected) and actual == expected
 
 
+def no_duplicates(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def five(values, name):
     if not isinstance(values, list) or len(values) != 5:
         raise ValueError(f"Invalid {name}")
@@ -160,7 +169,8 @@ def main():
         def invalid_constant(value):
             raise ValueError(f"Invalid JSON constant: {value}")
 
-        result = verify(json.loads(text, parse_constant=invalid_constant))
+        result = verify(json.loads(text, parse_constant=invalid_constant,
+                                   object_pairs_hook=no_duplicates))
         print("Verified " + result["kind"] + (" · " + result["winner"] + " throughout" if result["winner"] else ""))
         print("Receipt SHA-256: " + hashlib.sha256(raw).hexdigest())
     except (OSError, ValueError, KeyError, TypeError, UnicodeError) as error:

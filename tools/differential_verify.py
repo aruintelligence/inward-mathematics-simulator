@@ -172,6 +172,19 @@ def main():
                                       ("reordered JSON keys", json.dumps(reordered))):
                     results.append(check_bytes(source.encode("utf-8"), label, True,
                                                args.repro_dir, temporary))
+                duplicates = (
+                    ("duplicate scale", canonical.replace('"scale":1000000',
+                                                          '"scale":1000000,"scale":1000000', 1)),
+                    ("escaped duplicate scale", canonical.replace('"scale":1000000',
+                                                                  '"scale":1000000,"\\u0073cale":1000000', 1)),
+                    ("nested duplicate selected target", canonical.replace('"selectedTarget":0',
+                                                                          '"selectedTarget":0,"selectedTarget":0', 1)),
+                )
+                for label, source in duplicates:
+                    if source == canonical:
+                        raise RuntimeError("Missing duplicate-key regression fixture")
+                    results.append(check_bytes(source.encode("utf-8"), label, False,
+                                               args.repro_dir, temporary))
                 nonfinite = canonical[:-1] + ',"metadata":NaN}'
                 results.append(check_bytes(nonfinite.encode("utf-8"), "nonfinite JSON constant", False,
                                            args.repro_dir, temporary))

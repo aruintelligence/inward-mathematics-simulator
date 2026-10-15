@@ -7,7 +7,7 @@ const path=require("node:path");
 const {spawnSync}=require("node:child_process");
 const {test}=require("node:test");
 const {proofReceipt,continuousStabilityThreshold}=require("../target-lens.js");
-const {verify}=require("../tools/target-lens-proof-core.js");
+const {verify,parseReceipt}=require("../tools/target-lens-proof-core.js");
 const root=path.join(__dirname,"..");
 const python=`import json,sys
 sys.path.insert(0,"tools")
@@ -111,6 +111,35 @@ test("Node and Python CLIs agree on the exact receipt fingerprint and reject alt
       assert.doesNotMatch(bad.stdout,/Receipt SHA-256/);
     }
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("receipt parsers reject repeated keys, including escaped and nested names",()=>{
+  const receipt=proofReceipt([48,49,50,51,85],48,52,4,50);
+  const valid=JSON.stringify(receipt);
+  assert.deepEqual(parseReceipt(valid),receipt);
+  const swapped=valid.replace('"scale":1000000', '"\\u0073cale":1000000');
+  assert.deepEqual(parseReceipt(swapped),receipt,"one escaped spelling is unambiguous");
+  const invalid=[
+    valid.replace('"scale":1000000', '"scale":1000000,"scale":1000000'),
+    valid.replace('"scale":1000000', '"scale":1000000,"\\u0073cale":1000000'),
+    valid.replace('"selectedTarget":50000000', '"selectedTarget":50000000,"selectedTarget":50000000'),
+    valid.replace('"estimateRange":', '"estimateRange":[1,2],"estimateRange":'),
+  ];
+  for(const [index,source] of invalid.entries()) {
+    assert.throws(()=>parseReceipt(source),/Duplicate JSON key/,`raw case ${index}`);
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"inward-duplicate-"));
+    try {
+      const file=path.join(dir,"receipt.json");fs.writeFileSync(file,source);
+      for(const [command,script] of [["node","tools/verify-target-lens.cjs"],["python3","tools/verify_target_lens.py"]]) {
+        const result=spawnSync(command,[script,file],{cwd:root,encoding:"utf8"});
+        assert.equal(result.status,1,`${command}, case ${index}: ${result.stdout}`);
+        assert.match(result.stderr,/Duplicate JSON key/);
+        assert.doesNotMatch(result.stdout,/Receipt SHA-256/);
+      }
+    } finally {fs.rmSync(dir,{recursive:true,force:true});}
+  }
+  const html=fs.readFileSync(path.join(root,"verify-proof.html"),"utf8");
+  assert.match(html,/TargetLensVerifier\.parseReceipt\(source\)/);
 });
 
 test("independent Python audit agrees on both exact drift routes across reading boxes",()=>{

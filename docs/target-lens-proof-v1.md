@@ -15,6 +15,8 @@ python3 tools/verify_target_lens.py receipt.json
 
 Both exit nonzero for a rejected receipt. The browser and Node use the same JavaScript verifier; Python is a separate implementation. The CI differential gate generates seeded cases, corrupts claims and inputs, checks boundary conditions, and compares both verdicts and fingerprints. Run it locally with `python3 tools/differential_verify.py --seed 620810 --cases 64`.
 
+All three import paths reject duplicate JSON object keys, including an escaped spelling of a previously used name. This keeps a saved receipt unambiguous across parsers before the mathematical claims are checked. JSON keys may appear in any order. An oversized or malformed file is also rejected.
+
 After a successful check, the browser's printable sheet and both command line checkers show a `Receipt SHA-256` fingerprint. It hashes the **exact UTF-8 text fed to the verifier**, including whitespace and key order. Receipt files must contain valid UTF-8; their bytes are hashed without reformatting. To pair a printed sheet with a saved receipt, run either checker on that file and compare all 64 hexadecimal characters. Paste input is hashed as pasted, including leading and trailing whitespace. Reserializing the same JSON changes the fingerprint even when the mathematical claim stays the same. The fingerprint identifies matching text; it does not prove who made the receipt or whether its inputs are true.
 
 ## Integer encoding

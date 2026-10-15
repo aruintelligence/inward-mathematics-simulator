@@ -88,6 +88,13 @@ test("browser proof inspector uses the same verifier and refuses a changed witne
   assert.match(element("status").textContent,/Witness does not tie/);
   element("print-report").handlers.click();
   assert.equal(printed,1,"invalid receipts must not print a verified sheet");
+  const ambiguous=JSON.stringify(proofReceipt([48,49,50,51,85],48,52,4,50))
+    .replace('"scale":1000000','"scale":1000000,"\\u0073cale":1000000');
+  element("receipt-json").value=ambiguous;
+  element("receipt-json").handlers.input();
+  await element("verify-button").handlers.click();
+  assert.equal(element("result").hidden,true);
+  assert.match(element("status").textContent,/Duplicate JSON key/);
   const strict=proofReceipt([48,49,50,51,85],0,1,4,0.5);
   element("receipt-json").value=JSON.stringify(strict);
   element("receipt-json").handlers.input();
