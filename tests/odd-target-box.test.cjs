@@ -5,6 +5,7 @@ const {mkdtempSync, writeFileSync, rmSync, readFileSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
 const core = require('../odd-target-box-core.js');
 
 function python(values, low, high, targetLow, targetHigh) {
@@ -60,6 +61,16 @@ test('bad bounds, input, and browser disclosure patterns are rejected', () => {
   assert.match(html, /odd-target-box-core\.js/);
   assert.match(script, /textContent/);
   assert.doesNotMatch(script, /fetch\(|XMLHttpRequest|location\.search/);
+});
+
+test('published scripts use their exact content fingerprints', () => {
+  const html = readFileSync('odd-target-box.html', 'utf8');
+  for (const script of ['odd-target-box-core.js', 'odd-target-box.js']) {
+    const version = html.match(new RegExp(`${script.replace('.', '\\.') }\\?v=([0-9a-f]{12})`));
+    assert.ok(version, `${script} must have a versioned URL`);
+    const hash = crypto.createHash('sha256').update(readFileSync(script)).digest('hex').slice(0, 12);
+    assert.equal(version[1], hash, `${script} URL must change with its bytes`);
+  }
 });
 
 test('workbench renders every route and clears stale results on an invalid edit', () => {
