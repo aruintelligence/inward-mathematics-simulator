@@ -70,9 +70,17 @@ test('browser inspector refuses stale results when source changes and fingerprin
       addEventListener(name,fn){this.handlers[name]=fn;}};
   }
   const ids=['claim-file','claim-json','file-name','verify-button','status','verdict','verdict-note',
-    'result','badge','statement','count','explanation','witness','fingerprint','print-report'];
+    'result','badge','statement','count','explanation','witness','fingerprint','print-report',
+    'save-to-archive','save-status','archive-label'];
   const nodes=Object.fromEntries(ids.map(id=>[id,element()]));
+  const stored=[];
   const context={document:{getElementById:id=>nodes[id]},InwardConditionalClaimVerifier:checker,
+    InwardResearchArchive:{open:async()=>({close(){}}),add:async(_db, source, label, checkers)=>{
+      assert.equal(checkers.conditionalClaim,checker);
+      const checked=await require('../research-archive-core.js').inspect(source,null,checkers,crypto.webcrypto);
+      stored.push({source,label});
+      return {created:true,digest:checked.digest};
+    }},
     crypto:crypto.webcrypto,TextDecoder,TextEncoder,Uint8Array,window:{print(){}}};
   vm.runInNewContext(readFileSync('verify-conditional-claim.js','utf8'),context,{timeout:5000});
   const proof=maker.compose('0,25,50,75,100','0,25,50,75,100',
@@ -85,9 +93,17 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.equal(nodes.badge.textContent,'General algebraic proof');
   assert.equal(nodes.fingerprint.textContent,
     crypto.createHash('sha256').update(source).digest('hex'));
+  assert.equal(nodes['save-to-archive'].disabled,false);
+  nodes['archive-label'].value='Midpoint proof';
+  await nodes['save-to-archive'].handlers.click();
+  assert.deepEqual(stored,[{source,label:'Midpoint proof'}]);
+  assert.match(nodes['save-status'].textContent,/saved locally/);
   nodes['claim-json'].value='{"format":"forged"}';
   nodes['claim-json'].handlers.input();
   assert.equal(nodes.result.hidden,true);
+  assert.equal(nodes['save-to-archive'].disabled,true);
+  await nodes['save-to-archive'].handlers.click();
+  assert.equal(stored.length,1);
   await nodes['verify-button'].handlers.click();
   assert.equal(nodes.verdict.textContent,'Record rejected');
   assert.equal(nodes.result.hidden,true);
@@ -95,7 +111,8 @@ test('browser inspector refuses stale results when source changes and fingerprin
 
 test('published inspector fingerprints scripts and links to the claim builder', () => {
   const page=readFileSync('verify-conditional-claim.html','utf8');
-  for (const script of ['tools/target-lens-proof-core.js','tools/conditional-claim-verifier.js','verify-conditional-claim.js']) {
+  for (const script of ['tools/target-lens-proof-core.js','tools/conditional-claim-verifier.js',
+    'research-archive-core.js','verify-conditional-claim.js']) {
     const version=page.match(new RegExp(`${script.replaceAll('.', '\\.')}\\?v=([0-9a-f]{12})`));
     assert.ok(version,script);
     assert.equal(version[1],crypto.createHash('sha256').update(readFileSync(script)).digest('hex').slice(0,12));
