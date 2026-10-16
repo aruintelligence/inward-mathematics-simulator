@@ -99,6 +99,56 @@ test('even central-pair medians yield exact reversible routes across supported s
   assert.equal(core.certificate(['40','45','55','60'], '50').claim.kind, 'baseline-tie');
 });
 
+test('positive affine unit changes preserve every exact certificate route', () => {
+  const rational = (numerator, denominator) => {
+    const abs = value => value < 0n ? -value : value;
+    let a = abs(numerator), b = denominator;
+    while (b) [a, b] = [b, a % b];
+    const divisor = a;
+    const n = numerator / divisor, d = denominator / divisor;
+    return d === 1n ? String(n) : `${n}/${d}`;
+  };
+  const converted = (raw, factor = 3n, shift = -7n) => {
+    const [n, d = '1'] = raw.split('/');
+    return rational(factor * BigInt(n) + shift * BigInt(d), BigInt(d));
+  };
+  const image = original => {
+    const result = JSON.parse(JSON.stringify(original));
+    result.inputs.readings = result.inputs.readings.map(value => converted(value));
+    result.inputs.target = converted(result.inputs.target);
+    for (const key of ['low', 'high']) result.inputs.bounds[key] = converted(result.inputs.bounds[key]);
+    for (const route of result.claim.routes) {
+      route.knots = route.knots.map(value => converted(value));
+      if (route.threshold !== null) {
+        route.threshold = converted(route.threshold);
+        route.witness = converted(route.witness);
+        route.distance = converted(route.distance, 3n, 0n);
+      }
+    }
+    if (result.claim.best !== null) {
+      result.claim.best.threshold = converted(result.claim.best.threshold);
+      result.claim.best.witness = converted(result.claim.best.witness);
+      result.claim.best.distance = converted(result.claim.best.distance, 3n, 0n);
+    }
+    return result;
+  };
+  let seed = 0x37bd29a1;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (const count of [3, 4, 5, 6, 20, 21]) {
+    const readings = Array.from({length: count}, (_, index) => {
+      const value = -10 + next() % 41;
+      return index % 3 === 0 ? `${2 * value + 1}/2` : String(value);
+    });
+    const target = String(-20 + next() % 61);
+    const original = core.certificate(readings, target, '-20', '40');
+    const changedReadings = readings.map(value => converted(value));
+    const changedTarget = converted(target), low = converted('-20'), high = converted('40');
+    const changed = core.certificate(changedReadings, changedTarget, low, high);
+    assert.deepEqual(changed, image(original), `n=${count}`);
+    assert.deepEqual(changed, python(changedReadings, changedTarget, low, high), `Python n=${count}`);
+  }
+});
+
 test('invalid inputs produce no certificate and the UI keeps values local', () => {
   for (const readings of [['1','2'], ['1','2','-3'],
     ['1','2','101'], ['1','2','3.1234567'], ['1','2','1/0']]) {

@@ -705,6 +705,62 @@ theorem zero_at_two_points (A B p q x : ℝ) (hpq : p ≠ q)
 end AffinePartition
 
 /-!
+A positive affine change of units sends each estimate and target from `v` to
+`scale * v + shift`. The comparison sign is unchanged. The executable
+certificate implementations are separately tested for the stronger claim
+that their route knots, thresholds, witnesses, and distances transform too.
+-/
+namespace AffineEquivariance
+
+theorem squared_error_scales (mean median target scale shift : ℝ) :
+    ((scale * mean + shift) - (scale * target + shift)) ^ 2 -
+      ((scale * median + shift) - (scale * target + shift)) ^ 2 =
+      scale ^ 2 * ((mean - target) ^ 2 - (median - target) ^ 2) := by
+  ring
+
+theorem factor_product_scales (mean median target scale shift : ℝ) :
+    ((scale * mean + shift) - (scale * median + shift)) *
+      ((scale * mean + shift) + (scale * median + shift) -
+        2 * (scale * target + shift)) =
+      scale ^ 2 * ((mean - median) * (mean + median - 2 * target)) := by
+  ring
+
+/-- A positive change of units preserves which estimate strictly wins. -/
+theorem mean_wins_iff (mean median target scale shift : ℝ) (hs : 0 < scale) :
+    ((scale * mean + shift) - (scale * median + shift)) *
+      ((scale * mean + shift) + (scale * median + shift) -
+        2 * (scale * target + shift)) < 0 ↔
+      (mean - median) * (mean + median - 2 * target) < 0 := by
+  rw [factor_product_scales]
+  have hs2 : 0 < scale ^ 2 := sq_pos_of_pos hs
+  constructor
+  · intro h
+    by_contra hn
+    have hnonneg : 0 ≤ (mean - median) * (mean + median - 2 * target) :=
+      le_of_not_gt hn
+    exact (not_le_of_gt h) (mul_nonneg (le_of_lt hs2) hnonneg)
+  · intro h
+    exact mul_neg_of_pos_of_neg hs2 h
+
+/-- The exact equality case is preserved as well. -/
+theorem tie_iff (mean median target scale shift : ℝ) (hs : 0 < scale) :
+    ((scale * mean + shift) - (scale * median + shift)) *
+      ((scale * mean + shift) + (scale * median + shift) -
+        2 * (scale * target + shift)) = 0 ↔
+      (mean - median) * (mean + median - 2 * target) = 0 := by
+  rw [factor_product_scales]
+  have hs2 : scale ^ 2 ≠ 0 := ne_of_gt (sq_pos_of_pos hs)
+  constructor
+  · intro h
+    rcases mul_eq_zero.mp h with hscale | hproduct
+    · exact False.elim (hs2 hscale)
+    · exact hproduct
+  · intro h
+    simp [h]
+
+end AffineEquivariance
+
+/-!
 The moving-reading calculation for an even sample is piecewise affine. On its
 middle cell the central-pair median is `(c + x) / 2`; on either outer cell it
 is constant. These lemmas establish the factor equations and their *only*

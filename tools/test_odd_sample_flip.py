@@ -1,4 +1,4 @@
-"""Exact optimality and tamper checks for arbitrary odd sample sizes."""
+"""Exact optimality, tamper, and unit-invariance checks for odd/even samples."""
 import copy
 import base64
 from fractions import Fraction
@@ -21,6 +21,30 @@ SIGNED_EXAMPLE = ROOT / "examples/odd-sample-flip-v2.json"
 SIGNED_REPORT = ROOT / "odd-flip-signed-report.html"
 EVEN_EXAMPLE = ROOT / "examples/even-sample-flip-v3.json"
 EVEN_REPORT = ROOT / "even-flip-report.html"
+
+
+def affine_image(record, scale, shift):
+    """Independent expected image of every exact field under y = scale*x + shift."""
+    image = copy.deepcopy(record)
+    moved = lambda raw: str(scale * Fraction(raw) + shift)
+    distance = lambda raw: str(scale * Fraction(raw))
+    inputs = image["inputs"]
+    inputs["readings"] = list(map(moved, inputs["readings"]))
+    inputs["target"] = moved(inputs["target"])
+    if "bounds" in inputs:
+        inputs["bounds"] = {key: moved(value) for key, value in inputs["bounds"].items()}
+    for route in image["claim"]["routes"]:
+        route["knots"] = list(map(moved, route["knots"]))
+        if route["threshold"] is not None:
+            route["threshold"] = moved(route["threshold"])
+            route["witness"] = moved(route["witness"])
+            route["distance"] = distance(route["distance"])
+    best = image["claim"]["best"]
+    if best is not None:
+        best["threshold"] = moved(best["threshold"])
+        best["witness"] = moved(best["witness"])
+        best["distance"] = distance(best["distance"])
+    return image
 
 
 class OddFlipTests(unittest.TestCase):
@@ -135,6 +159,28 @@ class OddFlipTests(unittest.TestCase):
                             self.assertIsNotNone(route["distance"], f"n={n} case={case}")
                             self.assertGreater(abs(moved - values[route["index"]]),
                                                Fraction(route["distance"]))
+
+    def test_positive_affine_unit_change_preserves_complete_certificate(self):
+        rng = random.Random(20261017)
+        low, high = Fraction(-20), Fraction(40)
+        scales = (Fraction(3, 2), Fraction(2, 3), Fraction(5, 4))
+        shifts = (Fraction(-7, 3), Fraction(11, 5), Fraction(-8))
+        for n in (3, 4, 5, 6, 9, 10, 20, 21):
+            for case, (scale, shift) in enumerate(zip(scales, shifts)):
+                values = [Fraction(rng.randrange(-30, 81), 2) for _ in range(n)]
+                target = Fraction(rng.randrange(-60, 101), 3)
+                original = certificate(list(map(str, values)), str(target), str(low), str(high))
+                affine = lambda value: str(scale * value + shift)
+                changed = certificate([affine(value) for value in values], affine(target),
+                                      affine(low), affine(high))
+                with self.subTest(n=n, case=case):
+                    self.assertEqual(verify(original)["kind"], original["claim"]["kind"])
+                    self.assertEqual(verify(changed)["kind"], changed["claim"]["kind"])
+                    self.assertEqual(changed, affine_image(original, scale, shift))
+        tied = certificate(["0", "50", "100"], "25", "0", "100")
+        self.assertEqual(tied["claim"]["kind"], "baseline-tie")
+        self.assertEqual(affine_image(tied, Fraction(3, 2), Fraction(-7, 3)),
+                         certificate(["-7/3", "218/3", "443/3"], "211/6", "-7/3", "443/3"))
 
     def test_bounded_validation_and_forged_bounds(self):
         for low, high in (("2", "2"), ("3", "2"), ("-1000001", "100"), ("0", "1000001")):
