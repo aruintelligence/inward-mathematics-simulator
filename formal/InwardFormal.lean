@@ -119,11 +119,11 @@ explicit sorted families of length at least three.
 -/
 
 /-- The mean of a nonempty finite reading list. -/
-def sampleMean (xs : List ℝ) : ℝ := xs.sum / xs.length
+noncomputable def sampleMean (xs : List ℝ) : ℝ := xs.sum / xs.length
 
 /-- The average of the two central entries of an ordered list (the same entry
 twice for odd length). Its zero fallback is irrelevant for the samples below. -/
-def orderedMedian (xs : List ℝ) : ℝ :=
+noncomputable def orderedMedian (xs : List ℝ) : ℝ :=
   (xs[(xs.length - 1) / 2]?.getD 0 + xs[xs.length / 2]?.getD 0) / 2
 
 /-- A sorted sample with one high endpoint. -/
@@ -134,11 +134,11 @@ def oneLow (n : ℕ) : List ℝ := 0 :: List.replicate (n - 1) 100
 
 private theorem oneHigh_length (n : ℕ) (hn : 3 ≤ n) :
     (oneHigh n).length = n := by
-  simp [oneHigh] <;> omega
+  simp [oneHigh]; omega
 
 private theorem oneLow_length (n : ℕ) (hn : 3 ≤ n) :
     (oneLow n).length = n := by
-  simp [oneLow] <;> omega
+  simp [oneLow]; omega
 
 /-- The one-high sample has the exact mean `100/n`. -/
 theorem oneHigh_mean (n : ℕ) (hn : 3 ≤ n) :
@@ -162,7 +162,6 @@ theorem oneLow_mean (n : ℕ) (hn : 3 ≤ n) :
     nsmul_eq_mul, zero_add]
   rw [hsub]
   field_simp [hnzero]
-  ring
 
 private theorem oneHigh_middle (n i : ℕ) (hi : i < n - 1) :
     (oneHigh n)[i]? = some 0 := by
