@@ -328,8 +328,7 @@ private theorem guardsAtZero (m d : ℝ) (hm : 0 ≤ m) (hd : 0 ≤ d) :
   have hmin : 0 ≤ min m d := le_min hm hd
   have hmax : 0 ≤ max m d := le_trans hm (le_max_left m d)
   refine ⟨trivial, ?_, ?_⟩
-  · change 0 ≤ min m d + max m d
-    linarith
+  · simpa [guard] using add_nonneg hmin hmax
   · exact hmin
 
 private theorem guardsAtHundred (m d : ℝ) (hm : m ≤ 100) (hd : d ≤ 100) :
@@ -382,7 +381,7 @@ private theorem highZeroBad (n : ℕ) (hn : 3 ≤ n) :
     rw [oneHigh_median n hn]
     exact le_of_lt (endpoint_means_interior n hn).1
   constructor
-  · unfold conclusion
+  · dsimp only [conclusion]
     rw [max_eq_left hord, min_eq_right hord]
     exact not_le_of_gt hwin
   · exact not_le_of_gt hwin
@@ -395,7 +394,7 @@ private theorem highHundredBad (n : ℕ) (hn : 3 ≤ n) :
     rw [oneHigh_median n hn]
     exact le_of_lt (endpoint_means_interior n hn).1
   constructor
-  · unfold conclusion
+  · dsimp only [conclusion]
     rw [min_eq_right hord, max_eq_left hord]
     exact not_le_of_gt hwin
   · exact not_le_of_gt hwin
@@ -408,7 +407,7 @@ private theorem lowZeroBad (n : ℕ) (hn : 3 ≤ n) :
     rw [oneLow_median n hn]
     exact le_of_lt (endpoint_means_interior n hn).2.2.2
   constructor
-  · unfold conclusion
+  · dsimp only [conclusion]
     rw [max_eq_right hord, min_eq_left hord]
     exact not_le_of_gt hwin
   · exact not_le_of_gt hwin
@@ -421,7 +420,7 @@ private theorem lowHundredBad (n : ℕ) (hn : 3 ≤ n) :
     rw [oneLow_median n hn]
     exact le_of_lt (endpoint_means_interior n hn).2.2.2
   constructor
-  · unfold conclusion
+  · dsimp only [conclusion]
     rw [min_eq_left hord, max_eq_right hord]
     exact not_le_of_gt hwin
   · exact not_le_of_gt hwin
@@ -465,12 +464,10 @@ theorem universal_iff_established (n : ℕ) (hn : 3 ≤ n)
     universal c p ↔ established c p = true := by
   cases h : established c p with
   | true =>
-      simp only [h, iff_true]
       simpa [h] using classify n hn c p
   | false =>
-      simp only [h, iff_false]
       have hw : refutedByEndpoint n c p := by simpa [h] using classify n hn c p
-      exact refutation_disproves_universal n c p hw
+      simpa [h] using (refutation_disproves_universal n c p hw)
 
 end RegisteredClaim
 
