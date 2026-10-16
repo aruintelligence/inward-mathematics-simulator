@@ -19,6 +19,8 @@ EXAMPLE = ROOT / "examples/odd-sample-flip-v1.json"
 REPORT = ROOT / "odd-flip-report.html"
 SIGNED_EXAMPLE = ROOT / "examples/odd-sample-flip-v2.json"
 SIGNED_REPORT = ROOT / "odd-flip-signed-report.html"
+EVEN_EXAMPLE = ROOT / "examples/even-sample-flip-v3.json"
+EVEN_REPORT = ROOT / "even-flip-report.html"
 
 
 class OddFlipTests(unittest.TestCase):
@@ -86,6 +88,52 @@ class OddFlipTests(unittest.TestCase):
                         if winner([*fixed, moved], target) not in (baseline, "Tie"):
                             self.assertIsNotNone(route["distance"])
                             self.assertGreater(abs(moved-values[route["index"]]),
+                                               Fraction(route["distance"]))
+
+    def test_even_median_certificate_exact_threshold_and_independent_replay(self):
+        record = certificate(["40", "45", "50", "80"], "50")
+        self.assertEqual(record, json.loads(EVEN_EXAMPLE.read_bytes()))
+        self.assertEqual(EVEN_REPORT.read_text(encoding="utf-8"), render(EVEN_EXAMPLE.read_bytes()))
+        self.assertEqual(record["format"], "inward-even-sample-flip-v3")
+        self.assertEqual(record["inputs"]["bounds"], {"low": "0", "high": "100"})
+        self.assertEqual(record["claim"]["best"],
+                         {"index": 1, "threshold": "130/3", "distance": "5/3", "witness": "125/3"})
+        self.assertEqual(verify(record)["routes"], 4)
+        self.assertEqual(winner(list(map(Fraction, ["40", "130/3", "50", "80"])), Fraction(50)), "Tie")
+        self.assertEqual(winner(list(map(Fraction, ["40", "125/3", "50", "80"])), Fraction(50)), "Mean")
+        report = render(json.dumps(record).encode())
+        self.assertIn("certificate v3", report)
+        self.assertIn("even-sized sample", report)
+
+        tied = certificate(["40", "45", "55", "60"], "50")
+        self.assertEqual(verify(tied)["kind"], "baseline-tie")
+        with self.assertRaises(ValueError):
+            verify({**record, "format": "inward-odd-sample-flip-v2"})
+        forged = copy.deepcopy(record)
+        forged["claim"]["routes"][1]["knots"].pop(1)
+        with self.assertRaises(ValueError):
+            verify(forged)
+
+    def test_even_signed_repeated_and_boundary_samples_cover_grid(self):
+        rng = random.Random(20261016)
+        for n in (4, 6, 12, 20):
+            for case in range(12):
+                low, high = Fraction(-20), Fraction(40)
+                values = [low + (high - low) * Fraction(rng.randrange(0, 13), 12)
+                          for _ in range(n)]
+                target = Fraction(rng.randrange(-40, 61), 3)
+                record = certificate(list(map(str, values)), str(target), str(low), str(high))
+                self.assertEqual(verify(record)["kind"], record["claim"]["kind"])
+                if record["claim"]["kind"] != "strict-baseline":
+                    continue
+                baseline = record["claim"]["baseline"]
+                for route in record["claim"]["routes"]:
+                    fixed = values[:route["index"]] + values[route["index"] + 1:]
+                    for step in range(25):
+                        moved = low + (high - low) * Fraction(step, 24)
+                        if winner([*fixed, moved], target) not in (baseline, "Tie"):
+                            self.assertIsNotNone(route["distance"], f"n={n} case={case}")
+                            self.assertGreater(abs(moved - values[route["index"]]),
                                                Fraction(route["distance"]))
 
     def test_bounded_validation_and_forged_bounds(self):

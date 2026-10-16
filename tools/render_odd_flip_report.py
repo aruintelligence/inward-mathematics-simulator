@@ -88,13 +88,17 @@ def render(raw):
     routes = "\n".join(card(route, inputs["readings"], best_index, low, high) for route in claim["routes"])
     domain_description = f"the interval [{safe(low)},{safe(high)}]" if custom else "every real setting from 0 to 100"
     domain_assumption = f"[{safe(low)},{safe(high)}]" if custom else "[0,100]"
-    version = "v2" if custom else "v1"
+    even = len(inputs["readings"]) % 2 == 0
+    version = "v3" if even else "v2" if custom else "v1"
+    sample_description = "even-sized" if even else "odd-sized"
+    report_description = ("Exact even-sample" if even else "Exact odd-sample")
+    report_title = "Even-Sample Flip" if even else "Odd-Sample Flip"
     fingerprint = hashlib.sha256(raw).hexdigest()
     download = base64.b64encode(raw).decode("ascii")
     return f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Exact odd-sample single-reading reversal certificate and checked research report.">
-<title>Odd-Sample Flip | Inward Mathematics™</title>
+<meta name="description" content="{report_description} single-reading reversal certificate and checked research report.">
+<title>{report_title} | Inward Mathematics™</title>
 <style>
 :root{{color-scheme:dark light;--bg:#071b28;--panel:#102d3d;--ink:#f3faf7;--muted:#c4d8dc;--line:#668a93;--mint:#6ce4c4;--cyan:#8dc8f8;--gold:#f6c477}}
 *{{box-sizing:border-box}}body{{margin:0;min-width:320px;background:radial-gradient(circle at 85% 3%,#1d5360,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}}
@@ -109,7 +113,7 @@ details{{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;color
 @media(max-width:760px){{.hero,.routes{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:light){{:root{{--bg:#f4f7f6;--panel:#fff;--ink:#163742;--muted:#405c62;--line:#859fa3;--mint:#006653;--cyan:#09617a;--gold:#745017}}body{{background:radial-gradient(circle at 90% 0%,#e0efea,transparent 38%),var(--bg)}}.result{{background:#f5efe1}}.best{{background:#f6c477}}}}
 @media print{{:root{{color-scheme:light;--bg:#fff;--panel:#fff;--ink:#132b32;--muted:#304c51;--line:#9aadb0;--mint:#126153;--gold:#724c18}}body{{background:#fff}}.hero{{padding:18px 0}}.section{{padding:20px 0}}.route{{break-inside:avoid}}svg{{print-color-adjust:exact}}footer{{display:none}}}}
 </style></head><body><header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong></div></header>
-<main class="wrap"><section class="hero"><div><p class="eyebrow">Exact research report / certificate {version}</p><h1>How close is a real reversal?</h1><p class="lede">One reading moves, the others stay fixed. An exact factor-root partition covers {domain_description} for this odd-sized sample.</p></div><aside class="result"><small>Strict reversal infimum</small><strong>{headline}</strong><p>{finding}</p></aside></section>
+<main class="wrap"><section class="hero"><div><p class="eyebrow">Exact research report / certificate {version}</p><h1>How close is a real reversal?</h1><p class="lede">One reading moves, the others stay fixed. An exact factor-root partition covers {domain_description} for this {sample_description} sample.</p></div><aside class="result"><small>Strict reversal infimum</small><strong>{headline}</strong><p>{finding}</p></aside></section>
 <section class="section"><p class="eyebrow">01 / Model assumptions</p><h2>Stipulated inputs</h2><p class="intro">{len(inputs["readings"])} readings. Chosen target {safe(inputs["target"])}. Starting winner: {safe(claim["baseline"])}. Only one reading may change at a time; the allowed domain is the continuous real interval {domain_assumption}.</p><div class="facts">{''.join(f'<span>r<sub>{i+1}</sub> = <strong>{safe(v)}</strong></span>' for i,v in enumerate(inputs["readings"]))}</div><p class="intro">A threshold is a tie, not a strict winning move. The exact infimum can be approached from the opposing interval; the recorded witness is an explicit strict reversal.</p></section>
 <section class="section"><p class="eyebrow">02 / Exhaustive routes</p><h2>Every movable reading</h2><p class="intro">Colors summarize open intervals. Markers show the original reading (white line) and any nearest tie boundary (gold circle). Position is approximate; exact fractions below and in the certificate carry the result.</p><div class="legend"><span><i></i>Mean wins</span><span class="median"><i></i>Median wins</span><span class="tie"><i></i>Tie interval or boundary</span></div><div class="routes">{routes}</div></section>
 <section class="section"><p class="eyebrow">03 / Reproduce</p><h2>Take the evidence with you</h2><p class="intro">The embedded download contains the exact bytes checked by the independent Python verifier. Its fingerprint identifies matching bytes; it does not authenticate their source or establish that the inputs reflect real measurements.</p><div class="provenance">Certificate SHA-256: <code>{fingerprint}</code><a href="data:application/json;base64,{download}" download="odd-sample-flip-certificate.json">Download checked JSON certificate</a><p>Run <code>python3 tools/verify_odd_sample_flip.py odd-sample-flip-certificate.json</code> using the repository checker. Verified status: {safe(verified["kind"])}.</p></div></section></main>

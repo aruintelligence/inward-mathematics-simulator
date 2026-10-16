@@ -1,4 +1,4 @@
-/* Exact arithmetic for the local odd-sample research lab. The independent Python
+/* Exact arithmetic for the local sample reversal lab. The independent Python
    verifier in tools/verify_odd_sample_flip.py checks exported certificates. */
 (function (root, factory) {
   const api = factory();
@@ -8,6 +8,7 @@
   "use strict";
   const FORMAT = "inward-odd-sample-flip-v1";
   const BOUNDED_FORMAT = "inward-odd-sample-flip-v2";
+  const EVEN_FORMAT = "inward-even-sample-flip-v3";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -58,7 +59,8 @@
   function winner(readings, target) {
     const ordered = [...readings].sort(cmp);
     const mean = div(readings.reduce(add, ZERO), q(BigInt(readings.length)));
-    const median = ordered[Math.floor(readings.length / 2)];
+    const median = div(add(ordered[Math.floor((readings.length - 1) / 2)],
+      ordered[Math.floor(readings.length / 2)]), q(2n));
     const factorA = sub(mean, median);
     const factorB = sub(add(mean, median), mul(q(2n), target));
     const sign = factorA.n * factorB.n;
@@ -67,12 +69,19 @@
   function partitions(fixed, target, low = ZERO, high = HUNDRED) {
     const n = fixed.length + 1;
     const ordered = [...fixed].sort(cmp);
-    const lower = ordered[(n - 1) / 2 - 1], upper = ordered[(n - 1) / 2];
+    const even = n % 2 === 0, k = Math.floor(n / 2);
+    const lower = even ? ordered[k - 2] : ordered[k - 1];
+    const upper = ordered[k];
+    const center = even ? ordered[k - 1] : ZERO;
+    const leftMedian = even ? div(add(lower, center), q(2n)) : lower;
+    const rightMedian = even ? div(add(center, upper), q(2n)) : upper;
+    const middleIntercept = even ? div(center, q(2n)) : ZERO;
+    const middleSlope = even ? div(ONE, q(2n)) : ONE;
     const total = fixed.reduce(add, ZERO);
     const unit = div(ONE, q(BigInt(n)));
     const base = div(total, q(BigInt(n)));
-    const segments = [[low, lower, lower, ZERO], [lower, upper, ZERO, ONE],
-      [upper, high, upper, ZERO]];
+    const segments = [[low, lower, leftMedian, ZERO],
+      [lower, upper, middleIntercept, middleSlope], [upper, high, rightMedian, ZERO]];
     const knots = new Map([low, high, lower, upper].map(x => [string(x), x]));
     for (const [start, end, intercept, slope] of segments) {
       const factors = [[sub(base, intercept), sub(unit, slope)],
@@ -118,8 +127,8 @@
   const absQ = a => q(abs(a.n), a.d);
   function certificate(rawReadings, rawTarget, rawLow, rawHigh) {
     if (!Array.isArray(rawReadings) || rawReadings.length < 3 ||
-        rawReadings.length > 21 || rawReadings.length % 2 !== 1) {
-      throw new Error("Supply an odd count of 3 through 21 readings.");
+        rawReadings.length > 21) {
+      throw new Error("Supply 3 through 21 readings.");
     }
     const custom = rawLow !== undefined || rawHigh !== undefined;
     if (custom && (rawLow === undefined || rawHigh === undefined)) {
@@ -130,10 +139,12 @@
     if (cmp(low, high) >= 0) throw new Error("Movement bounds must have positive width.");
     const readings = rawReadings.map(value => exact(value, low, high));
     const target = exact(rawTarget, custom ? neg(LIMIT) : ZERO, custom ? LIMIT : HUNDRED);
+    const even = readings.length % 2 === 0;
+    const format = even ? EVEN_FORMAT : custom ? BOUNDED_FORMAT : FORMAT;
     const inputs = {readings: readings.map(string), target: string(target)};
-    if (custom) inputs.bounds = {low: string(low), high: string(high)};
+    if (custom || even) inputs.bounds = {low: string(low), high: string(high)};
     const baseline = winner(readings, target);
-    if (baseline === "Tie") return {format: custom ? BOUNDED_FORMAT : FORMAT, inputs,
+    if (baseline === "Tie") return {format, inputs,
       claim: {kind: "baseline-tie", baseline, routes: [], best: null}};
     const routes = readings.map((_, index) => route(readings, index, target, baseline, low, high));
     const feasible = routes.filter(item => item.threshold !== null);
@@ -141,7 +152,7 @@
     const bestRoute = feasible[0];
     const best = bestRoute ? {index: bestRoute.index, threshold: bestRoute.threshold,
       distance: bestRoute.distance, witness: bestRoute.witness} : null;
-    return {format: custom ? BOUNDED_FORMAT : FORMAT, inputs,
+    return {format, inputs,
       claim: {kind: "strict-baseline", baseline, routes, best}};
   }
   const position = (value, low, high) => {

@@ -1,4 +1,4 @@
-/* Independently check odd-sample flip certificates. This file does not import
+/* Independently check sample flip certificates. This file does not import
    the constructor in odd-flip-core.js or the Python certificate generator. */
 (function (root, factory) {
   const api = factory();
@@ -8,6 +8,7 @@
   "use strict";
   const FORMAT = "inward-odd-sample-flip-v1";
   const BOUNDED_FORMAT = "inward-odd-sample-flip-v2";
+  const EVEN_FORMAT = "inward-even-sample-flip-v3";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const fail = message => { throw new Error(message); };
   const abs = x => x < 0n ? -x : x;
@@ -101,7 +102,8 @@
   function outcome(fixed, moved, target) {
     const values = [...fixed, moved].sort(compare);
     const mean = divide(values.reduce(plus, ZERO), fraction(BigInt(values.length)));
-    const median = values[Math.floor(values.length / 2)];
+    const median = divide(plus(values[Math.floor((values.length - 1) / 2)],
+      values[Math.floor(values.length / 2)]), fraction(2n));
     const meanError = minus(mean, target), medianError = minus(median, target);
     const delta = minus(times(meanError, meanError), times(medianError, medianError));
     const sign = compare(delta, ZERO);
@@ -110,15 +112,23 @@
   function roots(fixed, target, low = ZERO, high = HUNDRED) {
     const n = fixed.length + 1;
     const sorted = [...fixed].sort(compare);
-    const lower = sorted[(n - 1) / 2 - 1], upper = sorted[(n - 1) / 2];
     const sum = fixed.reduce(plus, ZERO), count = fraction(BigInt(n));
     const two = fraction(2n);
+    const even = n % 2 === 0, k = Math.floor(n / 2);
+    const lower = sorted[even ? k - 2 : k - 1], upper = sorted[k];
+    const center = even ? sorted[k - 1] : ZERO;
+    const leftMedian = even ? divide(plus(lower, center), two) : lower;
+    const rightMedian = even ? divide(plus(center, upper), two) : upper;
     const knots = new Map([low, high, lower, upper].map(x => [notation(x), x]));
-    const left = [minus(times(count, lower), sum),
-      minus(times(count, minus(times(two, target), lower)), sum)];
-    const right = [minus(times(count, upper), sum),
-      minus(times(count, minus(times(two, target), upper)), sum)];
-    const middle = [divide(sum, fraction(BigInt(n - 1))),
+    const left = [minus(times(count, leftMedian), sum),
+      minus(times(count, minus(times(two, target), leftMedian)), sum)];
+    const right = [minus(times(count, rightMedian), sum),
+      minus(times(count, minus(times(two, target), rightMedian)), sum)];
+    const middle = even ? [
+      divide(minus(times(two, sum), times(count, center)), fraction(BigInt(n - 2))),
+      divide(minus(minus(times(times(fraction(4n), count), target), times(two, sum)),
+        times(count, center)), fraction(BigInt(n + 2)))
+    ] : [divide(sum, fraction(BigInt(n - 1))),
       divide(minus(times(times(two, count), target), sum), fraction(BigInt(n + 1)))];
     for (const [start, end, candidates] of [[low, lower, left], [lower, upper, middle],
       [upper, high, right]]) {
@@ -130,16 +140,17 @@
   }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (record.format !== FORMAT && record.format !== BOUNDED_FORMAT) fail("Unknown certificate format");
-    const custom = record.format === BOUNDED_FORMAT;
+    if (![FORMAT, BOUNDED_FORMAT, EVEN_FORMAT].includes(record.format)) fail("Unknown certificate format");
+    const custom = record.format !== FORMAT;
     fields(record.inputs, custom ? ["readings", "target", "bounds"] : ["readings", "target"], "inputs");
     if (custom) fields(record.inputs.bounds, ["low", "high"], "bounds");
     const low = custom ? rational(record.inputs.bounds.low, "lower bound", NEGATIVE_LIMIT, LIMIT) : ZERO;
     const high = custom ? rational(record.inputs.bounds.high, "upper bound", NEGATIVE_LIMIT, LIMIT) : HUNDRED;
     if (compare(low, high) >= 0) fail("Movement bounds must have positive width");
     const raw = record.inputs.readings;
-    if (!Array.isArray(raw) || raw.length < 3 || raw.length > 21 || raw.length % 2 !== 1) {
-      fail("Reading count must be odd and between 3 and 21");
+    if (!Array.isArray(raw) || raw.length < 3 || raw.length > 21 ||
+        raw.length % 2 !== (record.format === EVEN_FORMAT ? 0 : 1)) {
+      fail("Reading count does not match certificate format");
     }
     const values = raw.map((value, index) => rational(value, `reading ${index + 1}`, low, high));
     const target = rational(record.inputs.target, "target", custom ? NEGATIVE_LIMIT : ZERO,

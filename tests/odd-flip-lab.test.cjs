@@ -73,8 +73,34 @@ test('custom signed movement bounds agree with Python and preserve exact SVG rat
     python(['-1.5', '-1/2', '0.5'], '-1', '-2', '1'));
 });
 
+test('even central-pair medians yield exact reversible routes across supported sizes', () => {
+  const example = core.certificate(['40', '45', '50', '80'], '50');
+  assert.equal(example.format, 'inward-even-sample-flip-v3');
+  assert.deepEqual(example.inputs.bounds, {low: '0', high: '100'});
+  assert.deepEqual(example.claim.best,
+    {index: 1, threshold: '130/3', distance: '5/3', witness: '125/3'});
+  assert.deepEqual(example, python(['40', '45', '50', '80'], '50'));
+  let seed = 0x6e8e4c2d;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (let i = 0; i < 28; i++) {
+    const count = 4 + 2 * (i % 9);
+    const low = i % 3 === 0 ? '-20' : '0', high = i % 3 === 0 ? '60' : '100';
+    const readings = Array.from({length: count}, (_, index) => {
+      const value = (i % 3 === 0 ? -20 : 0) + next() % 71;
+      return index % 4 === 0 ? `${2 * value + 1}/2` : String(value);
+    });
+    const target = i % 3 === 0 ? String(-30 + next() % 90) : String(next() % 101);
+    const actual = i % 3 === 0 ? core.certificate(readings, target, low, high) :
+      core.certificate(readings, target);
+    const expected = i % 3 === 0 ? python(readings, target, low, high) :
+      python(readings, target);
+    assert.deepEqual(actual, expected, `even case ${i} at n=${count}`);
+  }
+  assert.equal(core.certificate(['40','45','55','60'], '50').claim.kind, 'baseline-tie');
+});
+
 test('invalid inputs produce no certificate and the UI keeps values local', () => {
-  for (const readings of [['1','2'], ['1','2','3','4'], ['1','2','-3'],
+  for (const readings of [['1','2'], ['1','2','-3'],
     ['1','2','101'], ['1','2','3.1234567'], ['1','2','1/0']]) {
     assert.throws(() => core.certificate(readings, '50'));
   }
@@ -86,6 +112,8 @@ test('invalid inputs produce no certificate and the UI keeps values local', () =
   assert.throws(() => core.certificate(['1','2','3'], '1000001', '1', '4'));
   const html = readFileSync('odd-flip-lab.html', 'utf8');
   const script = readFileSync('odd-flip-lab.js', 'utf8');
+  assert.match(html, /id="even-example"/);
+  assert.match(script, /Median: average of central pair/);
   assert.match(html, /<script src="odd-flip-core.js"><\/script><script src="odd-flip-lab.js"><\/script>/);
   assert.match(html, /role="alert"/);
   assert.match(html, /id="low".*id="high"/s);
