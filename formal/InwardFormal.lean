@@ -735,7 +735,7 @@ theorem sampleMean_rebase (xs : List ℝ) (scale shift : ℝ)
   simp only [rebase] at hsum
   simp only [sampleMean, rebase, List.length_map]
   rw [hsum]
-  field_simp [hn] <;> ring
+  field_simp [hn]
 
 private theorem getD_rebase (xs : List ℝ) (scale shift : ℝ) (i : ℕ)
     (hi : i < xs.length) :
@@ -764,7 +764,7 @@ theorem orderedMedian_rebase (xs : List ℝ) (scale shift : ℝ)
 theorem sorted_rebase (xs : List ℝ) (scale shift : ℝ) (hs : 0 < scale)
     (hordered : List.Pairwise (· ≤ ·) xs) :
     List.Pairwise (· ≤ ·) (rebase scale shift xs) := by
-  induction xs generalizing hordered with
+  induction xs with
   | nil => exact List.Pairwise.nil
   | cons value rest ih =>
     obtain ⟨hhead, htail⟩ := List.pairwise_cons.mp hordered
