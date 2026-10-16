@@ -110,4 +110,142 @@ theorem coincident_estimates_tie (a b t : ℝ) (hab : a = b) :
     |a - t| = |b - t| := by
   rw [hab]
 
+/-!
+The v6 counterexamples use sorted samples with one endpoint appearing once.
+These definitions deliberately expose the same central-order-statistics rule
+used by the independent receipt verifiers. The function `orderedMedian` expects
+its input to be sorted and nonempty; the theorems below only apply to the two
+explicit sorted families of length at least three.
+-/
+
+/-- The mean of a nonempty finite reading list. -/
+noncomputable def sampleMean (xs : List ℝ) : ℝ := xs.sum / xs.length
+
+/-- The average of the two central entries of an ordered list (the same entry
+twice for odd length). Its zero fallback is irrelevant for the samples below. -/
+noncomputable def orderedMedian (xs : List ℝ) : ℝ :=
+  (xs[(xs.length - 1) / 2]?.getD 0 + xs[xs.length / 2]?.getD 0) / 2
+
+/-- A sorted sample with one high endpoint. -/
+def oneHigh (n : ℕ) : List ℝ := List.replicate (n - 1) 0 ++ [100]
+
+/-- A sorted sample with one low endpoint. -/
+def oneLow (n : ℕ) : List ℝ := 0 :: List.replicate (n - 1) 100
+
+private theorem oneHigh_length (n : ℕ) (hn : 3 ≤ n) :
+    (oneHigh n).length = n := by
+  simp [oneHigh]; omega
+
+private theorem oneLow_length (n : ℕ) (hn : 3 ≤ n) :
+    (oneLow n).length = n := by
+  simp [oneLow]; omega
+
+/-- The one-high sample has the exact mean `100/n`. -/
+theorem oneHigh_mean (n : ℕ) (hn : 3 ≤ n) :
+    sampleMean (oneHigh n) = 100 / (n : ℝ) := by
+  have hlen := oneHigh_length n hn
+  unfold sampleMean
+  rw [hlen]
+  simp [oneHigh]
+
+/-- The one-low sample has the exact mean `100 - 100/n`. -/
+theorem oneLow_mean (n : ℕ) (hn : 3 ≤ n) :
+    sampleMean (oneLow n) = 100 - 100 / (n : ℝ) := by
+  have hlen := oneLow_length n hn
+  have hsub : (↑(n - 1) : ℝ) = (n : ℝ) - 1 := by
+    rw [Nat.cast_sub (by omega : 1 ≤ n)]
+    norm_num
+  have hnzero : (n : ℝ) ≠ 0 := by exact_mod_cast (by omega : n ≠ 0)
+  unfold sampleMean
+  rw [hlen]
+  simp only [oneLow, List.sum_cons, List.sum_replicate,
+    nsmul_eq_mul, zero_add]
+  rw [hsub]
+  field_simp [hnzero]
+
+private theorem oneHigh_middle (n i : ℕ) (hi : i < n - 1) :
+    (oneHigh n)[i]? = some 0 := by
+  unfold oneHigh
+  rw [List.getElem?_append_left (by simpa using hi)]
+  exact List.getElem?_replicate_of_lt hi
+
+private theorem oneLow_middle (n i : ℕ) (hpos : 0 < i) (hi : i < n) :
+    (oneLow n)[i]? = some 100 := by
+  unfold oneLow
+  rw [List.getElem?_cons, if_neg (by omega : i ≠ 0)]
+  exact List.getElem?_replicate_of_lt (by omega : i - 1 < n - 1)
+
+/-- Both central entries of the one-high sample are zero, for odd and even sizes. -/
+theorem oneHigh_median (n : ℕ) (hn : 3 ≤ n) :
+    orderedMedian (oneHigh n) = 0 := by
+  have hlen := oneHigh_length n hn
+  have hleft : (n - 1) / 2 < n - 1 := by omega
+  have hright : n / 2 < n - 1 := by omega
+  unfold orderedMedian
+  rw [hlen, oneHigh_middle n _ hleft, oneHigh_middle n _ hright]
+  norm_num
+
+/-- Both central entries of the one-low sample are 100, for odd and even sizes. -/
+theorem oneLow_median (n : ℕ) (hn : 3 ≤ n) :
+    orderedMedian (oneLow n) = 100 := by
+  have hlen := oneLow_length n hn
+  have hleft : 0 < (n - 1) / 2 := by omega
+  have hright : 0 < n / 2 := by omega
+  have hleft' : (n - 1) / 2 < n := by omega
+  have hright' : n / 2 < n := by omega
+  unfold orderedMedian
+  rw [hlen, oneLow_middle n _ hleft hleft', oneLow_middle n _ hright hright']
+  norm_num
+
+/-- The sample means lie strictly between the endpoint values. -/
+theorem endpoint_means_interior (n : ℕ) (hn : 3 ≤ n) :
+    0 < sampleMean (oneHigh n) ∧ sampleMean (oneHigh n) < 100 ∧
+    0 < sampleMean (oneLow n) ∧ sampleMean (oneLow n) < 100 := by
+  have hnreal : (2 : ℝ) < (n : ℝ) := by exact_mod_cast (by omega : 2 < n)
+  rw [oneHigh_mean n hn, oneLow_mean n hn]
+  have hpos : 0 < 100 / (n : ℝ) := by positivity
+  have hlt : 100 / (n : ℝ) < 100 := by
+    apply (div_lt_iff₀ (by linarith : (0 : ℝ) < n)).2
+    nlinarith
+  constructor
+  · exact hpos
+  constructor
+  · exact hlt
+  constructor
+  · linarith
+  · linarith
+
+/-- The two families strictly favor opposite estimators at opposite targets.
+These are exactly the four endpoint choices used to refute the other pairs. -/
+theorem endpoint_strict_wins (n : ℕ) (hn : 3 ≤ n) :
+    |orderedMedian (oneHigh n) - 0| < |sampleMean (oneHigh n) - 0| ∧
+    |sampleMean (oneHigh n) - 100| < |orderedMedian (oneHigh n) - 100| ∧
+    |sampleMean (oneLow n) - 0| < |orderedMedian (oneLow n) - 0| ∧
+    |orderedMedian (oneLow n) - 100| < |sampleMean (oneLow n) - 100| := by
+  rcases endpoint_means_interior n hn with ⟨hhigh0, hhigh100, hlow0, hlow100⟩
+  have hhighNeg : sampleMean (oneHigh n) - 100 < 0 := by linarith
+  have hlowNeg : sampleMean (oneLow n) - 100 < 0 := by linarith
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rw [oneHigh_median n hn]
+    simp only [sub_zero, abs_zero]
+    rw [abs_of_pos hhigh0]
+    exact hhigh0
+  · have hright : |orderedMedian (oneHigh n) - 100| = (100 : ℝ) := by
+      rw [oneHigh_median n hn]
+      norm_num
+    rw [hright, abs_of_neg hhighNeg]
+    linarith
+  · have hright : |orderedMedian (oneLow n) - 0| = (100 : ℝ) := by
+      rw [oneLow_median n hn]
+      norm_num
+    rw [hright]
+    simp only [sub_zero]
+    rw [abs_of_pos hlow0]
+    exact hlow100
+  · have hleft : |orderedMedian (oneLow n) - 100| = (0 : ℝ) := by
+      rw [oneLow_median n hn]
+      norm_num
+    rw [hleft, abs_of_neg hlowNeg]
+    linarith
+
 end InwardFormal
