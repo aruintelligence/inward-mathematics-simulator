@@ -65,7 +65,7 @@
       $("seal-note").textContent = `${result.routes} exhaustive routes checked with exact rational arithmetic.`;
       $("status").textContent = "Certificate accepted under its stated inputs.";
       $("reachable").textContent = result.reachable.join(" · ");
-      $("overall-note").textContent = `${result.routes} readings; movement [${record.inputs.movement.low}, ${record.inputs.movement.high}]; target [${record.inputs.target.low}, ${record.inputs.target.high}].`;
+      $("overall-note").textContent = `${result.routes} readings; ${result.routes % 2 ? "middle-reading" : "central-pair average"} median; movement [${record.inputs.movement.low}, ${record.inputs.movement.high}]; target [${record.inputs.target.low}, ${record.inputs.target.high}].`;
       $("guarantee").textContent = result.guarantee || "None across all routes";
       $("guarantee-note").textContent = result.guarantee ?
         `The ${result.guarantee.toLowerCase()} is strictly closer for every permitted reading move and target in this model.` :

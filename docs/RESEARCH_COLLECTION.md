@@ -28,6 +28,8 @@ This is a schema illustration, not a valid receipt. Replace the illustrated `for
 
 Export rechecks every item currently in IndexedDB. If any item cannot be verified, the collection is **not** produced, so a backup never silently omits or blesses damaged data. A user can export a valid individual record or remove a damaged local item. Import verifies **all** entries before opening one read/write transaction; the transaction either adds all missing entries or adds none if the 100-record limit would be exceeded. Existing identical bytes keep their local labels and are counted as duplicates. Imported labels are convenience metadata. The file carries no timestamp, signature, encryption, user account, synchronization, or authentication.
 
+Target Box receipts can be odd v1 or central-pair even v2 in either collection version. Both exact rectangle verifiers check the complete median transition and factor-root partition and every listed witness. Older odd receipt bytes remain unchanged.
+
 Conditional claim receipts may be v1, theorem-bound v2, universally
 classified v3, odd-sample v4, central-order-statistics v5, or constructed
 endpoint v6 in the same collection. V2–v6 verify the embedded theorem mapping

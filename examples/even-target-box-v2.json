@@ -1,0 +1,165 @@
+{
+  "format": "inward-even-target-box-v2",
+  "inputs": {
+    "readings": [
+      "40",
+      "45",
+      "50",
+      "80"
+    ],
+    "movement": {
+      "low": "0",
+      "high": "100"
+    },
+    "target": {
+      "low": "48",
+      "high": "52"
+    }
+  },
+  "claim": {
+    "routes": [
+      {
+        "index": 0,
+        "knots": [
+          "0",
+          "15",
+          "19",
+          "45",
+          "47",
+          "75",
+          "80",
+          "85",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "17",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "15",
+            "target": "48"
+          }
+        }
+      },
+      {
+        "index": 1,
+        "knots": [
+          "0",
+          "10",
+          "34",
+          "40",
+          "146/3",
+          "70",
+          "80",
+          "90",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "22",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "10",
+            "target": "48"
+          }
+        }
+      },
+      {
+        "index": 2,
+        "knots": [
+          "0",
+          "5",
+          "40",
+          "43",
+          "161/3",
+          "75",
+          "80",
+          "85",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "45/2",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "5",
+            "target": "48"
+          }
+        }
+      },
+      {
+        "index": 3,
+        "knots": [
+          "0",
+          "35",
+          "40",
+          "45",
+          "50",
+          "55",
+          "59",
+          "91",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "75/2",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "35",
+            "target": "48"
+          }
+        }
+      }
+    ],
+    "reachable": [
+      "Mean",
+      "Median",
+      "Tie"
+    ],
+    "guarantee": null
+  }
+}

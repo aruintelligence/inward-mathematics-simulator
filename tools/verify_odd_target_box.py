@@ -8,6 +8,7 @@ import re
 import sys
 
 FORMAT = "inward-odd-target-box-v1"
+EVEN_FORMAT = "inward-even-target-box-v2"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
@@ -38,7 +39,7 @@ def no_duplicates(pairs):
 
 def estimators(fixed, moved):
     values = sorted([*fixed, moved])
-    return sum(values) / len(values), values[len(values) // 2]
+    return sum(values) / len(values), (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2
 
 
 def outcome(fixed, moved, target):
@@ -51,18 +52,26 @@ def all_roots(fixed, low, high, target_low, target_high):
     """Solve linear factors separately on the three median cells."""
     n = len(fixed) + 1
     ordered = sorted(fixed)
-    lower, upper = ordered[n // 2 - 1], ordered[n // 2]
+    even, k = n % 2 == 0, n // 2
+    lower, upper = ordered[k - 2 if even else k - 1], ordered[k]
+    center = ordered[k - 1] if even else Fraction(0)
+    left_median = (lower + center) / 2 if even else lower
+    right_median = (center + upper) / 2 if even else upper
     total = sum(fixed)
     roots = {low, high, lower, upper}
-    for start, end, median in ((low, lower, lower), (upper, high, upper)):
+    for start, end, median in ((low, lower, left_median), (upper, high, right_median)):
         for root in (n * median - total,
                      *(n * (2 * target - median) - total
                        for target in (target_low, target_high))):
             if start <= root <= end:
                 roots.add(root)
-    for root in (total / (n - 1),
-                 *((2 * n * target - total) / (n + 1)
-                   for target in (target_low, target_high))):
+    middle = ((2 * total - n * center) / (n - 2),
+              *((4 * n * target - 2 * total - n * center) / (n + 2)
+                for target in (target_low, target_high))) if even else (
+              total / (n - 1),
+              *((2 * n * target - total) / (n + 1)
+                for target in (target_low, target_high)))
+    for root in middle:
         if lower <= root <= upper:
             roots.add(root)
     return sorted(roots)
@@ -85,7 +94,7 @@ def all_outcomes(fixed, knots, target_low, target_high):
 
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] != FORMAT:
+    if record["format"] not in (FORMAT, EVEN_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
     fields(inputs, {"readings", "movement", "target"}, "inputs")
@@ -98,8 +107,9 @@ def verify(record):
     if low >= high or target_low > target_high:
         raise ValueError("Invalid interval order")
     raw = inputs["readings"]
-    if type(raw) is not list or not 3 <= len(raw) <= 21 or len(raw) % 2 != 1:
-        raise ValueError("Reading count must be odd, between 3 and 21")
+    if type(raw) is not list or not 3 <= len(raw) <= 21 or \
+            (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
+        raise ValueError("Reading count must match certificate format, between 3 and 21")
     readings = [rational(value, "reading", low, high) for value in raw]
     claim = record["claim"]
     fields(claim, {"routes", "reachable", "guarantee"}, "claim")

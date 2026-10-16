@@ -125,7 +125,7 @@
             "No single reading can reverse the strict starting winner inside these bounds."));
         body.append(node("p", `${result.routes} routes independently rechecked with exact fractions. A tie threshold is usually not an attained smallest strict move. The inputs are stipulated, not authenticated measurements.`));
       } else {
-        body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
+        body.append(node("p", `${record.inputs.readings.length} readings · ${record.inputs.readings.length % 2 ? "middle-reading" : "central-pair average"} median · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;

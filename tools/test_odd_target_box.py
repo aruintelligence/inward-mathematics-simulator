@@ -24,7 +24,7 @@ class TargetBoxTests(unittest.TestCase):
     def test_grid_and_random_rational_cases(self):
         rng = random.Random(20261015)
         for case_index in range(42):
-            count = 3 + 2 * (case_index % 10)
+            count = 3 + case_index % 19
             readings = [Fraction(rng.randrange(-7, 8), rng.choice((1, 2, 3, 7)))
                         for _ in range(count)]
             low, high = min(readings) - 1, max(readings) + 1
@@ -53,6 +53,18 @@ class TargetBoxTests(unittest.TestCase):
             forged = copy.deepcopy(base)
             edit(forged)
             with self.subTest(edit=edit), self.assertRaises(ValueError):
+                verify(forged)
+
+    def test_even_central_pair_and_format_binding(self):
+        cert = certificate(["40", "45", "50", "80"], "0", "100", "48", "52")
+        self.assertEqual(cert["format"], "inward-even-target-box-v2")
+        self.assertEqual(cert, json.loads(Path("examples/even-target-box-v2.json").read_text()))
+        self.assertEqual(verify(cert)["routes"], 4)
+        for edit in (lambda c: c["claim"]["routes"][1]["knots"].pop(2),
+                     lambda c: c.update(format="inward-odd-target-box-v1")):
+            forged = copy.deepcopy(cert)
+            edit(forged)
+            with self.assertRaises(ValueError):
                 verify(forged)
 
     def test_rejected_inputs_and_noncanonical_values(self):

@@ -31,12 +31,28 @@ test('browser and Python construct identical exact records', () => {
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
+test('even central-pair rectangles have reproducible exact certificates', () => {
+  const values = ['40', '45', '50', '80'];
+  const cert = core.certificate(values, '0', '100', '48', '52');
+  assert.equal(cert.format, 'inward-even-target-box-v2');
+  assert.deepEqual(cert, python(values, '0', '100', '48', '52'));
+  assert.deepEqual(cert, JSON.parse(readFileSync('examples/even-target-box-v2.json', 'utf8')));
+  const dir = mkdtempSync(join(tmpdir(), 'inward-even-target-box-'));
+  try {
+    const file = join(dir, 'certificate.json');
+    writeFileSync(file, JSON.stringify(cert));
+    const check = spawnSync('python3', ['tools/verify_odd_target_box.py', file], {encoding: 'utf8'});
+    assert.equal(check.status, 0, check.stderr);
+    assert.match(check.stdout, /Verified 4 exhaustive routes/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
 test('seeded signed and rational cases match Python including singleton targets', () => {
   let seed = 0x5a7a2912;
   const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
   for (let i = 0; i < 34; i++) {
     const low = -20 - next() % 30, high = 25 + next() % 30;
-    const values = Array.from({length: 3 + 2 * (i % 10)}, (_, index) => {
+    const values = Array.from({length: 3 + i % 19}, (_, index) => {
       const value = low + next() % (high - low);
       return index % 4 === 0 ? `${2 * value + 1}/2` : String(value);
     });
@@ -85,7 +101,7 @@ test('workbench renders every route and clears stale results on an invalid edit'
   const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
     'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
     'summary-copy', 'facts', 'routes', 'download', 'print', 'locked-example',
-    'signed-example', 'results'].map(id => [id, element(id)]));
+    'signed-example', 'even-example', 'results'].map(id => [id, element(id)]));
   Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
   Object.assign(fields['move-low'], {value: '0'});
   Object.assign(fields['move-high'], {value: '100'});
@@ -102,6 +118,10 @@ test('workbench renders every route and clears stale results on an invalid edit'
   assert.equal(fields.download.disabled, false);
   assert.equal(fields.headline.textContent, '3 reachable outcomes');
   assert.equal(fields['input-error'].textContent, '');
+  fields['even-example'].handlers.click();
+  assert.equal(fields.routes.children.length, 4);
+  assert.equal(fields.download.disabled, false);
+  assert.equal(fields.facts.children[0].textContent, '4 readings');
   fields['locked-example'].handlers.click();
   assert.match(fields['headline-detail'].textContent, /2 of 5 individual routes/);
   assert.equal(fields.routes.children.length, 5);

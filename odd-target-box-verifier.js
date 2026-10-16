@@ -6,6 +6,7 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-odd-target-box-v1";
+  const EVEN_FORMAT = "inward-even-target-box-v2";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
@@ -97,7 +98,9 @@
   function estimators(fixed, moved) {
     const sorted = [...fixed, moved].sort(compare);
     const mean = divide(sorted.reduce(add, ZERO), fraction(BigInt(sorted.length)));
-    return [mean, sorted[(sorted.length - 1) / 2]];
+    const median = divide(add(sorted[Math.floor((sorted.length - 1) / 2)],
+      sorted[Math.floor(sorted.length / 2)]), TWO);
+    return [mean, median];
   }
   function outcome(fixed, moved, target) {
     const [mean, median] = estimators(fixed, moved);
@@ -110,11 +113,14 @@
   function allRoots(fixed, low, high, targetLow, targetHigh) {
     const n = fixed.length + 1;
     const ordered = [...fixed].sort(compare);
-    const k = (n - 1) / 2;
-    const lower = ordered[k - 1], upper = ordered[k];
+    const even = n % 2 === 0, k = Math.floor(n / 2);
+    const lower = ordered[even ? k - 2 : k - 1], upper = ordered[k];
+    const center = even ? ordered[k - 1] : ZERO;
+    const leftMedian = even ? divide(add(lower, center), TWO) : lower;
+    const rightMedian = even ? divide(add(center, upper), TWO) : upper;
     const sum = fixed.reduce(add, ZERO), count = fraction(BigInt(n));
     const candidates = new Map([low, high, lower, upper].map(x => [notation(x), x]));
-    for (const [start, end, median] of [[low, lower, lower], [upper, high, upper]]) {
+    for (const [start, end, median] of [[low, lower, leftMedian], [upper, high, rightMedian]]) {
       const roots = [subtract(multiply(count, median), sum),
         ...[targetLow, targetHigh].map(target =>
           subtract(multiply(count, subtract(multiply(TWO, target), median)), sum))];
@@ -124,7 +130,12 @@
         }
       }
     }
-    const middle = [divide(sum, fraction(BigInt(n - 1))),
+    const middle = even ? [
+      divide(subtract(multiply(TWO, sum), multiply(count, center)), fraction(BigInt(n - 2))),
+      ...[targetLow, targetHigh].map(target => divide(subtract(
+        subtract(multiply(fraction(BigInt(4 * n)), target), multiply(TWO, sum)),
+        multiply(count, center)), fraction(BigInt(n + 2))))
+    ] : [divide(sum, fraction(BigInt(n - 1))),
       ...[targetLow, targetHigh].map(target =>
         divide(subtract(multiply(multiply(TWO, count), target), sum), fraction(BigInt(n + 1))))];
     for (const root of middle) {
@@ -154,7 +165,7 @@
   }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (record.format !== FORMAT) fail("Unknown certificate format");
+    if (record.format !== FORMAT && record.format !== EVEN_FORMAT) fail("Unknown certificate format");
     fields(record.inputs, ["readings", "movement", "target"], "inputs");
     fields(record.inputs.movement, ["low", "high"], "movement");
     fields(record.inputs.target, ["low", "high"], "target");
@@ -165,8 +176,9 @@
     const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
     if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
     if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
-        inputs.readings.length > 21 || inputs.readings.length % 2 !== 1) {
-      fail("Reading count must be odd and between 3 and 21");
+        inputs.readings.length > 21 || (inputs.readings.length % 2 === 0) !==
+        (record.format === EVEN_FORMAT)) {
+      fail("Reading count must match certificate format and be between 3 and 21");
     }
     const readings = inputs.readings.map((item, index) =>
       rational(item, `reading ${index + 1}`, low, high));
