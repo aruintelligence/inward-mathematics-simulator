@@ -202,7 +202,7 @@
       const label = report.proof ? "General algebraic proof" : "Universal claim refuted";
       $("claim-badge").textContent = label;
       $("claim-results").classList.toggle("counterexample", Boolean(globalPoint));
-      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} ${report.domain.readingCount}-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
+      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} ${report.domain.readingCount}-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : report.proof ? "The general proof does not depend on your grid." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
       $("claim-formal-link").hidden = !report.proof;
       $("claim-formal-ref").hidden = !report.formal;
       if (report.formal) {
@@ -261,7 +261,7 @@
     const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "inward-conditional-claim-v4.json";
+    anchor.download = "inward-conditional-claim-v5.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

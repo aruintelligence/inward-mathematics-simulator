@@ -20,7 +20,7 @@ Existing work and attribution remain with Daniel Jacob Read IV / ĀRU Intelligen
 
 The same page now lets a visitor form a precise universal statement: select a condition on the target (`any`, at/below or at/above the estimates' midpoint, at/below both estimates, or at/above both) and predict whether the lower, higher, mean, or median estimate is no farther from the target. This is a deliberately small mathematical language. A phrase like “no farther” includes ties; no free-form or unsupported theorem is silently interpreted.
 
-The builder tests every eligible reading multiset and selected target, stopping at the first counterexample. It supports a selectable odd sample size of 3, 5, or 7 readings; the four fixed candidates above remain five-reading experiments. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v4` record. Existing v1, v2, and v3 conditional-claim files remain checkable.
+The builder tests every eligible reading multiset and selected target, stopping at the first counterexample. It supports 3 through 7 readings; for even sample sizes, the median is the exact average of the two central sorted readings. The four fixed candidates above remain five-reading experiments. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports an `inward-conditional-claim-v5` record. Existing v1–v4 conditional-claim files remain checkable.
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
@@ -107,10 +107,24 @@ and a 3-reading [grid-miss example](../examples/conditional-claim-v4-grid-miss.j
 can be checked offline. V1–v3 receipts retain their original five-reading
 schema and bytes.
 
+Version 5 extends the conditional builder to **4 and 6 readings**. The
+`domain.medianRule` field must be `central-order-statistics-v1`: for sorted
+$x_1\le\dots\le x_n$, the median is $x_{(n+1)/2}$ when $n$ is odd and
+$(x_{n/2}+x_{n/2+1})/2$ when $n$ is even. The mean remains
+$(x_1+\dots+x_n)/n$. Both verifiers independently recompute these as exact
+fractions for each selected-grid case and fixed-basis witness. Four general
+implications about the **resulting two estimates** retain their existing
+Lean bindings; the Lean source does not formalize the sorting or median
+algorithm. The other 16 claim pairs have independently replayed exact
+counterexamples for each supported size. The
+[6-reading proof example](../examples/conditional-claim-v5.json) and
+[4-reading fractional-median witness](../examples/conditional-claim-v5-even-witness.json)
+are reproducible. V4 receipts remain odd-only and cannot assert an even count.
+
 Reproduce the grid-miss receipt and its verification:
 
 ```sh
-python3 tools/verify_conditional_claim.py examples/conditional-claim-v4-grid-miss.json
+python3 tools/verify_conditional_claim.py examples/conditional-claim-v5-even-witness.json
 node --test tests/conjecture-lab.test.cjs
 ```
 

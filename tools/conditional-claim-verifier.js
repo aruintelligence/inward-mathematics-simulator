@@ -1,4 +1,4 @@
-/* Independent checker for conditional claims v1–v4. Does not import the constructor. */
+/* Independent checker for conditional claims v1–v5. Does not import the constructor. */
 (function (root, factory) {
   const parser = typeof module === "object" && module.exports ?
     require("./target-lens-proof-core.js") : root.TargetLensVerifier;
@@ -7,10 +7,12 @@
   else root.InwardConditionalClaimVerifier = api;
 })(globalThis, function (parser) {
   "use strict";
-  const FORMAT = "inward-conditional-claim-v4";
+  const FORMAT = "inward-conditional-claim-v5";
+  const V4_FORMAT = "inward-conditional-claim-v4";
   const PREVIOUS_FORMAT = "inward-conditional-claim-v3";
   const EARLIER_FORMAT = "inward-conditional-claim-v2";
   const LEGACY_FORMAT = "inward-conditional-claim-v1";
+  const MEDIAN_RULE = "central-order-statistics-v1";
   const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
   const FORMAL_THEOREMS = {
     "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
@@ -134,7 +136,8 @@
       total++;
       if (witness) return;
       const mean = divide(readings.reduce(sum, fraction(0n)), BigInt(readingCount));
-      const median = readings[Math.floor(readingCount / 2)];
+      const median = readingCount % 2 ? readings[Math.floor(readingCount / 2)] :
+        divide(sum(readings[readingCount / 2 - 1], readings[readingCount / 2]), 2n);
       const order = compare(mean, median);
       const lower = order <= 0 ? mean : median, higher = order <= 0 ? median : mean;
       for (const target of targets) {
@@ -158,22 +161,25 @@
   }
   function verify(report) {
     const current = report?.format === FORMAT;
+    const v4 = report?.format === V4_FORMAT;
     const previous = report?.format === PREVIOUS_FORMAT;
     const earlier = report?.format === EARLIER_FORMAT;
-    if (!current && !previous && !earlier && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
-    fields(report, current || previous ? ["format", "claim", "domain", "search", "proof", "formal", "classification"] :
+    if (!current && !v4 && !previous && !earlier && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
+    fields(report, current || v4 || previous ? ["format", "claim", "domain", "search", "proof", "formal", "classification"] :
       earlier ? ["format", "claim", "domain", "search", "proof", "formal"] :
       ["format", "claim", "domain", "search", "proof"], "claim record");
     fields(report.claim, ["condition", "prediction", "statement"], "claim");
     const {condition, prediction} = report.claim;
     if (typeof condition !== "string" || !Object.hasOwn(CONDITIONS, condition) ||
       typeof prediction !== "string" || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unsupported claim choice");
-    const readingCount = current ? report.domain?.readingCount : 5;
-    if (![3, 5, 7].includes(readingCount)) fail("Unsupported reading count");
-    const statement = `For any ${current ? readingCount : "five"} real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`;
+    const readingCount = current || v4 ? report.domain?.readingCount : 5;
+    if (!(current ? [3, 4, 5, 6, 7] : [3, 5, 7]).includes(readingCount)) fail("Unsupported reading count");
+    const statement = `For any ${current || v4 ? readingCount : "five"} real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`;
     if (report.claim.statement !== statement) fail("Claim statement does not match choices");
-    fields(report.domain, current ? ["readingCount", "readingValues", "targetValues", "readingMultisets"] :
+    fields(report.domain, current ? ["readingCount", "medianRule", "readingValues", "targetValues", "readingMultisets"] :
+      v4 ? ["readingCount", "readingValues", "targetValues", "readingMultisets"] :
       ["readingValues", "targetValues", "readingMultisets"], "domain");
+    if (current && report.domain.medianRule !== MEDIAN_RULE) fail("Unsupported median rule");
     const values = grid(report.domain.readingValues, 6, "reading grid");
     const targets = grid(report.domain.targetValues, 12, "target grid");
     const {checked, witness, total} = replay(values, targets, condition, prediction, readingCount);
@@ -193,16 +199,16 @@
       }
     }
     if (!same(report.proof, proof)) fail("Algebraic proof does not follow from the condition");
-    const formal = proof && (current || previous || earlier) ? {system: "Lean 4/Mathlib",
+    const formal = proof && (current || v4 || previous || earlier) ? {system: "Lean 4/Mathlib",
       declaration: FORMAL_THEOREMS[condition], sourceCommit: FORMAL_COMMIT} : null;
-    if ((current || previous || earlier) && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
+    if ((current || v4 || previous || earlier) && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
     const basis = [fraction(0n), fraction(50n), fraction(100n)];
-    const universalWitness = (current || previous) && !proof ?
+    const universalWitness = (current || v4 || previous) && !proof ?
       replay(basis, basis, condition, prediction, readingCount).witness : null;
-    if ((current || previous) && !proof && !universalWitness) fail("Claim language classification is incomplete");
-    const classification = current || previous ? {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
+    if ((current || v4 || previous) && !proof && !universalWitness) fail("Claim language classification is incomplete");
+    const classification = current || v4 || previous ? {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
       counterexample: universalWitness} : null;
-    if ((current || previous) && !same(report.classification, classification)) fail("Universal classification does not match exact witness");
+    if ((current || v4 || previous) && !same(report.classification, classification)) fail("Universal classification does not match exact witness");
     return {status, casesChecked: checked, readingMultisets: total, counterexample: witness,
       statement, proof: Boolean(proof), formal, classification, readingCount};
   }

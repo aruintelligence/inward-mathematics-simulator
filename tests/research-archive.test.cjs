@@ -153,35 +153,41 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(items.find(x => x.digest === first.digest).valid, true);
 });
 
-test('legacy v1/v2/v3 claims remain readable and portable beside v4 claims', async () => {
+test('legacy v1–v4 claims remain readable and portable beside v5 claims', async () => {
   const db = memoryDB();
   const current = maker.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse');
   const legacy = JSON.parse(JSON.stringify(current));
   legacy.format = 'inward-conditional-claim-v1';
   delete legacy.domain.readingCount;
+  delete legacy.domain.medianRule;
   legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;
   const previous = JSON.parse(JSON.stringify(current));
   previous.format = 'inward-conditional-claim-v2';
   delete previous.domain.readingCount;
+  delete previous.domain.medianRule;
   previous.claim.statement = previous.claim.statement.replace('5 real', 'five real');
   delete previous.classification;
   await archive.add(db, JSON.stringify(legacy), 'Earlier proof', checkers, crypto.webcrypto);
   await archive.add(db, JSON.stringify(previous), 'Theorem bound proof', checkers, crypto.webcrypto);
   await archive.add(db, readFileSync('examples/conditional-claim-v3.json', 'utf8'),
     'Five-reading classified proof', checkers, crypto.webcrypto);
+  await archive.add(db, readFileSync('examples/conditional-claim-v4.json', 'utf8'),
+    'Seven-reading proof', checkers, crypto.webcrypto);
   await archive.add(db, JSON.stringify(current), 'Classified proof', checkers, crypto.webcrypto);
   const listed = await archive.list(db, checkers, crypto.webcrypto);
-  assert.equal(listed.length, 4);
+  assert.equal(listed.length, 5);
   assert.ok(listed.every(item => item.valid && item.result.status === 'proved-by-algebra'));
   assert.equal(listed.find(item => item.record.format.endsWith('-v1')).result.formal, null);
   assert.equal(listed.find(item => item.record.format.endsWith('-v2')).result.formal.declaration,
     'InwardFormal.lower_no_worse_at_midpoint');
   assert.equal(listed.find(item => item.record.format.endsWith('-v3')).result.classification.status,
     'proved-by-algebra');
-  assert.equal(listed.find(item => item.record.format.endsWith('-v4')).result.readingCount, 5);
+  assert.equal(listed.find(item => item.record.format.endsWith('-v4')).result.readingCount, 7);
+  assert.equal(listed.find(item => item.record.format.endsWith('-v5')).record.domain.medianRule,
+    'central-order-statistics-v1');
   const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
   const dir = mkdtempSync(join(tmpdir(), 'inward-legacy-collection-'));
   try {
@@ -190,7 +196,7 @@ test('legacy v1/v2/v3 claims remain readable and portable beside v4 claims', asy
     const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
       {encoding: 'utf8'});
     assert.equal(checked.status, 0, checked.stderr);
-    assert.match(checked.stdout, /Verified 4 research records/);
+    assert.match(checked.stdout, /Verified 5 research records/);
   } finally {rmSync(dir, {recursive:true, force:true});}
 });
 
