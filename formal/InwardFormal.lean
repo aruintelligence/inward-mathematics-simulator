@@ -542,4 +542,99 @@ theorem universal_iff_established (n : ℕ) (hn : 3 ≤ n)
 
 end RegisteredClaim
 
+/-!
+The moving-reading calculation for an even sample is piecewise affine. On its
+middle cell the central-pair median is `(c + x) / 2`; on either outer cell it
+is constant. These lemmas establish the factor equations and their *only*
+roots over the reals. They do not formalize the sorting algorithm or prove
+that a particular JSON receipt enumerates every cell.
+-/
+namespace EvenSample
+
+/-- `S` is the sum of the other `n - 1` readings. -/
+noncomputable def movingMean (n S x : ℝ) : ℝ := (S + x) / n
+
+/-- The median in the middle cell, with fixed central reading `c`. -/
+noncomputable def middleMedian (c x : ℝ) : ℝ := (c + x) / 2
+
+theorem middle_first_factor (n S c x : ℝ) (hn : n ≠ 0) :
+    movingMean n S x - middleMedian c x =
+      (2 * S - n * c - (n - 2) * x) / (2 * n) := by
+  dsimp [movingMean, middleMedian]
+  field_simp [hn]
+  ring
+
+theorem middle_second_factor (n S c t x : ℝ) (hn : n ≠ 0) :
+    movingMean n S x + middleMedian c x - 2 * t =
+      (2 * S + n * c + (n + 2) * x - 4 * n * t) / (2 * n) := by
+  dsimp [movingMean, middleMedian]
+  field_simp [hn]
+  ring
+
+/-- The first and only middle-cell root when `n > 2`. -/
+theorem middle_first_root (n S c x : ℝ) (hn : 2 < n) :
+    movingMean n S x = middleMedian c x ↔
+      x = (2 * S - n * c) / (n - 2) := by
+  have hn0 : n ≠ 0 := by linarith
+  have hden : n - 2 ≠ 0 := by linarith
+  dsimp [movingMean, middleMedian]
+  constructor
+  · intro h
+    field_simp [hn0] at h
+    apply (eq_div_iff hden).2
+    nlinarith
+  · intro h
+    have hnum := (eq_div_iff hden).mp h
+    field_simp [hn0] at ⊢
+    nlinarith
+
+/-- The other and only middle-cell root when `n > 2`. -/
+theorem middle_second_root (n S c t x : ℝ) (hn : 2 < n) :
+    movingMean n S x + middleMedian c x = 2 * t ↔
+      x = (4 * n * t - 2 * S - n * c) / (n + 2) := by
+  have hn0 : n ≠ 0 := by linarith
+  have hden : n + 2 ≠ 0 := by linarith
+  dsimp [movingMean, middleMedian]
+  constructor
+  · intro h
+    field_simp [hn0] at h
+    apply (eq_div_iff hden).2
+    nlinarith
+  · intro h
+    have hnum := (eq_div_iff hden).mp h
+    field_simp [hn0] at ⊢
+    nlinarith
+
+/-- The first and only root in an outer cell with constant median `c`. -/
+theorem outer_first_root (n S c x : ℝ) (hn : n ≠ 0) :
+    movingMean n S x = c ↔ x = n * c - S := by
+  dsimp [movingMean]
+  constructor <;> intro h
+  · field_simp [hn] at h
+    linarith
+  · field_simp [hn]
+    linarith
+
+/-- The other and only root in an outer cell with constant median `c`. -/
+theorem outer_second_root (n S c t x : ℝ) (hn : n ≠ 0) :
+    movingMean n S x + c = 2 * t ↔ x = n * (2 * t - c) - S := by
+  dsimp [movingMean]
+  constructor <;> intro h
+  · field_simp [hn] at h
+    nlinarith
+  · field_simp [hn]
+    nlinarith
+
+/-- The exact product used by the even-sample middle-cell partition. -/
+theorem middle_squared_error_product (n S c t x : ℝ) (hn : n ≠ 0) :
+    (movingMean n S x - t) ^ 2 - (middleMedian c x - t) ^ 2 =
+      ((2 * S - n * c - (n - 2) * x) *
+        (2 * S + n * c + (n + 2) * x - 4 * n * t)) / (4 * n ^ 2) := by
+  rw [squared_error_factorization]
+  rw [middle_first_factor n S c x hn, middle_second_factor n S c t x hn]
+  field_simp [hn]
+  ring
+
+end EvenSample
+
 end InwardFormal
