@@ -248,4 +248,230 @@ theorem endpoint_strict_wins (n : ℕ) (hn : 3 ≤ n) :
     rw [hleft, abs_of_neg hlowNeg]
     linarith
 
+/-!
+The registered language has five target guards and four predictions. Keeping
+these constructors explicit makes the classification theorem exhaustive by
+case analysis, while preserving a narrow and inspectable mathematical scope.
+The mean and median arguments are arbitrary real estimates in `universal`;
+the refutations below instantiate them with the actual sample calculations.
+-/
+
+namespace RegisteredClaim
+
+inductive Condition where
+  | any | belowMidpoint | aboveMidpoint | belowBoth | aboveBoth
+  deriving DecidableEq
+
+inductive Prediction where
+  | lower | higher | mean | median
+  deriving DecidableEq
+
+noncomputable def guard : Condition → ℝ → ℝ → ℝ → Prop
+  | .any, _, _, _ => True
+  | .belowMidpoint, m, d, t => 2 * t ≤ min m d + max m d
+  | .aboveMidpoint, m, d, t => min m d + max m d ≤ 2 * t
+  | .belowBoth, m, d, t => t ≤ min m d
+  | .aboveBoth, m, d, t => max m d ≤ t
+
+noncomputable def conclusion : Prediction → ℝ → ℝ → ℝ → Prop
+  | .lower, m, d, t => |min m d - t| ≤ |max m d - t|
+  | .higher, m, d, t => |max m d - t| ≤ |min m d - t|
+  | .mean, m, d, t => |m - t| ≤ |d - t|
+  | .median, m, d, t => |d - t| ≤ |m - t|
+
+def universal (c : Condition) (p : Prediction) : Prop :=
+  ∀ m d t : ℝ, guard c m d t → conclusion p m d t
+
+inductive Endpoint where
+  | highZero | highHundred | lowZero | lowHundred
+
+def sample (e : Endpoint) (n : ℕ) : List ℝ :=
+  match e with
+  | .highZero | .highHundred => oneHigh n
+  | .lowZero | .lowHundred => oneLow n
+
+def target : Endpoint → ℝ
+  | .highZero | .lowZero => 0
+  | .highHundred | .lowHundred => 100
+
+def refutedByEndpoint (n : ℕ) (c : Condition) (p : Prediction) : Prop :=
+  ∃ e : Endpoint,
+    guard c (sampleMean (sample e n)) (orderedMedian (sample e n)) (target e) ∧
+    ¬conclusion p (sampleMean (sample e n)) (orderedMedian (sample e n)) (target e)
+
+/-- Each registered endpoint refutation disproves the corresponding universal
+statement with its actual sample mean, median, and target. -/
+theorem refutation_disproves_universal (n : ℕ) (c : Condition) (p : Prediction)
+    (h : refutedByEndpoint n c p) : ¬universal c p := by
+  intro hall
+  rcases h with ⟨e, hg, hp⟩
+  exact hp (hall _ _ _ hg)
+
+private theorem valid_belowMidpoint : universal .belowMidpoint .lower := by
+  intro m d t h
+  exact lower_no_worse_at_midpoint (min m d) (max m d) t (min_le_max) h
+
+private theorem valid_aboveMidpoint : universal .aboveMidpoint .higher := by
+  intro m d t h
+  exact higher_no_worse_at_midpoint (min m d) (max m d) t (min_le_max) h
+
+private theorem valid_belowBoth : universal .belowBoth .lower := by
+  intro m d t h
+  exact lower_no_worse_below_both (min m d) (max m d) t (min_le_max) h
+
+private theorem valid_aboveBoth : universal .aboveBoth .higher := by
+  intro m d t h
+  exact higher_no_worse_above_both (min m d) (max m d) t (min_le_max) h
+
+private theorem guardsAtZero (m d : ℝ) (hm : 0 ≤ m) (hd : 0 ≤ d) :
+    guard .any m d 0 ∧ guard .belowMidpoint m d 0 ∧ guard .belowBoth m d 0 := by
+  have hmin : 0 ≤ min m d := le_min hm hd
+  have hmax : 0 ≤ max m d := le_trans hm (le_max_left m d)
+  refine ⟨trivial, ?_, ?_⟩
+  · change 0 ≤ min m d + max m d
+    linarith
+  · exact hmin
+
+private theorem guardsAtHundred (m d : ℝ) (hm : m ≤ 100) (hd : d ≤ 100) :
+    guard .any m d 100 ∧ guard .aboveMidpoint m d 100 ∧
+    guard .aboveBoth m d 100 := by
+  have hmin : min m d ≤ 100 := le_trans (min_le_left m d) hm
+  have hmax : max m d ≤ 100 := max_le hm hd
+  refine ⟨trivial, ?_, ?_⟩
+  · change min m d + max m d ≤ 2 * (100 : ℝ)
+    linarith
+  · exact hmax
+
+private theorem highZeroGuards (n : ℕ) (hn : 3 ≤ n) :
+    guard .any (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 0 ∧
+    guard .belowMidpoint (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 0 ∧
+    guard .belowBoth (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 0 := by
+  have hm := (endpoint_means_interior n hn).1
+  simpa [oneHigh_median n hn] using
+    (guardsAtZero (sampleMean (oneHigh n)) 0 (le_of_lt hm) (le_refl 0))
+
+private theorem highHundredGuards (n : ℕ) (hn : 3 ≤ n) :
+    guard .any (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 100 ∧
+    guard .aboveMidpoint (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 100 ∧
+    guard .aboveBoth (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 100 := by
+  have hm := (endpoint_means_interior n hn).2.1
+  simpa [oneHigh_median n hn] using
+    (guardsAtHundred (sampleMean (oneHigh n)) 0 (le_of_lt hm) (by norm_num))
+
+private theorem lowZeroGuards (n : ℕ) (hn : 3 ≤ n) :
+    guard .any (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 0 ∧
+    guard .belowMidpoint (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 0 ∧
+    guard .belowBoth (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 0 := by
+  have hm := (endpoint_means_interior n hn).2.2.1
+  simpa [oneLow_median n hn] using
+    (guardsAtZero (sampleMean (oneLow n)) 100 (le_of_lt hm) (by norm_num))
+
+private theorem lowHundredGuards (n : ℕ) (hn : 3 ≤ n) :
+    guard .any (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 100 ∧
+    guard .aboveMidpoint (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 100 ∧
+    guard .aboveBoth (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 100 := by
+  have hm := (endpoint_means_interior n hn).2.2.2
+  simpa [oneLow_median n hn] using
+    (guardsAtHundred (sampleMean (oneLow n)) 100 (le_of_lt hm) (le_refl 100))
+
+private theorem highZeroBad (n : ℕ) (hn : 3 ≤ n) :
+    ¬conclusion .higher (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 0 ∧
+    ¬conclusion .mean (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 0 := by
+  have hwin := (endpoint_strict_wins n hn).1
+  have hord : orderedMedian (oneHigh n) ≤ sampleMean (oneHigh n) := by
+    rw [oneHigh_median n hn]
+    exact le_of_lt (endpoint_means_interior n hn).1
+  constructor
+  · unfold conclusion
+    rw [max_eq_left hord, min_eq_right hord]
+    exact not_le_of_gt hwin
+  · exact not_le_of_gt hwin
+
+private theorem highHundredBad (n : ℕ) (hn : 3 ≤ n) :
+    ¬conclusion .lower (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 100 ∧
+    ¬conclusion .median (sampleMean (oneHigh n)) (orderedMedian (oneHigh n)) 100 := by
+  have hwin := (endpoint_strict_wins n hn).2.1
+  have hord : orderedMedian (oneHigh n) ≤ sampleMean (oneHigh n) := by
+    rw [oneHigh_median n hn]
+    exact le_of_lt (endpoint_means_interior n hn).1
+  constructor
+  · unfold conclusion
+    rw [min_eq_right hord, max_eq_left hord]
+    exact not_le_of_gt hwin
+  · exact not_le_of_gt hwin
+
+private theorem lowZeroBad (n : ℕ) (hn : 3 ≤ n) :
+    ¬conclusion .higher (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 0 ∧
+    ¬conclusion .median (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 0 := by
+  have hwin := (endpoint_strict_wins n hn).2.2.1
+  have hord : sampleMean (oneLow n) ≤ orderedMedian (oneLow n) := by
+    rw [oneLow_median n hn]
+    exact le_of_lt (endpoint_means_interior n hn).2.2.2
+  constructor
+  · unfold conclusion
+    rw [max_eq_right hord, min_eq_left hord]
+    exact not_le_of_gt hwin
+  · exact not_le_of_gt hwin
+
+private theorem lowHundredBad (n : ℕ) (hn : 3 ≤ n) :
+    ¬conclusion .lower (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 100 ∧
+    ¬conclusion .mean (sampleMean (oneLow n)) (orderedMedian (oneLow n)) 100 := by
+  have hwin := (endpoint_strict_wins n hn).2.2.2
+  have hord : sampleMean (oneLow n) ≤ orderedMedian (oneLow n) := by
+    rw [oneLow_median n hn]
+    exact le_of_lt (endpoint_means_interior n hn).2.2.2
+  constructor
+  · unfold conclusion
+    rw [min_eq_left hord, max_eq_right hord]
+    exact not_le_of_gt hwin
+  · exact not_le_of_gt hwin
+
+/-- The four true cells of the registered 5-by-4 table. -/
+def established : Condition → Prediction → Bool
+  | .belowMidpoint, .lower | .belowBoth, .lower => true
+  | .aboveMidpoint, .higher | .aboveBoth, .higher => true
+  | _, _ => false
+
+/-- Every other cell has one of the two explicit sorted endpoint samples as a
+strict counterexample at target 0 or 100, for every integer size at least 3. -/
+theorem classify (n : ℕ) (hn : 3 ≤ n) (c : Condition) (p : Prediction) :
+    if established c p then universal c p else refutedByEndpoint n c p := by
+  cases c <;> cases p <;> simp [established]
+  · exact ⟨.highHundred, (highHundredGuards n hn).1, (highHundredBad n hn).1⟩
+  · exact ⟨.highZero, (highZeroGuards n hn).1, (highZeroBad n hn).1⟩
+  · exact ⟨.highZero, (highZeroGuards n hn).1, (highZeroBad n hn).2⟩
+  · exact ⟨.highHundred, (highHundredGuards n hn).1, (highHundredBad n hn).2⟩
+  · exact valid_belowMidpoint
+  · exact ⟨.highZero, (highZeroGuards n hn).2.1, (highZeroBad n hn).1⟩
+  · exact ⟨.highZero, (highZeroGuards n hn).2.1, (highZeroBad n hn).2⟩
+  · exact ⟨.lowZero, (lowZeroGuards n hn).2.1, (lowZeroBad n hn).2⟩
+  · exact ⟨.highHundred, (highHundredGuards n hn).2.1, (highHundredBad n hn).1⟩
+  · exact valid_aboveMidpoint
+  · exact ⟨.lowHundred, (lowHundredGuards n hn).2.1, (lowHundredBad n hn).2⟩
+  · exact ⟨.highHundred, (highHundredGuards n hn).2.1, (highHundredBad n hn).2⟩
+  · exact valid_belowBoth
+  · exact ⟨.highZero, (highZeroGuards n hn).2.2, (highZeroBad n hn).1⟩
+  · exact ⟨.highZero, (highZeroGuards n hn).2.2, (highZeroBad n hn).2⟩
+  · exact ⟨.lowZero, (lowZeroGuards n hn).2.2, (lowZeroBad n hn).2⟩
+  · exact ⟨.highHundred, (highHundredGuards n hn).2.2, (highHundredBad n hn).1⟩
+  · exact valid_aboveBoth
+  · exact ⟨.lowHundred, (lowHundredGuards n hn).2.2, (lowHundredBad n hn).2⟩
+  · exact ⟨.highHundred, (highHundredGuards n hn).2.2, (highHundredBad n hn).2⟩
+
+/-- Exactly four cells of this registered language are universal. A false cell
+is refuted at every `n ≥ 3`, so it cannot be an overlooked general theorem. -/
+theorem universal_iff_established (n : ℕ) (hn : 3 ≤ n)
+    (c : Condition) (p : Prediction) :
+    universal c p ↔ established c p = true := by
+  cases h : established c p with
+  | true =>
+      simp only [h, iff_true]
+      simpa [h] using classify n hn c p
+  | false =>
+      simp only [h, iff_false]
+      have hw : refutedByEndpoint n c p := by simpa [h] using classify n hn c p
+      exact refutation_disproves_universal n c p hw
+
+end RegisteredClaim
+
 end InwardFormal
