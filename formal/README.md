@@ -69,6 +69,18 @@ supported size 3–7. A changed route or classification fails CI. This is a
 cross-implementation test of those choices, not a formal proof of runtime
 source equivalence or JSON verification in Lean.
 
+`InwardFormal.EvenSample` proves the affine factor equations for the even
+sample's middle median cell `(c + x) / 2`, their exact squared-error product,
+and the unique real root of each factor for `n > 2`. It also proves the two
+unique roots for an outer cell with constant median `c` and nonzero `n`.
+These are precisely the four root formulas used by the v3 continuous-movement
+certificate. The statements allow arbitrary real fixed sums, targets, and
+movement values; admissible cell bounds still determine which roots apply.
+The Lean module does not prove the general sorting and cell-selection logic,
+the finite partition's completeness, the global infimum selection, or the
+browser/Python implementations. The independent receipt verifiers check
+individual records with exact rational arithmetic.
+
 To run the route gate after `lake build`:
 
 ```sh
