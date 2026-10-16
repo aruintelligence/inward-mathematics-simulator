@@ -13,7 +13,7 @@
     ["target-independent", "Changing the target cannot reverse a strict winner for fixed readings."],
     ["midpoint-tie", "For distinct estimates, their exact midpoint is an equal-error target."],
   ];
-  const CLAIM_FORMAT = "inward-conditional-claim-v2";
+  const CLAIM_FORMAT = "inward-conditional-claim-v3";
   // Immutable source revision containing the four Lean declarations below.
   const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
   const FORMAL_THEOREMS = {
@@ -161,12 +161,7 @@
       factorSigns: ["nonpositive", left ? "nonnegative" : "nonpositive"],
       result: left ? "(a-t)^2<=(b-t)^2" : "(b-t)^2<=(a-t)^2"};
   }
-  function compose(readingGrid, targetGrid, condition, prediction) {
-    if (!Object.hasOwn(CONDITIONS, condition) || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unknown claim choice");
-    const values = parseGrid(readingGrid, 6, "Reading grid");
-    const targets = parseGrid(targetGrid, 12, "Target grid");
-    const claim = {condition, prediction,
-      statement: `For any five real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`};
+  function searchCases(values, targets, condition, prediction) {
     let readingMultisets = 0, casesChecked = 0, counterexample = null;
     for (const readings of multisets(values)) {
       readingMultisets++;
@@ -190,14 +185,31 @@
         }
       }
     }
+    return {readingMultisets, casesChecked, counterexample};
+  }
+  function compose(readingGrid, targetGrid, condition, prediction) {
+    if (!Object.hasOwn(CONDITIONS, condition) || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unknown claim choice");
+    const values = parseGrid(readingGrid, 6, "Reading grid");
+    const targets = parseGrid(targetGrid, 12, "Target grid");
+    const claim = {condition, prediction,
+      statement: `For any five real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`};
+    const {readingMultisets, casesChecked, counterexample} = searchCases(values, targets, condition, prediction);
     const proof = proofFor(condition, prediction);
     if (proof && counterexample) fail("An algebraic theorem disagrees with exact enumeration");
+    // A fixed, independent search basis settles the other 16 universal statements.
+    // One exact counterexample is valid regardless of the visitor's chosen grid.
+    const basis = [rat(0n), rat(50n), rat(100n)];
+    const witness = proof ? null : searchCases(basis, basis, condition, prediction).counterexample;
+    if (!proof && !witness) fail("Claim language classification is incomplete");
+    const classification = {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
+      counterexample: witness};
     const formal = proof ? {system: "Lean 4/Mathlib", declaration: FORMAL_THEOREMS[condition],
       sourceCommit: FORMAL_COMMIT} : null;
     return {format: CLAIM_FORMAT, claim,
       domain: {readingValues: values.map(notation), targetValues: targets.map(notation), readingMultisets},
       search: {casesChecked, status: counterexample ? "counterexample-found" :
-        proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof, formal};
+        proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof, formal,
+      classification};
   }
   return {scan, compose, parseGrid, FORMAT, SCOPE, CLAIMS, CLAIM_FORMAT};
 });

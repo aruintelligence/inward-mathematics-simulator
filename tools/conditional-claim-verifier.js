@@ -1,4 +1,4 @@
-/* Independent checker for conditional claims v1/v2. Does not import the constructor. */
+/* Independent checker for conditional claims v1/v2/v3. Does not import the constructor. */
 (function (root, factory) {
   const parser = typeof module === "object" && module.exports ?
     require("./target-lens-proof-core.js") : root.TargetLensVerifier;
@@ -7,7 +7,8 @@
   else root.InwardConditionalClaimVerifier = api;
 })(globalThis, function (parser) {
   "use strict";
-  const FORMAT = "inward-conditional-claim-v2";
+  const FORMAT = "inward-conditional-claim-v3";
+  const PREVIOUS_FORMAT = "inward-conditional-claim-v2";
   const LEGACY_FORMAT = "inward-conditional-claim-v1";
   const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
   const FORMAL_THEOREMS = {
@@ -155,8 +156,10 @@
   }
   function verify(report) {
     const current = report?.format === FORMAT;
-    if (!current && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
-    fields(report, current ? ["format", "claim", "domain", "search", "proof", "formal"] :
+    const previous = report?.format === PREVIOUS_FORMAT;
+    if (!current && !previous && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
+    fields(report, current ? ["format", "claim", "domain", "search", "proof", "formal", "classification"] :
+      previous ? ["format", "claim", "domain", "search", "proof", "formal"] :
       ["format", "claim", "domain", "search", "proof"], "claim record");
     fields(report.claim, ["condition", "prediction", "statement"], "claim");
     const {condition, prediction} = report.claim;
@@ -184,11 +187,17 @@
       }
     }
     if (!same(report.proof, proof)) fail("Algebraic proof does not follow from the condition");
-    const formal = proof && current ? {system: "Lean 4/Mathlib",
+    const formal = proof && (current || previous) ? {system: "Lean 4/Mathlib",
       declaration: FORMAL_THEOREMS[condition], sourceCommit: FORMAL_COMMIT} : null;
-    if (current && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
+    if ((current || previous) && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
+    const basis = [fraction(0n), fraction(50n), fraction(100n)];
+    const universalWitness = current && !proof ? replay(basis, basis, condition, prediction).witness : null;
+    if (current && !proof && !universalWitness) fail("Claim language classification is incomplete");
+    const classification = current ? {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
+      counterexample: universalWitness} : null;
+    if (current && !same(report.classification, classification)) fail("Universal classification does not match exact witness");
     return {status, casesChecked: checked, readingMultisets: total, counterexample: witness,
-      statement, proof: Boolean(proof), formal};
+      statement, proof: Boolean(proof), formal, classification};
   }
   function parseClaim(source) {
     const record = parser.parseReceipt(source);

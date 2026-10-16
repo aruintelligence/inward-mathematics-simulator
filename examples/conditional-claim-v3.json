@@ -1,0 +1,61 @@
+{
+  "format": "inward-conditional-claim-v3",
+  "claim": {
+    "condition": "target-at-or-below-midpoint",
+    "prediction": "lower-no-worse",
+    "statement": "For any five real readings, if the target is at or below the estimates' midpoint, the lower estimate is no farther than the higher estimate."
+  },
+  "domain": {
+    "readingValues": [
+      "0",
+      "25",
+      "50",
+      "75",
+      "100"
+    ],
+    "targetValues": [
+      "0",
+      "25",
+      "50",
+      "75",
+      "100"
+    ],
+    "readingMultisets": 126
+  },
+  "search": {
+    "casesChecked": 324,
+    "status": "proved-by-algebra",
+    "counterexample": null
+  },
+  "proof": {
+    "method": "squared-error-factor-sign-v1",
+    "identity": {
+      "difference": "(a-t)^2-(b-t)^2",
+      "product": "(a-b)(a+b-2t)",
+      "expanded": {
+        "a^2": 1,
+        "b^2": -1,
+        "a*t": -2,
+        "b*t": 2
+      }
+    },
+    "assumptions": [
+      "a<=b",
+      "t<=(a+b)/2"
+    ],
+    "factorSigns": [
+      "nonpositive",
+      "nonnegative"
+    ],
+    "result": "(a-t)^2<=(b-t)^2"
+  },
+  "formal": {
+    "system": "Lean 4/Mathlib",
+    "declaration": "InwardFormal.lower_no_worse_at_midpoint",
+    "sourceCommit": "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705"
+  },
+  "classification": {
+    "status": "proved-by-algebra",
+    "counterexample": null
+  }
+}

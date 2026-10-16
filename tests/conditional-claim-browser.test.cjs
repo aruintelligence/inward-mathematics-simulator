@@ -34,6 +34,7 @@ test('independent browser and Python check all choices and fractional boundary g
       assert.equal(browser.status, receipt.search.status);
       assert.equal(browser.casesChecked, receipt.search.casesChecked);
       assert.deepEqual(browser.counterexample, receipt.search.counterexample);
+      assert.deepEqual(browser.classification, receipt.classification);
     }
   } finally {rmSync(dir, {recursive:true, force:true});}
 });
@@ -51,6 +52,9 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
     [proved, x => {x.formal.declaration = 'InwardFormal.higher_no_worse_at_midpoint';}],
     [proved, x => {x.formal.sourceCommit = '0'.repeat(40);}],
     [proved, x => {delete x.formal;}],
+    [proved, x => {x.classification.counterexample = clone(refuted.classification.counterexample);}],
+    [refuted, x => {x.classification.counterexample.actualWinner = 'tie';}],
+    [refuted, x => {delete x.classification;}],
     [refuted, x => {x.search.counterexample.target = '100';}],
     [refuted, x => {x.search.status = 'proved-by-algebra';}],
     [refuted, x => {x.proof = clone(proved.proof);}],
@@ -67,9 +71,14 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
   const legacy = clone(proved);
   legacy.format = 'inward-conditional-claim-v1';
   delete legacy.formal;
+  delete legacy.classification;
   assert.equal(checker.verify(legacy).formal, null);
+  const v2 = clone(proved);
+  v2.format = 'inward-conditional-claim-v2';
+  delete v2.classification;
+  assert.equal(checker.verify(v2).classification, null);
   const dir = mkdtempSync(join(tmpdir(), 'legacy-claim-'));
-  try { assert.equal(python(legacy, dir).status, 0); }
+  try { assert.equal(python(legacy, dir).status, 0); assert.equal(python(v2, dir).status, 0); }
   finally { rmSync(dir, {recursive:true, force:true}); }
 });
 
@@ -118,12 +127,21 @@ test('browser inspector refuses stale results when source changes and fingerprin
   nodes['claim-json'].value=JSON.stringify(refuted);
   nodes['claim-json'].handlers.input();
   await nodes['verify-button'].handlers.click();
-  assert.equal(nodes.badge.textContent,'Counterexample found');
+  assert.equal(nodes.badge.textContent,'Universal claim refuted');
   assert.equal(nodes['formal-reference'].hidden,true);
   assert.equal(nodes['formal-source'].hidden,true);
+  const missed=maker.compose('50,100','0,1','target-at-or-above-both','mean-no-worse');
+  nodes['claim-json'].value=JSON.stringify(missed);
+  nodes['claim-json'].handlers.input();
+  await nodes['verify-button'].handlers.click();
+  assert.equal(nodes.badge.textContent,'Universal claim refuted');
+  assert.match(nodes.count.textContent,/0 eligible exact cases/);
+  assert.match(nodes.explanation.textContent,/selected finite grid found none/);
+  assert.match(nodes.witness.textContent,/Readings 0, 0, 50, 50, 50/);
   const legacy=clone(proof);
   legacy.format='inward-conditional-claim-v1';
   delete legacy.formal;
+  delete legacy.classification;
   nodes['claim-json'].value=JSON.stringify(legacy);
   nodes['claim-json'].handlers.input();
   await nodes['verify-button'].handlers.click();

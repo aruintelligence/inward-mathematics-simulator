@@ -198,11 +198,11 @@
       const fingerprint = [...new Uint8Array(hash)].map(x => x.toString(16).padStart(2, "0")).join("");
       const search = report.search;
       $("claim-title").textContent = report.claim.statement;
-      const label = search.status === "proved-by-algebra" ? "General algebraic proof" :
-        search.status === "counterexample-found" ? "Counterexample found" : "Unrefuted on this finite grid";
+      const globalPoint = report.classification.counterexample;
+      const label = report.proof ? "General algebraic proof" : "Universal claim refuted";
       $("claim-badge").textContent = label;
-      $("claim-results").classList.toggle("counterexample", search.status === "counterexample-found");
-      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets. ${search.counterexample ? "Search stopped at the first counterexample." : "Search completed."}`;
+      $("claim-results").classList.toggle("counterexample", Boolean(globalPoint));
+      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
       $("claim-formal-link").hidden = !report.proof;
       $("claim-formal-ref").hidden = !report.formal;
       if (report.formal) {
@@ -212,19 +212,18 @@
       if (report.proof) {
         $("claim-summary").textContent = "This conditional statement holds for all real readings and targets under its stated guard. Its general real-number implication is proved in Lean; this exported JSON is checked separately by the app and independent verifiers. This is established mathematics, not a newly discovered theorem.";
         $("claim-proof").textContent = `Let a ≤ b be the two estimates and t the target. (a−t)² − (b−t)² = (a−b)(a+b−2t). The claim assumes ${report.proof.assumptions[1]}; hence a−b ≤ 0 and a+b−2t is ${report.proof.factorSigns[1]}. The product gives ${report.proof.result}. The same ordering holds for absolute errors. The exported certificate can be checked independently in Python.`;
-      } else if (search.counterexample) {
-        $("claim-summary").textContent = `Exact counterexample: ${search.counterexample.actualWinner} is closer at target ${search.counterexample.target}. One witness refutes the universal statement.`;
-        $("claim-proof").textContent = "";
       } else {
-        $("claim-summary").textContent = search.casesChecked === 0 ?
-          "No chosen grid point met the claim's condition. This search supplies no eligible case and no general proof." :
-          "No counterexample appeared on this finite grid. The general statement remains unproved.";
-        $("claim-proof").textContent = "";
+        $("claim-summary").textContent = `Exact counterexample from the fixed 0, 50, 100 witness basis: ${globalPoint.actualWinner} is closer at target ${globalPoint.target}, with readings ${globalPoint.readings.join(", ")}. This one case refutes the universal statement regardless of which grid you chose.`;
+        $("claim-proof").textContent = search.counterexample ?
+          `Your chosen grid also found a counterexample at target ${search.counterexample.target}. The chart shows that chosen-grid case.` :
+          "Your chosen grid missed the counterexample (or had no eligible cases). The chart shows the independent fixed-basis witness.";
       }
-      const axis = scale(report.domain);
-      $("claim-plot").replaceChildren(...(search.counterexample ? [plot(search.counterexample, axis)] : []));
-      $("claim-crossover").replaceChildren(...(search.counterexample ? [targetRegions(search.counterexample)] : []));
-      $("claim-crossover").hidden = !search.counterexample;
+      const shown = search.counterexample || globalPoint;
+      const axis = shown ? scale({readingValues: [...report.domain.readingValues, ...shown.readings].sort(compareRaw),
+        targetValues: [...report.domain.targetValues, shown.target].sort(compareRaw)}) : scale(report.domain);
+      $("claim-plot").replaceChildren(...(shown ? [plot(shown, axis)] : []));
+      $("claim-crossover").replaceChildren(...(shown ? [targetRegions(shown)] : []));
+      $("claim-crossover").hidden = !shown;
       $("claim-fingerprint").textContent = `SHA-256 of exported claim JSON bytes: ${fingerprint}`;
       $("claim-results").hidden = false;
       claimExportBytes = source;
@@ -262,7 +261,7 @@
     const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "inward-conditional-claim-v2.json";
+    anchor.download = "inward-conditional-claim-v3.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

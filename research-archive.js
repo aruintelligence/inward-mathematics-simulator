@@ -22,12 +22,13 @@
     if (!entry.valid) return filter === "all" && (!term || String(entry.digest).includes(term));
     const {record, result, label, digest} = entry;
     if (entry.kind === "conditional-claim") {
-      const witness = result.counterexample;
+      const witness = result.classification?.counterexample || result.counterexample;
       const searchable = [label, digest, record.claim.statement, record.claim.condition,
-        record.claim.prediction, result.status, ...record.domain.readingValues,
+        record.claim.prediction, result.status, result.classification?.status, ...record.domain.readingValues,
         ...record.domain.targetValues, ...(witness?.readings || []), witness?.target,
         witness?.mean, witness?.median, result.formal?.declaration].join(" ").toLocaleLowerCase();
-      return (filter === "all" || filter === "conditional-claim" || filter === result.status) &&
+      return (filter === "all" || filter === "conditional-claim" || filter === result.status ||
+        filter === result.classification?.status) &&
         (!term || searchable.includes(term));
     }
     const witnessValues = record.claim.routes.flatMap(route =>
@@ -74,7 +75,8 @@
       "counterexample-found": "Counterexample found",
       "unrefuted-on-finite-grid": "Unrefuted on finite grid"};
     const badge = entry.valid ? entry.kind === "conditional-claim" ?
-      claimStatus[entry.result.status] : entry.result.reachable.join(" · ") : "Not verified";
+      entry.result.classification?.counterexample ? "Universal claim refuted" :
+        claimStatus[entry.result.status] : entry.result.reachable.join(" · ") : "Not verified";
     summary.append(node("span", badge, entry.valid ? "badge" : "badge warning"));
     item.append(summary);
     const body = node("div", "", "card-body");
@@ -93,9 +95,9 @@
             body.append(source);
           } else body.append(node("p", "Legacy v1 receipt: no machine-readable theorem binding."));
         }
-        else if (result.counterexample) {
-          const point = result.counterexample;
-          body.append(node("p", `Exact counterexample: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer.`));
+        else if (result.classification?.counterexample || result.counterexample) {
+          const point = result.classification?.counterexample || result.counterexample;
+          body.append(node("p", `${result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
         } else body.append(node("p", "No counterexample on this finite grid. This does not prove a general claim."));
       } else {
         body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));

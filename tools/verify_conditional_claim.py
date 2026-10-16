@@ -9,9 +9,10 @@ import json
 import re
 import sys
 
-FORMAT = "inward-conditional-claim-v2"
+FORMAT = "inward-conditional-claim-v3"
+PREVIOUS_FORMAT = "inward-conditional-claim-v2"
 LEGACY_FORMAT = "inward-conditional-claim-v1"
-FORMATS = (LEGACY_FORMAT, FORMAT)
+FORMATS = (LEGACY_FORMAT, PREVIOUS_FORMAT, FORMAT)
 FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705"
 FORMAL_THEOREMS = {
     "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
@@ -152,7 +153,9 @@ def verify(report):
     if type(report) is not dict or report.get("format") not in FORMATS:
         raise ValueError("Unknown claim format")
     current = report["format"] == FORMAT
-    fields(report, {"format", "claim", "domain", "search", "proof", "formal"} if current else
+    previous = report["format"] == PREVIOUS_FORMAT
+    fields(report, {"format", "claim", "domain", "search", "proof", "formal", "classification"} if current else
+           {"format", "claim", "domain", "search", "proof", "formal"} if previous else
            {"format", "claim", "domain", "search", "proof"}, "report")
     claim = report["claim"]
     fields(claim, {"condition", "prediction", "statement"}, "claim")
@@ -188,9 +191,18 @@ def verify(report):
     if report["proof"] != proof:
         raise ValueError("Algebraic certificate is absent or inconsistent")
     formal = {"system": "Lean 4/Mathlib", "declaration": FORMAL_THEOREMS[condition],
-              "sourceCommit": FORMAL_COMMIT} if proof is not None and current else None
-    if current and report["formal"] != formal:
+              "sourceCommit": FORMAL_COMMIT} if proof is not None and (current or previous) else None
+    if (current or previous) and report["formal"] != formal:
         raise ValueError("Formal theorem reference does not match the proved claim")
+    universal_witness = replay([Fraction(0), Fraction(50), Fraction(100)],
+                               [Fraction(0), Fraction(50), Fraction(100)],
+                               condition, prediction)[1] if current and proof is None else None
+    if current and proof is None and universal_witness is None:
+        raise ValueError("Claim language classification is incomplete")
+    classification = {"status": "proved-by-algebra" if proof else "refuted-by-exact-witness",
+                      "counterexample": universal_witness}
+    if current and report["classification"] != classification:
+        raise ValueError("Universal classification does not match exact witness")
     return status, count
 
 
@@ -205,7 +217,11 @@ def main():
         report = json.loads(data.decode("utf-8"), object_pairs_hook=no_duplicates,
                             parse_constant=lambda x: (_ for _ in ()).throw(ValueError("Invalid JSON constant")))
         status, count = verify(report)
-        print(f"Verified {status}; {count} exact eligible cases checked")
+        if report["format"] == FORMAT and report["classification"]["status"] == "refuted-by-exact-witness":
+            print(f"Verified refuted-by-exact-witness; selected grid {status}; "
+                  f"{count} exact eligible cases checked")
+        else:
+            print(f"Verified {status}; {count} exact eligible cases checked")
         print("Claim SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError) as error:
         print(f"Claim verification failed: {error}", file=sys.stderr)
