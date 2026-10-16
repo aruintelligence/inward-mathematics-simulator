@@ -735,8 +735,7 @@ theorem sampleMean_rebase (xs : List ℝ) (scale shift : ℝ)
   simp only [rebase] at hsum
   simp only [sampleMean, rebase, List.length_map]
   rw [hsum]
-  field_simp [hn]
-  ring
+  field_simp [hn] <;> ring
 
 private theorem getD_rebase (xs : List ℝ) (scale shift : ℝ) (i : ℕ)
     (hi : i < xs.length) :
@@ -763,12 +762,21 @@ theorem orderedMedian_rebase (xs : List ℝ) (scale shift : ℝ)
 
 /-- A positive unit change preserves the ordering of an already sorted list. -/
 theorem sorted_rebase (xs : List ℝ) (scale shift : ℝ) (hs : 0 < scale)
-    (hordered : List.Sorted (· ≤ ·) xs) :
-    List.Sorted (· ≤ ·) (rebase scale shift xs) := by
-  have hmono : StrictMono (fun value : ℝ => scale * value + shift) := by
-    intro a b hab
-    exact add_lt_add_right (mul_lt_mul_of_pos_left hab hs) shift
-  exact (hmono.sorted_le_listMap).2 hordered
+    (hordered : List.Pairwise (· ≤ ·) xs) :
+    List.Pairwise (· ≤ ·) (rebase scale shift xs) := by
+  induction xs generalizing hordered with
+  | nil => exact List.Pairwise.nil
+  | cons value rest ih =>
+    obtain ⟨hhead, htail⟩ := List.pairwise_cons.mp hordered
+    change List.Pairwise (· ≤ ·) ((scale * value + shift) :: rebase scale shift rest)
+    apply List.Pairwise.cons
+    · intro converted hconverted
+      have hmember : converted ∈ rest.map (fun v => scale * v + shift) := by
+        simpa only [rebase] using hconverted
+      obtain ⟨original, horiginal, rfl⟩ := List.mem_map.mp hmember
+      have hle := mul_le_mul_of_nonneg_left (hhead original horiginal) (le_of_lt hs)
+      linarith
+    · exact ih htail
 
 theorem squared_error_scales (mean median target scale shift : ℝ) :
     ((scale * mean + shift) - (scale * target + shift)) ^ 2 -
