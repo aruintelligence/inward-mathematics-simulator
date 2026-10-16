@@ -16,7 +16,8 @@
     "inward-conditional-claim-v2": "conditional-claim",
     "inward-conditional-claim-v3": "conditional-claim",
     "inward-conditional-claim-v4": "conditional-claim",
-    "inward-conditional-claim-v5": "conditional-claim"};
+    "inward-conditional-claim-v5": "conditional-claim",
+    "inward-conditional-claim-v6": "conditional-claim"};
   const fail = message => { throw new Error(message); };
   function labelText(raw, fallback) {
     if (typeof raw !== "string" || raw.length > 100) fail("Label must have at most 100 characters");

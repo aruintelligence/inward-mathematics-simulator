@@ -63,6 +63,8 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
     [proved, x => {delete x.formal;}],
     [proved, x => {x.classification.counterexample = clone(refuted.classification.counterexample);}],
     [refuted, x => {x.classification.counterexample.actualWinner = 'tie';}],
+    [refuted, x => {x.classification.construction.target = '100';}],
+    [refuted, x => {delete x.classification.construction;}],
     [refuted, x => {delete x.classification;}],
     [refuted, x => {x.search.counterexample.target = '100';}],
     [refuted, x => {x.search.status = 'proved-by-algebra';}],
@@ -156,7 +158,8 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.equal(nodes.badge.textContent,'Universal claim refuted');
   assert.match(nodes.count.textContent,/0 eligible exact cases/);
   assert.match(nodes.explanation.textContent,/selected finite grid found none/);
-  assert.match(nodes.witness.textContent,/Readings 0, 0, 50, 50, 50/);
+  assert.match(nodes.witness.textContent,/Readings 0, 100, 100, 100, 100/);
+  assert.match(nodes.explanation.textContent,/endpoint construction/);
   const legacy=clone(proof);
   legacy.format='inward-conditional-claim-v1';
   delete legacy.domain.readingCount;
