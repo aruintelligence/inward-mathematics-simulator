@@ -98,7 +98,10 @@ signs would force an explicit zero between them. The product of two such
 factors has the same winner sign throughout the cell. A factor zero at two
 distinct points is identically zero, covering the degenerate tie case.
 These theorems justify the midpoint argument when the cell is known to
-contain no roots. The code that enumerates and clips every root,
+contain no roots. `no_zero_if_root_outside` derives that premise from a
+nonconstant factor's exact root at or outside the cell; the product theorem
+then applies directly to two such located roots. The code that enumerates
+and clips every root,
 sorts arbitrary input, and selects the global closest route is still checked
 by the independent certificate verifier rather than proved equivalent to
 this Lean model.

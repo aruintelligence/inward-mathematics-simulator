@@ -567,6 +567,21 @@ theorem zero_between_of_opposite (A B x y : ℝ) (hxy : x < y)
   · field_simp [ne_of_gt hB]
     ring
 
+/-- A nonconstant affine factor cannot vanish in a cell whose exact root lies
+at or outside one of its boundaries. -/
+theorem no_zero_if_root_outside (A B left right : ℝ) (hB : B ≠ 0)
+    (hroot : -A / B ≤ left ∨ right ≤ -A / B) :
+    ∀ x, left < x → x < right → A + B * x ≠ 0 := by
+  intro x hlx hxr hzero
+  have hx : x = -A / B := by
+    apply (eq_div_iff hB).2
+    nlinarith
+  rcases hroot with hleft | hright
+  · rw [hx] at hlx
+    linarith
+  · rw [hx] at hxr
+    linarith
+
 /-- The strict sign at one point holds at every point of a root-free cell. -/
 theorem positive_from_anchor (A B left right anchor x : ℝ)
     (hla : left < anchor) (har : anchor < right)
@@ -660,6 +675,21 @@ theorem product_negative_iff_midpoint (A B C D left right x : ℝ)
         have hnonnegProduct := mul_nonneg (le_of_lt hpos) hnonneg
         exact (not_le_of_gt hproduct) hnonnegProduct
       exact mul_neg_of_pos_of_neg (hf.1.mpr hpos) (hg.2.mpr hother)
+
+/-- Supplying both exact roots outside the cell is enough to justify the
+midpoint's winner classification for the entire open cell. -/
+theorem product_negative_iff_midpoint_of_roots_outside
+    (A B C D left right x : ℝ)
+    (hlr : left < right) (hlx : left < x) (hxr : x < right)
+    (hB : B ≠ 0) (hD : D ≠ 0)
+    (hfirst : -A / B ≤ left ∨ right ≤ -A / B)
+    (hsecond : -C / D ≤ left ∨ right ≤ -C / D) :
+    (A + B * x) * (C + D * x) < 0 ↔
+      (A + B * ((left + right) / 2)) *
+        (C + D * ((left + right) / 2)) < 0 := by
+  exact product_negative_iff_midpoint A B C D left right x hlr hlx hxr
+    (no_zero_if_root_outside A B left right hB hfirst)
+    (no_zero_if_root_outside C D left right hD hsecond)
 
 /-- If an affine factor vanishes at two distinct points, it ties everywhere. -/
 theorem zero_at_two_points (A B p q x : ℝ) (hpq : p ≠ q)
