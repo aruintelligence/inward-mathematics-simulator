@@ -125,8 +125,10 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(first.result.status, 'proved-by-algebra');
   const second = await archive.add(db, refutedSource, 'Counterexample A', checkers, crypto.webcrypto);
   assert.equal(second.result.status, 'counterexample-found');
+  assert.equal(second.result.classification.status, 'refuted-by-exact-witness');
   const third = await archive.add(db, JSON.stringify(unresolved), 'Finite case A', checkers, crypto.webcrypto);
   assert.equal(third.result.status, 'unrefuted-on-finite-grid');
+  assert.equal(third.result.classification.status, 'refuted-by-exact-witness');
   assert.equal(third.result.proof, false);
   assert.ok(third.result.casesChecked > 0);
   assert.equal((await archive.add(db, proofSource, 'Changed', checkers, crypto.webcrypto)).created, false);
@@ -151,21 +153,28 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(items.find(x => x.digest === first.digest).valid, true);
 });
 
-test('legacy v1 claims remain readable and portable beside theorem-bound v2 claims', async () => {
+test('legacy v1/v2 claims remain readable and portable beside classified v3 claims', async () => {
   const db = memoryDB();
   const current = maker.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse');
   const legacy = JSON.parse(JSON.stringify(current));
   legacy.format = 'inward-conditional-claim-v1';
   delete legacy.formal;
+  delete legacy.classification;
+  const previous = JSON.parse(JSON.stringify(current));
+  previous.format = 'inward-conditional-claim-v2';
+  delete previous.classification;
   await archive.add(db, JSON.stringify(legacy), 'Earlier proof', checkers, crypto.webcrypto);
-  await archive.add(db, JSON.stringify(current), 'Theorem bound proof', checkers, crypto.webcrypto);
+  await archive.add(db, JSON.stringify(previous), 'Theorem bound proof', checkers, crypto.webcrypto);
+  await archive.add(db, JSON.stringify(current), 'Classified proof', checkers, crypto.webcrypto);
   const listed = await archive.list(db, checkers, crypto.webcrypto);
-  assert.equal(listed.length, 2);
+  assert.equal(listed.length, 3);
   assert.ok(listed.every(item => item.valid && item.result.status === 'proved-by-algebra'));
   assert.equal(listed.find(item => item.record.format.endsWith('-v1')).result.formal, null);
   assert.equal(listed.find(item => item.record.format.endsWith('-v2')).result.formal.declaration,
     'InwardFormal.lower_no_worse_at_midpoint');
+  assert.equal(listed.find(item => item.record.format.endsWith('-v3')).result.classification.status,
+    'proved-by-algebra');
   const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
   const dir = mkdtempSync(join(tmpdir(), 'inward-legacy-collection-'));
   try {
@@ -174,7 +183,7 @@ test('legacy v1 claims remain readable and portable beside theorem-bound v2 clai
     const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
       {encoding: 'utf8'});
     assert.equal(checked.status, 0, checked.stderr);
-    assert.match(checked.stdout, /Verified 2 research records/);
+    assert.match(checked.stdout, /Verified 3 research records/);
   } finally {rmSync(dir, {recursive:true, force:true});}
 });
 
@@ -218,7 +227,7 @@ test('portable collection round trips mixed receipts and is independently replay
     assert.equal(checked.status, 0, checked.stderr);
     assert.match(checked.stdout, /Verified 3 research records/);
     assert.match(checked.stdout, /proved-by-algebra/);
-    assert.match(checked.stdout, /counterexample-found/);
+    assert.match(checked.stdout, /refuted-by-exact-witness/);
   } finally {rmSync(dir, {recursive:true, force:true});}
   const restored = memoryDB();
   const imported = await archive.importCollection(restored, collection.source, checkers, crypto.webcrypto);

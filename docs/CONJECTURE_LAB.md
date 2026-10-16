@@ -20,7 +20,7 @@ Existing work and attribution remain with Daniel Jacob Read IV / ĀRU Intelligen
 
 The same page now lets a visitor form a precise universal statement: select a condition on the target (`any`, at/below or at/above the estimates' midpoint, at/below both estimates, or at/above both) and predict whether the lower, higher, mean, or median estimate is no farther from the target. This is a deliberately small mathematical language. A phrase like “no farther” includes ties; no free-form or unsupported theorem is silently interpreted.
 
-The engine tests every eligible reading multiset and selected target, stopping at the first counterexample. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v2` record, leaving the fixed four-candidate v1 experiment unchanged. Existing v1 conditional-claim files remain checkable.
+The engine tests every eligible reading multiset and selected target, stopping at the first counterexample. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v3` record, leaving the fixed four-candidate v1 experiment unchanged. Existing v1 and v2 conditional-claim files remain checkable.
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
@@ -60,18 +60,47 @@ machine-readable theorem reference, and is displayed as such. The pinned link
 supports inspection of the Lean proof that CI built and audited; the per-file
 verifiers do not invoke Lean on arbitrary JSON, authenticate a source commit,
 or validate the supplied measurements.
-The checked [v2 example](../examples/conditional-claim-v2.json) is a
-reproducible starting point for an offline audit.
+The checked [v2 example](../examples/conditional-claim-v2.json) remains
+available for a legacy offline audit.
 
-Other composed statements receive a counterexample if one appears; otherwise their status is `unrefuted-on-finite-grid` and there is no proof. A genuine universal counterexample settles its universal claim even when the finite search was small; absence of one does not. The Python checker recomputes the full finite search with `Fraction`, expands both polynomials with integer exponent vectors, and derives the permitted factor signs from the selected condition:
+Version 3 adds an independent `classification` beside the chosen-grid `search`.
+For each of the 16 pairs without a general proof, the constructor scans the
+fixed rational witness basis `{0, 50, 100}` for both five-reading multisets
+and targets and records the first eligible counterexample. One exact witness
+refutes its universal statement even if the visitor's grid had zero eligible
+cases or no counterexample. All 20 pairs are therefore settled **within this
+small registered claim language**: four proved implications and 16 refuted
+universal claims. This is not a general conjecture solver. The browser and
+Python checkers independently replay the fixed basis and require the exact
+witness, its condition, mean, median, and strict winner. The selected-grid
+`search` is still reproduced separately and may truthfully say
+`unrefuted-on-finite-grid`; it cannot override the global witness. The checked
+[v3 proof example](../examples/conditional-claim-v3.json) and
+[v3 grid-miss example](../examples/conditional-claim-v3-grid-miss.json) show
+both outcomes. The Python checker also expands the squared-distance identity
+with integer exponent vectors and derives the permitted factor signs.
+
+| Target condition | Lower no farther | Higher no farther | Mean no farther | Median no farther |
+| --- | --- | --- | --- | --- |
+| Any target | Witness | Witness | Witness | Witness |
+| At/below midpoint | Lean proof | Witness | Witness | Witness |
+| At/above midpoint | Witness | Lean proof | Witness | Witness |
+| At/below both estimates | Lean proof | Witness | Witness | Witness |
+| At/above both estimates | Witness | Lean proof | Witness | Witness |
+
+“Witness” means a concrete exact five-reading and target counterexample,
+not a proof that a search algorithm exhausted all real inputs. A single
+verified violation suffices to refute the corresponding universal claim.
+
+Reproduce the grid-miss receipt and its verification:
 
 ```sh
-python3 tools/verify_conditional_claim.py inward-conditional-claim-v2.json
+python3 tools/verify_conditional_claim.py examples/conditional-claim-v3-grid-miss.json
 node --test tests/conjecture-lab.test.cjs
 ```
 
 It rejects inconsistent witnesses, counts, statements, status, proof fields, duplicate JSON keys, unknown fields, and oversized files. It reports the SHA-256 of exact input bytes. The per-record checker relies on arithmetic and program correctness; Lean checks the separate general implications, not a particular JSON file. The proof concerns the specified mathematical model and does not establish the truth of an input target, quality of measurements, or practical superiority of an estimator. No inputs leave the device unless the visitor chooses to download or share the record.
 
-The [Claim Inspector](../verify-conditional-claim.html) provides a second independent check directly in a browser. It accepts a downloaded JSON file or pasted text; nothing is uploaded. Its standalone verifier does **not** import the claim builder: it independently enumerates rational cases, checks the first eligible witness, expands the squared-error polynomials, and derives the permitted factor signs. It reuses the separately tested JSON parser from the Target Lens inspector to reject duplicate keys. The interface rejects malformed UTF-8 and records over 1 MB, hides any result as soon as a file or pasted value changes, and hashes the exact accepted bytes. The Node test cross-checks all twenty condition/prediction combinations across three domains against the Python implementation. The Lean proof checks the general factor-sign implications, while the two app checkers replay individual records. None of these checks certify input provenance.
+The [Claim Inspector](../verify-conditional-claim.html) provides a second independent check directly in a browser. It accepts a downloaded JSON file or pasted text; nothing is uploaded. Its standalone verifier does **not** import the claim builder: it independently enumerates rational cases, checks the first eligible witness on both grids, expands the squared-error polynomials, and derives the permitted factor signs. It reuses the separately tested JSON parser from the Target Lens inspector to reject duplicate keys. The interface rejects malformed UTF-8 and records over 1 MB, hides any result as soon as a file or pasted value changes, and hashes the exact accepted bytes. The Node test cross-checks all twenty condition/prediction combinations across three domains against the Python implementation. The Lean proof checks the general factor-sign implications, while the two app checkers replay individual records. None of these checks certify input provenance.
 
-After verification, **Save checked claim locally** retains the exact JSON in the [Local Research Archive](../research-archive.html). The archive also accepts exported claim files directly, independently replays them on import and on every archive visit, and indexes the distinction between an algebraic proof, a finite counterexample, and an unrefuted finite grid. It shares a 100-record device-local limit with Target Box certificates. Existing Target Box entries remain readable; a stored type, label, or timestamp is never treated as mathematical evidence. Export the exact JSON individually or as a [portable checked collection](RESEARCH_COLLECTION.md). Browser storage can be cleared and is not encrypted, synchronized, or evidence of authorship.
+After verification, **Save checked claim locally** retains the exact JSON in the [Local Research Archive](../research-archive.html). The archive also accepts exported claim files directly, independently replays them on import and on every archive visit, and indexes global classification separately from selected-grid status. It shares a 100-record device-local limit with Target Box certificates. Existing Target Box and older claim entries remain readable; a stored type, label, or timestamp is never treated as mathematical evidence. Export the exact JSON individually or as a [portable checked collection](RESEARCH_COLLECTION.md). Browser storage can be cleared and is not encrypted, synchronized, or evidence of authorship.

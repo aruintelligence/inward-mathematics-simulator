@@ -53,9 +53,10 @@
       $("verdict").textContent = "Mathematics checked";
       $("verdict-note").textContent = "The selected record is internally consistent under its stated model.";
       $("status").textContent = "Independent browser verification complete.";
-      $("badge").textContent = checked.status === "proved-by-algebra" ? "General algebraic proof" :
-        checked.status === "counterexample-found" ? "Counterexample found" : "Unrefuted on this finite grid";
-      $("result").classList.toggle("refuted", checked.status === "counterexample-found");
+      $("badge").textContent = checked.proof ? "General algebraic proof" :
+        checked.classification ? "Universal claim refuted" :
+          checked.status === "counterexample-found" ? "Counterexample found" : "Unrefuted on this finite grid";
+      $("result").classList.toggle("refuted", Boolean(checked.classification?.counterexample || checked.counterexample));
       $("statement").textContent = checked.statement;
       $("count").textContent = `${checked.casesChecked} eligible exact cases checked across ${checked.readingMultisets} five-reading multisets.`;
       $("formal-reference").hidden = !checked.proof;
@@ -68,9 +69,11 @@
       if (checked.proof) {
         $("explanation").textContent = "The general conclusion follows from (a−t)² − (b−t)² = (a−b)(a+b−2t), where a ≤ b are the two estimates. This inspector independently checks the selected record and its condition. A separate Lean module proves the corresponding real-number inequality; Lean does not check these JSON bytes, the source measurements, or authorship. This is an established elementary result, not a new theorem.";
         $("witness").textContent = "The chosen finite grid illustrates the statement; it is not the source of its general proof.";
-      } else if (checked.counterexample) {
-        const point = checked.counterexample;
-        $("explanation").textContent = "A single exact witness refutes this universal claim in the stated model.";
+      } else if (checked.classification?.counterexample || checked.counterexample) {
+        const point = checked.classification?.counterexample || checked.counterexample;
+        $("explanation").textContent = checked.classification ?
+          `This exact fixed-basis witness refutes the universal claim even if the selected finite grid found none. The selected grid ${checked.counterexample ? "also found a counterexample" : "found no counterexample"}.` :
+          "A single exact witness refutes this universal claim in the stated model.";
         $("witness").textContent = `Readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. The ${point.actualWinner} is closer.`;
       } else {
         $("explanation").textContent = "The finite search found no counterexample. It does not establish a theorem or prove the claim for other inputs.";

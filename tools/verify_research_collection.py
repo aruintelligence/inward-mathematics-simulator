@@ -61,7 +61,7 @@ def verify(data):
             raise ValueError("Stored kind does not match receipt format")
         if kind == "conditional-claim":
             status, count = claim.verify(receipt)
-            results.append((digest, kind, status, count))
+            results.append((digest, kind, receipt.get("classification", {}).get("status", status), count))
         else:
             result = box.verify(receipt)
             results.append((digest, kind, "/".join(result["reachable"]), result["routes"]))
