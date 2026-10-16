@@ -279,6 +279,29 @@ noncomputable def conclusion : Prediction → ℝ → ℝ → ℝ → Prop
   | .mean, m, d, t => |m - t| ≤ |d - t|
   | .median, m, d, t => |d - t| ≤ |m - t|
 
+/-- The midpoint guard has exactly the form used by the receipt verifiers. -/
+theorem belowMidpoint_iff (m d t : ℝ) :
+    guard .belowMidpoint m d t ↔ t ≤ (m + d) / 2 := by
+  change (2 * t ≤ min m d + max m d) ↔ t ≤ (m + d) / 2
+  rw [min_add_max]
+  constructor <;> intro h <;> linarith
+
+theorem aboveMidpoint_iff (m d t : ℝ) :
+    guard .aboveMidpoint m d t ↔ (m + d) / 2 ≤ t := by
+  change (min m d + max m d ≤ 2 * t) ↔ (m + d) / 2 ≤ t
+  rw [min_add_max]
+  constructor <;> intro h <;> linarith
+
+theorem belowBoth_iff (m d t : ℝ) :
+    guard .belowBoth m d t ↔ t ≤ m ∧ t ≤ d := by
+  change t ≤ min m d ↔ t ≤ m ∧ t ≤ d
+  exact le_min_iff
+
+theorem aboveBoth_iff (m d t : ℝ) :
+    guard .aboveBoth m d t ↔ m ≤ t ∧ d ≤ t := by
+  change max m d ≤ t ↔ m ≤ t ∧ d ≤ t
+  exact max_le_iff
+
 def universal (c : Condition) (p : Prediction) : Prop :=
   ∀ m d t : ℝ, guard c m d t → conclusion p m d t
 

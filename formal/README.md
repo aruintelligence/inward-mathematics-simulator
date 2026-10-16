@@ -34,17 +34,29 @@ file's source revision. Its independent receipt verifiers check the mapping
 and schema; they do not turn a JSON file into a Lean proof object.
 
 The v6 refutation construction uses two sorted endpoint sample families for
-every integer sample size at least three. The same Lean module now defines
-the mean and central-pair median on those lists and proves their exact
-formulas, including the even-size case. It also proves that the means lie
-strictly between 0 and 100 and that each family switches its strict winner
-between targets 0 and 100. These are elementary facts, not novel theorems.
-The conditional-claim documentation explains how the four endpoint choices
-cover the 16 refutable pairs in its limited 20-pair language.
+every integer sample size at least three. The same Lean module defines the
+mean and central-pair median on those lists and proves their exact formulas,
+including the even-size case. It also proves that the means lie strictly
+between 0 and 100 and that each family switches its strict winner between
+targets 0 and 100.
 
-The Lean result covers the two explicit sorted sample families and the
-general two-estimate implications. It does not formalize the UI's arbitrary
-sorting routine, the 20-pair routing table, the app's JSON parser, the
-authenticity of measurements, or the correctness of an arbitrary claim. The
-app and independent Python verifier still replay each specific certificate
-and finite search.
+`InwardFormal.RegisteredClaim` defines the five target conditions, four
+no-farther predictions, and their real-number semantics. The theorem
+`belowMidpoint_iff` (and its upper counterpart) equates the formal guard to
+the app's average-of-estimates midpoint; the both-estimates guard equivalences
+spell out the two individual inequalities. The theorem
+`universal_iff_established` checks the **entire registered 20-pair table**:
+exactly the four documented implications are universal for arbitrary real
+estimates. For every other pair and every integer $n\ge3$, `classify` gives
+one of the explicit endpoint samples and an eligible target with a strictly
+false prediction. `refutation_disproves_universal` establishes that such a
+witness rules out the universal statement. These are elementary facts, not
+novel theorems.
+
+The Lean result covers the two explicit sorted sample families, the general
+two-estimate implications, and a separate formal encoding of the registered
+routing table. It does not formalize the UI's arbitrary sorting routine, the
+app's JSON parser, or the correspondence between the formal encoding and
+runtime source code. It does not authenticate measurements or certify an
+arbitrary claim. The app and independent Python verifier still replay each
+specific certificate and finite search.
