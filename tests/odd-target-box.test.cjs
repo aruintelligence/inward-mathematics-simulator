@@ -7,9 +7,10 @@ const {join} = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 const core = require('../odd-target-box-core.js');
+const verifier = require('../odd-target-box-verifier.js');
 
-function python(values, low, high, targetLow, targetHigh) {
-  const run = spawnSync('python3', ['tools/odd_target_box.py',
+function python(values, low, high, targetLow, targetHigh, quantify = false) {
+  const run = spawnSync('python3', ['tools/odd_target_box.py', ...(quantify ? ['--gap-envelope'] : []),
     `--readings=${values.join(',')}`, `--low=${low}`, `--high=${high}`,
     `--target-low=${targetLow}`, `--target-high=${targetHigh}`], {encoding: 'utf8'});
   assert.equal(run.status, 0, run.stderr);
@@ -29,6 +30,41 @@ test('browser and Python construct identical exact records', () => {
     assert.equal(check.status, 0, check.stderr);
     assert.match(check.stdout, /Verified 5 exhaustive routes/);
   } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('v3 exact gap envelope agrees with Python and includes interior quadratic vertices', () => {
+  const fixture = core.gapCertificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+  assert.equal(fixture.format, 'inward-target-box-gap-v3');
+  assert.deepEqual(fixture, JSON.parse(readFileSync('examples/target-box-gap-v3.json', 'utf8')));
+  assert.deepEqual(fixture, python(['40', '45', '50', '80'], '0', '100', '48', '52', true));
+  assert.deepEqual(fixture.claim.gap, {
+    min: {value: '-1435/16', index: 2, reading: '40', target: '52'},
+    max: {value: '3885/16', index: 3, reading: '0', target: '52'}
+  });
+  const vertex = core.gapCertificate(['11', '20', '4', '2', '5'], '0', '20', '6', '9');
+  assert.deepEqual(vertex, python(['11', '20', '4', '2', '5'], '0', '20', '6', '9', true));
+  assert.deepEqual(vertex.claim.routes[2].gap.max,
+    {value: '49/6', reading: '79/12', target: '6'});
+  assert.ok(!vertex.claim.routes[2].knots.includes('79/12'));
+  assert.equal(verifier.verify(vertex).routes, 5);
+  const protectedCase = core.gapCertificate(['8', '6', '8', '7', '0', '8'],
+    '0', '10', '30', '40');
+  assert.equal(protectedCase.claim.guarantee, 'Median');
+  assert.equal(protectedCase.claim.gap.min.value, '265/36');
+  assert.deepEqual(protectedCase,
+    python(['8', '6', '8', '7', '0', '8'], '0', '10', '30', '40', true));
+  assert.equal(verifier.verify(protectedCase).guarantee, 'Median');
+  let seed = 0x826c8a43;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (let i = 0; i < 18; i++) {
+    const count = 3 + i;
+    const values = Array.from({length: count}, (_, j) => j % 3 === 0 ?
+      `${2 * (next() % 21) + 1}/2` : String(next() % 21));
+    const [a, b] = [next() % 25, next() % 25].sort((x, y) => x - y).map(String);
+    const actual = core.gapCertificate(values, '0', '25', a, b);
+    assert.deepEqual(actual, python(values, '0', '25', a, b, true), `case ${i}`);
+    assert.equal(verifier.verify(actual).routes, count);
+  }
 });
 
 test('even central-pair rectangles have reproducible exact certificates', () => {
@@ -100,7 +136,7 @@ test('workbench renders every route and clears stale results on an invalid edit'
   }
   const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
     'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
-    'summary-copy', 'facts', 'routes', 'download', 'print', 'locked-example',
+    'summary-copy', 'gap-summary', 'facts', 'routes', 'download', 'print', 'quantify', 'locked-example',
     'signed-example', 'even-example', 'results'].map(id => [id, element(id)]));
   Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
   Object.assign(fields['move-low'], {value: '0'});
@@ -118,6 +154,14 @@ test('workbench renders every route and clears stale results on an invalid edit'
   assert.equal(fields.download.disabled, false);
   assert.equal(fields.headline.textContent, '3 reachable outcomes');
   assert.equal(fields['input-error'].textContent, '');
+  fields.quantify.handlers.click();
+  assert.match(fields['gap-summary'].textContent, /spans \[/);
+  assert.match(fields.routes.children[0].children.at(-1).textContent, /Exact D range/);
+  fields.readings.value = '41, 45, 50, 80';
+  fields.readings.handlers.input();
+  assert.equal(fields.download.disabled, true);
+  assert.equal(fields.routes.children.length, 0);
+  assert.equal(fields['gap-summary'].textContent, '');
   fields['even-example'].handlers.click();
   assert.equal(fields.routes.children.length, 4);
   assert.equal(fields.download.disabled, false);

@@ -7,6 +7,7 @@
   "use strict";
   const FORMAT = "inward-odd-target-box-v1";
   const EVEN_FORMAT = "inward-even-target-box-v2";
+  const GAP_FORMAT = "inward-target-box-gap-v3";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
@@ -163,9 +164,54 @@
   function strictWinner(reachable) {
     return reachable.length === 1 && reachable[0] !== "Tie" ? reachable[0] : null;
   }
+  function gapAt(fixed, moved, target) {
+    const [mean, median] = estimators(fixed, moved);
+    const meanError = subtract(mean, target), medianError = subtract(median, target);
+    return subtract(multiply(meanError, meanError), multiply(medianError, medianError));
+  }
+  function extrema(fixed, knots, targetLow, targetHigh) {
+    const values = [];
+    for (const target of [targetLow, targetHigh]) {
+      for (let i = 0; i < knots.length - 1; i++) {
+        const left = knots[i], right = knots[i + 1];
+        values.push(gapAt(fixed, left, target), gapAt(fixed, right, target));
+        const [meanLeft, medianLeft] = estimators(fixed, left);
+        const [, medianRight] = estimators(fixed, right);
+        const medianSlope = divide(subtract(medianRight, medianLeft), subtract(right, left));
+        const medianBase = subtract(medianLeft, multiply(medianSlope, left));
+        const meanSlope = divide(fraction(1n), fraction(BigInt(fixed.length + 1)));
+        const meanBase = subtract(meanLeft, multiply(meanSlope, left));
+        const a = subtract(multiply(meanSlope, meanSlope), multiply(medianSlope, medianSlope));
+        if (compare(a, ZERO) === 0) continue;
+        const b = multiply(TWO, subtract(
+          multiply(subtract(meanBase, target), meanSlope),
+          multiply(subtract(medianBase, target), medianSlope)));
+        const vertex = divide(subtract(ZERO, b), multiply(TWO, a));
+        if (compare(left, vertex) < 0 && compare(vertex, right) < 0) {
+          values.push(gapAt(fixed, vertex, target));
+        }
+      }
+    }
+    values.sort(compare);
+    return {min: values[0], max: values[values.length - 1]};
+  }
+  function checkGap(gap, expected, fixed, low, high, targetLow, targetHigh, label) {
+    fields(gap, ["min", "max"], label);
+    for (const extreme of ["min", "max"]) {
+      const point = gap[extreme];
+      fields(point, ["value", "reading", "target"], `${label} ${extreme}`);
+      const value = rational(point.value, `${label} ${extreme} value`);
+      const reading = rational(point.reading, `${label} ${extreme} reading`, low, high);
+      const target = rational(point.target, `${label} ${extreme} target`, targetLow, targetHigh);
+      if (compare(value, expected[extreme]) !== 0 ||
+          compare(value, gapAt(fixed, reading, target)) !== 0) {
+        fail(`Incorrect ${label} ${extreme} or unattained witness`);
+      }
+    }
+  }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (record.format !== FORMAT && record.format !== EVEN_FORMAT) fail("Unknown certificate format");
+    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT].includes(record.format)) fail("Unknown certificate format");
     fields(record.inputs, ["readings", "movement", "target"], "inputs");
     fields(record.inputs.movement, ["low", "high"], "movement");
     fields(record.inputs.target, ["low", "high"], "target");
@@ -176,19 +222,23 @@
     const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
     if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
     if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
-        inputs.readings.length > 21 || (inputs.readings.length % 2 === 0) !==
-        (record.format === EVEN_FORMAT)) {
+        inputs.readings.length > 21 || record.format !== GAP_FORMAT &&
+        (inputs.readings.length % 2 === 0) !== (record.format === EVEN_FORMAT)) {
       fail("Reading count must match certificate format and be between 3 and 21");
     }
     const readings = inputs.readings.map((item, index) =>
       rational(item, `reading ${index + 1}`, low, high));
-    fields(claim, ["routes", "reachable", "guarantee"], "claim");
+    const quantified = record.format === GAP_FORMAT;
+    fields(claim, quantified ? ["routes", "reachable", "guarantee", "gap"] :
+      ["routes", "reachable", "guarantee"], "claim");
     if (!Array.isArray(claim.routes) || claim.routes.length !== readings.length) {
       fail("Missing one-reading routes");
     }
     const overall = new Set();
+    const routeExtrema = [];
     claim.routes.forEach((route, index) => {
-      fields(route, ["index", "knots", "reachable", "guarantee", "witnesses"], `route ${index + 1}`);
+      fields(route, quantified ? ["index", "knots", "reachable", "guarantee", "witnesses", "gap"] :
+        ["index", "knots", "reachable", "guarantee", "witnesses"], `route ${index + 1}`);
       if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
       const fixed = readings.filter((_, i) => i !== index);
       const roots = allRoots(fixed, low, high, targetLow, targetHigh);
@@ -208,13 +258,44 @@
         const target = rational(witness.target, "witness target", targetLow, targetHigh);
         if (outcome(fixed, moved, target) !== name) fail(`False ${name} witness on route ${index + 1}`);
       }
+      if (quantified) {
+        const expected = extrema(fixed, roots, targetLow, targetHigh);
+        checkGap(route.gap, expected, fixed, low, high, targetLow, targetHigh,
+          `route ${index + 1} gap`);
+        if (route.guarantee === "Mean" && compare(expected.max, ZERO) >= 0 ||
+            route.guarantee === "Median" && compare(expected.min, ZERO) <= 0) {
+          fail(`Gap contradicts route ${index + 1} guarantee`);
+        }
+        routeExtrema.push(expected);
+      }
       reachable.forEach(name => overall.add(name));
     });
     const reachable = ORDER.filter(name => overall.has(name));
     sameList(claim.reachable, reachable, "global reachable outcomes");
     const guarantee = strictWinner(reachable);
     if (claim.guarantee !== guarantee) fail("Incorrect global guarantee");
-    return {routes: readings.length, reachable, guarantee};
+    if (quantified) {
+      fields(claim.gap, ["min", "max"], "global gap");
+      for (const extreme of ["min", "max"]) {
+        const expected = routeExtrema.map(item => item[extreme]).sort(compare)[
+          extreme === "min" ? 0 : routeExtrema.length - 1];
+        const point = claim.gap[extreme];
+        fields(point, ["value", "index", "reading", "target"], `global gap ${extreme}`);
+        if (!Number.isInteger(point.index) || point.index < 0 || point.index >= readings.length) {
+          fail("Invalid global gap route index");
+        }
+        const value = rational(point.value, `global ${extreme} value`);
+        const reading = rational(point.reading, `global ${extreme} reading`, low, high);
+        const target = rational(point.target, `global ${extreme} target`, targetLow, targetHigh);
+        const fixed = readings.filter((_, i) => i !== point.index);
+        if (compare(value, expected) !== 0 ||
+            compare(value, gapAt(fixed, reading, target)) !== 0) {
+          fail(`Incorrect global ${extreme} or unattained witness`);
+        }
+      }
+    }
+    return quantified ? {routes: readings.length, reachable, guarantee, gap: claim.gap} :
+      {routes: readings.length, reachable, guarantee};
   }
   return {parseReceipt, verify};
 });

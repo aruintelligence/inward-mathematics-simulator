@@ -7,6 +7,7 @@
   "use strict";
   const FORMAT = "inward-odd-target-box-v1";
   const EVEN_FORMAT = "inward-even-target-box-v2";
+  const GAP_FORMAT = "inward-target-box-gap-v3";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -125,6 +126,73 @@
       target: {low: string(targetLow), high: string(targetHigh)}},
     claim: {routes, reachable, guarantee}};
   }
+  function gapCertificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh) {
+    const record = certificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh);
+    const fromString = value => {
+      const [n, d = "1"] = value.split("/");
+      return q(BigInt(n), BigInt(d));
+    };
+    const readings = record.inputs.readings.map(fromString);
+    const targets = [record.inputs.target.low, record.inputs.target.high].map(fromString);
+    const square = value => mul(value, value);
+    const gap = (fixed, x, t) => {
+      const [mean, median] = estimators(fixed, x);
+      return sub(square(sub(mean, t)), square(sub(median, t)));
+    };
+    const ordered = (a, b, extreme) => cmp(a.value, b.value) * (extreme === "min" ? 1 : -1) ||
+      cmp(a.reading, b.reading) || cmp(a.target, b.target);
+    for (const route of record.claim.routes) {
+      const fixed = readings.filter((_, i) => i !== route.index);
+      const knots = route.knots.map(fromString);
+      const candidates = [];
+      for (const target of targets) {
+        for (let i = 0; i < knots.length - 1; i++) {
+          const left = knots[i], right = knots[i + 1];
+          const middle = div(add(left, right), TWO);
+          const leftValue = gap(fixed, left, target);
+          const middleValue = gap(fixed, middle, target);
+          const rightValue = gap(fixed, right, target);
+          for (const [reading, value] of [[left, leftValue], [right, rightValue]]) {
+            candidates.push({value, reading, target});
+          }
+          // D(x,target) is quadratic on each median cell. Its only possible
+          // interior extremum is its vertex. Recover its curvature exactly
+          // from three rational evaluations rather than sampling a grid.
+          const width = sub(right, left);
+          const curvature = div(mul(TWO, add(sub(leftValue, mul(TWO, middleValue)), rightValue)),
+            square(width));
+          if (curvature.n === 0n) continue;
+          const vertex = sub(middle, div(sub(rightValue, leftValue),
+            mul(mul(TWO, curvature), width)));
+          if (cmp(left, vertex) < 0 && cmp(vertex, right) < 0) {
+            candidates.push({value: gap(fixed, vertex, target), reading: vertex, target});
+          }
+        }
+      }
+      const result = {};
+      for (const extreme of ["min", "max"]) {
+        const chosen = [...candidates].sort((a, b) => ordered(a, b, extreme))[0];
+        result[extreme] = {value: string(chosen.value), reading: string(chosen.reading),
+          target: string(chosen.target)};
+      }
+      route.gap = result;
+    }
+    const global = {};
+    for (const extreme of ["min", "max"]) {
+      const candidates = record.claim.routes.map(route => ({index: route.index,
+        value: fromString(route.gap[extreme].value),
+        reading: fromString(route.gap[extreme].reading),
+        target: fromString(route.gap[extreme].target)}));
+      const chosen = candidates.sort((a, b) => cmp(a.value, b.value) *
+        (extreme === "min" ? 1 : -1) || a.index - b.index ||
+        cmp(a.reading, b.reading) || cmp(a.target, b.target))[0];
+      global[extreme] = {value: string(chosen.value), index: chosen.index,
+        reading: string(chosen.reading), target: string(chosen.target)};
+    }
+    record.claim.gap = global;
+    record.format = GAP_FORMAT;
+    return record;
+  }
   function position(raw, rawLow, rawHigh) {
     const canonical = value => {
       const [numerator, denominator = "1"] = value.split("/");
@@ -134,5 +202,5 @@
     const ratio = div(sub(x, low), sub(high, low));
     return Number(ratio.n * 1000000000000n / ratio.d) / 1e12;
   }
-  return {certificate, position};
+  return {certificate, gapCertificate, position};
 });

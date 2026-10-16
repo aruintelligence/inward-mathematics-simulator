@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exhaustive mean/median outcomes when one reading and the target range freely."""
+"""Exact mean/median outcomes and optional gap bounds over one-reading target boxes."""
 import argparse
 from fractions import Fraction
 import json
@@ -9,6 +9,7 @@ from odd_sample_flip import exact
 
 FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
+GAP_FORMAT = "inward-target-box-gap-v3"
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -97,6 +98,64 @@ def certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high
             "claim": {"routes": routes, "reachable": reachable, "guarantee": guarantee}}
 
 
+def gap_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high):
+    record = certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high)
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    target_low = Fraction(record["inputs"]["target"]["low"])
+    target_high = Fraction(record["inputs"]["target"]["high"])
+
+    def gap(fixed, moved, target):
+        values = sorted([*fixed, moved])
+        mean = sum(values) / len(values)
+        median = (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2
+        return (mean - target) ** 2 - (median - target) ** 2
+
+    for route in record["claim"]["routes"]:
+        fixed = readings[:route["index"]] + readings[route["index"] + 1:]
+        knots = list(map(Fraction, route["knots"]))
+        candidates = []
+        for target in (target_low, target_high):
+            for left, right in zip(knots, knots[1:]):
+                for moved in (left, right):
+                    candidates.append((gap(fixed, moved, target), moved, target))
+                # On this median cell m(x) is affine. The squared-error
+                # difference is quadratic, so only its vertex can be an
+                # interior extremum for this target endpoint.
+                n = len(readings)
+                median_left = sorted([*fixed, left])
+                median_right = sorted([*fixed, right])
+                m_left = (median_left[(n - 1) // 2] + median_left[n // 2]) / 2
+                m_right = (median_right[(n - 1) // 2] + median_right[n // 2]) / 2
+                median_slope = (m_right - m_left) / (right - left)
+                median_base = m_left - median_slope * left
+                mean_slope, mean_base = Fraction(1, n), sum(fixed) / n
+                a = mean_slope ** 2 - median_slope ** 2
+                b = 2 * ((mean_base - target) * mean_slope -
+                         (median_base - target) * median_slope)
+                if a:
+                    vertex = -b / (2 * a)
+                    if left < vertex < right:
+                        candidates.append((gap(fixed, vertex, target), vertex, target))
+        smallest = min(candidates, key=lambda item: item)
+        largest = min(candidates, key=lambda item: (-item[0], item[1], item[2]))
+        route["gap"] = {"min": dict(zip(("value", "reading", "target"), map(str, smallest))),
+                        "max": dict(zip(("value", "reading", "target"), map(str, largest)))}
+
+    global_gap = {}
+    for extreme in ("min", "max"):
+        candidates = [(Fraction(route["gap"][extreme]["value"]), route["index"],
+                       Fraction(route["gap"][extreme]["reading"]),
+                       Fraction(route["gap"][extreme]["target"]))
+                      for route in record["claim"]["routes"]]
+        value, index, moved, target = min(candidates, key=lambda item: (
+            item[0] if extreme == "min" else -item[0], item[1], item[2], item[3]))
+        global_gap[extreme] = {"value": str(value), "index": index,
+                               "reading": str(moved), "target": str(target)}
+    record["claim"]["gap"] = global_gap
+    record["format"] = GAP_FORMAT
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--readings", required=True, help="comma-separated rational readings")
@@ -105,9 +164,12 @@ def main():
     parser.add_argument("--target-low", required=True)
     parser.add_argument("--target-high", required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--gap-envelope", action="store_true",
+                        help="include exact global and per-route squared-error gap extrema (v3)")
     args = parser.parse_args()
     try:
-        result = certificate([part.strip() for part in args.readings.split(",")],
+        constructor = gap_certificate if args.gap_envelope else certificate
+        result = constructor([part.strip() for part in args.readings.split(",")],
                              args.low, args.high, args.target_low, args.target_high)
         output = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
         if args.output:

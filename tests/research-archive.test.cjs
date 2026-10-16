@@ -285,6 +285,31 @@ test('even Target Box receipts remain portable in v1 collections', async () => {
     exported.source);
 });
 
+test('quantified gap receipts replay in the archive and Python v1 collection checker', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-box-gap-v3.json', 'utf8');
+  await archive.add(db, receipt, 'Exact gap envelope', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.gap.min.value, '-1435/16');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-gap-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.gap.min.value = '-1';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
 test('v2 collection preserves and independently rechecks odd, signed, and even reversal receipts', async () => {
   const db = memoryDB();
   await archive.add(db, source, 'Target Box', checkers, crypto.webcrypto);

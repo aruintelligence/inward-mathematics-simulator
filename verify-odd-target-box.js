@@ -71,6 +71,8 @@
         `The ${result.guarantee.toLowerCase()} is strictly closer for every permitted reading move and target in this model.` :
         "A strict winner does not hold across every route and target in this model.";
       $("report-intro").textContent = "Recomputed the complete root partition and possible outcomes for each route; checked every supplied witness by comparing exact squared errors.";
+      if (result.gap) $("report-intro").textContent +=
+        ` Exact attained squared-error gap D = (mean − target)² − (median − target)² spans [${result.gap.min.value}, ${result.gap.max.value}] across all routes. Minimum at reading ${result.gap.min.index + 1}, x=${result.gap.min.reading}, t=${result.gap.min.target}; maximum at reading ${result.gap.max.index + 1}, x=${result.gap.max.reading}, t=${result.gap.max.target}. Negative favors Mean; positive favors Median.`;
       $("fingerprint").textContent = hash;
       const cards = record.claim.routes.map(route => {
         const card = node("article", "", "route");
@@ -79,6 +81,7 @@
         route.reachable.forEach(name => pills.append(node("span", name, `pill ${name.toLowerCase()}`)));
         card.append(pills);
         card.append(node("p", `${route.knots.length} complete knots · ${route.guarantee ? `strict ${route.guarantee} guarantee` : "no strict route guarantee"}`));
+        if (route.gap) card.append(node("p", `Exact D range [${route.gap.min.value}, ${route.gap.max.value}]. Minimum at x=${route.gap.min.reading}, t=${route.gap.min.target}; maximum at x=${route.gap.max.reading}, t=${route.gap.max.target}.`));
         const list = node("ul", "");
         route.reachable.forEach(name => {
           const witness = route.witnesses[name];

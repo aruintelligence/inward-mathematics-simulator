@@ -61,7 +61,7 @@ def verify(data):
             raise ValueError("Embedded receipt fingerprint mismatch")
         receipt = parse(source)
         accepted = (claim.FORMATS if kind == "conditional-claim" else
-                    (box.FORMAT, box.EVEN_FORMAT) if kind == "target-box" else
+                    (box.FORMAT, box.EVEN_FORMAT, box.GAP_FORMAT) if kind == "target-box" else
                     (reversal.FORMAT, reversal.BOUNDED_FORMAT, reversal.EVEN_FORMAT))
         if type(receipt) is not dict or receipt.get("format") not in accepted:
             raise ValueError("Stored kind does not match receipt format")
