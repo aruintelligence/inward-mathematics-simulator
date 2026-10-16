@@ -26,12 +26,15 @@ test('independent browser and Python check all choices and fractional boundary g
   ];
   const dir = mkdtempSync(join(tmpdir(), 'browser-claim-'));
   try {
-    for (const [readings, targets] of grids) for (const condition of conditions) for (const prediction of predictions) {
-      const receipt = maker.compose(readings, targets, condition, prediction);
+    for (const [gridIndex, [readings, targets]] of grids.entries())
+      for (const readingCount of gridIndex === 0 ? [3, 5, 7] : [5])
+        for (const condition of conditions) for (const prediction of predictions) {
+      const receipt = maker.compose(readings, targets, condition, prediction, readingCount);
       const browser = checker.verify(checker.parseClaim(JSON.stringify(receipt)));
       const separate = python(receipt, dir);
-      assert.equal(separate.status, 0, `${condition}/${prediction}: ${separate.stderr}`);
+      assert.equal(separate.status, 0, `${readingCount}/${condition}/${prediction}: ${separate.stderr}`);
       assert.equal(browser.status, receipt.search.status);
+      assert.equal(browser.readingCount, readingCount);
       assert.equal(browser.casesChecked, receipt.search.casesChecked);
       assert.deepEqual(browser.counterexample, receipt.search.counterexample);
       assert.deepEqual(browser.classification, receipt.classification);
@@ -49,6 +52,10 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
     [proved, x => {x.proof.factorSigns[1] = 'nonpositive';}],
     [proved, x => {x.claim.condition = 'any-target';}],
     [proved, x => {x.domain.readingMultisets++;}],
+    [proved, x => {x.domain.readingCount = 4;}],
+    [proved, x => {x.domain.readingCount = true;}],
+    [proved, x => {x.domain.readingCount = 7;}],
+    [proved, x => {delete x.domain.readingCount;}],
     [proved, x => {x.formal.declaration = 'InwardFormal.higher_no_worse_at_midpoint';}],
     [proved, x => {x.formal.sourceCommit = '0'.repeat(40);}],
     [proved, x => {delete x.formal;}],
@@ -70,13 +77,20 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
   assert.throws(() => checker.parseClaim('{'), /JSON/);
   const legacy = clone(proved);
   legacy.format = 'inward-conditional-claim-v1';
+  delete legacy.domain.readingCount;
+  legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;
   assert.equal(checker.verify(legacy).formal, null);
   const v2 = clone(proved);
   v2.format = 'inward-conditional-claim-v2';
+  delete v2.domain.readingCount;
+  v2.claim.statement = v2.claim.statement.replace('5 real', 'five real');
   delete v2.classification;
   assert.equal(checker.verify(v2).classification, null);
+  for (const name of ['conditional-claim-v3.json', 'conditional-claim-v3-grid-miss.json']) {
+    assert.equal(checker.verify(checker.parseClaim(readFileSync(`examples/${name}`, 'utf8'))).readingCount, 5);
+  }
   const dir = mkdtempSync(join(tmpdir(), 'legacy-claim-'));
   try { assert.equal(python(legacy, dir).status, 0); assert.equal(python(v2, dir).status, 0); }
   finally { rmSync(dir, {recursive:true, force:true}); }
@@ -115,6 +129,7 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.match(nodes['formal-declaration'].textContent,/InwardFormal\.lower_no_worse_at_midpoint/);
   assert.match(nodes['formal-source'].href,/blob\/59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705/);
   assert.match(nodes.explanation.textContent,/Lean module proves/);
+  assert.match(nodes.count.textContent,/5-reading multisets/);
   assert.equal(nodes.fingerprint.textContent,
     crypto.createHash('sha256').update(source).digest('hex'));
   assert.equal(nodes['save-to-archive'].disabled,false);
@@ -140,6 +155,8 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.match(nodes.witness.textContent,/Readings 0, 0, 50, 50, 50/);
   const legacy=clone(proof);
   legacy.format='inward-conditional-claim-v1';
+  delete legacy.domain.readingCount;
+  legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;
   nodes['claim-json'].value=JSON.stringify(legacy);

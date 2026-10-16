@@ -20,7 +20,7 @@ These references describe the vendors' own products as checked on the date above
 ## Three offers to test, in order
 
 1. **Teaching pilot:** a reproducible mean-versus-median lesson with printable worksheets and an instructor guide. Ask instructors whether students can compose a conditional claim, distinguish a counterexample from an unrefuted finite search and a general argument, and independently check a receipt on a phone. Keep the public lab freely accessible during the trial; do not assume schools will pay for content that overlaps free tools.
-2. **Research-methods pilot:** an offline workflow for teams comparing estimators under explicit target uncertainty. Ask whether exporting and independently checking a receipt saves review time or catches a decision error. Restrict claims to the five-reading model and record the exact use case.
+2. **Research-methods pilot:** an offline workflow for teams comparing estimators under explicit target uncertainty. Ask whether exporting and independently checking a receipt saves review time or catches a decision error. Record the exact use case and sample-size scope; the conditional builder currently supports 3, 5, or 7 readings, while other tools may remain five-reading.
 3. **Developer verification service:** consider a versioned API for validating the current receipt format only after a real integration request. A service would need authentication, resource limits, rate limits, privacy terms, versioned schemas, audit logs, incident response, and support ownership. The CLI is available today; the API is not.
 
 Subscription, university/site licensing, and enterprise verification are pricing models to investigate with buyers, not current products. Do not publish a price or revenue forecast until interviews and pilots establish willingness to pay and delivery cost.
@@ -30,7 +30,7 @@ Subscription, university/site licensing, and enterprise verification are pricing
 - Observe users completing a real task without developer guidance; record where the assumptions or proof status are misunderstood.
 - Collect written, permissioned examples of the workflow and independently reproduce every reported result. Separate hypothetical examples from measured data.
 - Ask the buyer who controls budget, what the existing alternative costs them, what security/accessibility procurement requires, and whether they would commit to a scoped pilot. Track refusals as carefully as interest.
-- For any paid pilot, specify the five-reading scope, limitations, support channel, retention policy, success metric, and acceptance test in writing.
+- For any paid pilot, specify each tool’s supported sample-size scope, limitations, support channel, retention policy, success metric, and acceptance test in writing.
 - Review the repository's MIT license and notices before packaging. Preserve the copyright notice naming Daniel Jacob Read IV and the `CITATION.cff` authorship of Daniel Jacob Read IV and Shane Travis Horman. Inventory rights in images, fonts, and any new integration. Get professional review for trademark, patent, contributor, and licensing questions before asserting exclusive rights.
 
 ## Next build decision

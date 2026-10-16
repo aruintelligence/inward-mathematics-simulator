@@ -20,7 +20,7 @@ Existing work and attribution remain with Daniel Jacob Read IV / ĀRU Intelligen
 
 The same page now lets a visitor form a precise universal statement: select a condition on the target (`any`, at/below or at/above the estimates' midpoint, at/below both estimates, or at/above both) and predict whether the lower, higher, mean, or median estimate is no farther from the target. This is a deliberately small mathematical language. A phrase like “no farther” includes ties; no free-form or unsupported theorem is silently interpreted.
 
-The engine tests every eligible reading multiset and selected target, stopping at the first counterexample. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v3` record, leaving the fixed four-candidate v1 experiment unchanged. Existing v1 and v2 conditional-claim files remain checkable.
+The builder tests every eligible reading multiset and selected target, stopping at the first counterexample. It supports a selectable odd sample size of 3, 5, or 7 readings; the four fixed candidates above remain five-reading experiments. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v4` record. Existing v1, v2, and v3 conditional-claim files remain checkable.
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
@@ -92,10 +92,25 @@ with integer exponent vectors and derives the permitted factor signs.
 not a proof that a search algorithm exhausted all real inputs. A single
 verified violation suffices to refute the corresponding universal claim.
 
+Version 4 adds a required `domain.readingCount` of exactly 3, 5, or 7 and a
+statement spelling out that number. The mean divides the exact sum by this
+count and the median is the central reading of each sorted multiset. Its
+domain contains $\binom{k+n-1}{n}$ multisets for $k$ grid values and $n$
+readings. The fixed `{0, 50, 100}` witness basis is independently replayed
+at the **same** selected sample size. The four Lean implications concern the
+two computed estimates and target, so they hold for each selected count;
+Lean itself does not parse a receipt or formalize the sample mean/median.
+The browser and Python verifiers separately enforce the count, statement,
+multiset cardinality, first selected-grid witness, proof mapping, and first
+fixed-basis witness. A 7-reading [proof example](../examples/conditional-claim-v4.json)
+and a 3-reading [grid-miss example](../examples/conditional-claim-v4-grid-miss.json)
+can be checked offline. V1–v3 receipts retain their original five-reading
+schema and bytes.
+
 Reproduce the grid-miss receipt and its verification:
 
 ```sh
-python3 tools/verify_conditional_claim.py examples/conditional-claim-v3-grid-miss.json
+python3 tools/verify_conditional_claim.py examples/conditional-claim-v4-grid-miss.json
 node --test tests/conjecture-lab.test.cjs
 ```
 

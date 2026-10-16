@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent finite replay and algebraic check of conditional five-reading claims."""
+"""Independent exact replay and algebraic check of conditional odd-sample claims."""
 from fractions import Fraction
 from itertools import combinations_with_replacement
 from math import comb
@@ -9,10 +9,11 @@ import json
 import re
 import sys
 
-FORMAT = "inward-conditional-claim-v3"
-PREVIOUS_FORMAT = "inward-conditional-claim-v2"
+FORMAT = "inward-conditional-claim-v4"
+PREVIOUS_FORMAT = "inward-conditional-claim-v3"
+EARLIER_FORMAT = "inward-conditional-claim-v2"
 LEGACY_FORMAT = "inward-conditional-claim-v1"
-FORMATS = (LEGACY_FORMAT, PREVIOUS_FORMAT, FORMAT)
+FORMATS = (LEGACY_FORMAT, EARLIER_FORMAT, PREVIOUS_FORMAT, FORMAT)
 FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705"
 FORMAL_THEOREMS = {
     "target-at-or-below-midpoint": "InwardFormal.lower_no_worse_at_midpoint",
@@ -126,10 +127,10 @@ def eligible(condition, mean, median, target):
     return target >= max(mean, median)
 
 
-def replay(values, targets, condition, prediction):
+def replay(values, targets, condition, prediction, reading_count):
     count = 0
-    for readings in combinations_with_replacement(values, 5):
-        mean, median = sum(readings) / 5, readings[2]
+    for readings in combinations_with_replacement(values, reading_count):
+        mean, median = sum(readings) / reading_count, readings[reading_count // 2]
         for target in targets:
             if not eligible(condition, mean, median, target):
                 continue
@@ -154,8 +155,10 @@ def verify(report):
         raise ValueError("Unknown claim format")
     current = report["format"] == FORMAT
     previous = report["format"] == PREVIOUS_FORMAT
-    fields(report, {"format", "claim", "domain", "search", "proof", "formal", "classification"} if current else
-           {"format", "claim", "domain", "search", "proof", "formal"} if previous else
+    earlier = report["format"] == EARLIER_FORMAT
+    fields(report, {"format", "claim", "domain", "search", "proof", "formal", "classification"}
+           if current or previous else
+           {"format", "claim", "domain", "search", "proof", "formal"} if earlier else
            {"format", "claim", "domain", "search", "proof"}, "report")
     claim = report["claim"]
     fields(claim, {"condition", "prediction", "statement"}, "claim")
@@ -163,17 +166,22 @@ def verify(report):
     if type(condition) is not str or condition not in CONDITIONS or \
        type(prediction) is not str or prediction not in PREDICTIONS:
         raise ValueError("Unsupported condition or prediction")
-    expected_statement = f"For any five real readings, {CONDITIONS[condition]}, {PREDICTIONS[prediction]}."
+    domain = report["domain"]
+    reading_count = domain.get("readingCount") if current and type(domain) is dict else 5
+    if type(reading_count) is not int or reading_count not in (3, 5, 7):
+        raise ValueError("Unsupported reading count")
+    count_word = str(reading_count) if current else "five"
+    expected_statement = f"For any {count_word} real readings, {CONDITIONS[condition]}, {PREDICTIONS[prediction]}."
     if claim["statement"] != expected_statement:
         raise ValueError("Claim statement does not match its meaning")
-    domain = report["domain"]
-    fields(domain, {"readingValues", "targetValues", "readingMultisets"}, "domain")
+    fields(domain, {"readingCount", "readingValues", "targetValues", "readingMultisets"} if current else
+           {"readingValues", "targetValues", "readingMultisets"}, "domain")
     values = grid(domain["readingValues"], 6, "reading grid")
     targets = grid(domain["targetValues"], 12, "target grid")
-    total = comb(len(values) + 4, 5)
+    total = comb(len(values) + reading_count - 1, reading_count)
     if type(domain["readingMultisets"]) is not int or domain["readingMultisets"] != total:
         raise ValueError("Incorrect reading multiset count")
-    count, witness = replay(values, targets, condition, prediction)
+    count, witness = replay(values, targets, condition, prediction, reading_count)
     proof = algebraic_proof(condition, prediction)
     search = report["search"]
     fields(search, {"casesChecked", "status", "counterexample"}, "search")
@@ -191,17 +199,17 @@ def verify(report):
     if report["proof"] != proof:
         raise ValueError("Algebraic certificate is absent or inconsistent")
     formal = {"system": "Lean 4/Mathlib", "declaration": FORMAL_THEOREMS[condition],
-              "sourceCommit": FORMAL_COMMIT} if proof is not None and (current or previous) else None
-    if (current or previous) and report["formal"] != formal:
+              "sourceCommit": FORMAL_COMMIT} if proof is not None and (current or previous or earlier) else None
+    if (current or previous or earlier) and report["formal"] != formal:
         raise ValueError("Formal theorem reference does not match the proved claim")
     universal_witness = replay([Fraction(0), Fraction(50), Fraction(100)],
                                [Fraction(0), Fraction(50), Fraction(100)],
-                               condition, prediction)[1] if current and proof is None else None
-    if current and proof is None and universal_witness is None:
+                               condition, prediction, reading_count)[1] if (current or previous) and proof is None else None
+    if (current or previous) and proof is None and universal_witness is None:
         raise ValueError("Claim language classification is incomplete")
     classification = {"status": "proved-by-algebra" if proof else "refuted-by-exact-witness",
                       "counterexample": universal_witness}
-    if current and report["classification"] != classification:
+    if (current or previous) and report["classification"] != classification:
         raise ValueError("Universal classification does not match exact witness")
     return status, count
 
@@ -217,7 +225,7 @@ def main():
         report = json.loads(data.decode("utf-8"), object_pairs_hook=no_duplicates,
                             parse_constant=lambda x: (_ for _ in ()).throw(ValueError("Invalid JSON constant")))
         status, count = verify(report)
-        if report["format"] == FORMAT and report["classification"]["status"] == "refuted-by-exact-witness":
+        if report["format"] in (FORMAT, PREVIOUS_FORMAT) and report["classification"]["status"] == "refuted-by-exact-witness":
             print(f"Verified refuted-by-exact-witness; selected grid {status}; "
                   f"{count} exact eligible cases checked")
         else:
