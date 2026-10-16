@@ -152,8 +152,11 @@ It also checks the strict winner at both endpoint targets. Its typed
 `RegisteredClaim` theorem checks all 20 cells of the table above: four are
 universal for arbitrary real estimates, and each other cell has a sorted
 endpoint counterexample at every $n\ge3$. The Lean table is encoded
-separately from the browser and Python tables; the build does not prove that
-the source files have identical routing definitions. Separate Lean lemmas
+separately from the browser and Python tables; `endpointRoute_sound` proves its
+witness choice for every $n\ge3$. Formal CI compares all 20 Lean route outputs
+with the builder and Python verifier at each supported size 3–7. This detects
+routing drift but does not formally prove executable source equivalence for
+all inputs. Separate Lean lemmas
 equate its midpoint guard to the app's average-of-estimates rule and expand
 the two endpoint guards into inequalities for each estimate. Arbitrary input
 sorting and JSON receipt verification remain outside Lean.
