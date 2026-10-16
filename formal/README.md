@@ -60,3 +60,18 @@ app's JSON parser, or the correspondence between the formal encoding and
 runtime source code. It does not authenticate measurements or certify an
 arbitrary claim. The app and independent Python verifier still replay each
 specific certificate and finite search.
+
+`endpointRoute_sound` proves that each selected endpoint refutes its
+prediction for every $n\ge3$, or that a `none` cell is universal. The formal
+CI job executes `ExportRegisteredRoutes.lean` and compares all 20 route
+outputs with the browser builder and independent Python verifier for every
+supported size 3–7. A changed route or classification fails CI. This is a
+cross-implementation test of those choices, not a formal proof of runtime
+source equivalence or JSON verification in Lean.
+
+To run the route gate after `lake build`:
+
+```sh
+lake env lean --run ExportRegisteredRoutes.lean > /tmp/inward-routes.tsv
+python3 ../tools/check_registered_routes.py /tmp/inward-routes.tsv
+```

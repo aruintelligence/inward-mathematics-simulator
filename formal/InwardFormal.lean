@@ -454,31 +454,79 @@ def established : Condition → Prediction → Bool
   | .aboveMidpoint, .higher | .aboveBoth, .higher => true
   | _, _ => false
 
+/-- An explicit, inspectable witness for each false cell. `none` means the
+registered prediction is universal. The route's mathematical soundness is
+proved below, and CI compares the exported table with both implementations. -/
+def endpointRoute : Condition → Prediction → Option Endpoint
+  | .any, .lower => some .highHundred
+  | .any, .higher => some .highZero
+  | .any, .mean => some .highZero
+  | .any, .median => some .highHundred
+  | .belowMidpoint, .lower => none
+  | .belowMidpoint, .higher => some .highZero
+  | .belowMidpoint, .mean => some .highZero
+  | .belowMidpoint, .median => some .lowZero
+  | .aboveMidpoint, .lower => some .highHundred
+  | .aboveMidpoint, .higher => none
+  | .aboveMidpoint, .mean => some .lowHundred
+  | .aboveMidpoint, .median => some .highHundred
+  | .belowBoth, .lower => none
+  | .belowBoth, .higher => some .highZero
+  | .belowBoth, .mean => some .highZero
+  | .belowBoth, .median => some .lowZero
+  | .aboveBoth, .lower => some .highHundred
+  | .aboveBoth, .higher => none
+  | .aboveBoth, .mean => some .lowHundred
+  | .aboveBoth, .median => some .highHundred
+
+theorem route_agrees_with_established (c : Condition) (p : Prediction) :
+    established c p = (endpointRoute c p).isNone := by
+  cases c <;> cases p <;> rfl
+
+/-- The route is sound for every integer size at least three. In a `some`
+branch the selected sample satisfies the guard and strictly defeats the
+prediction; the `none` branches are universal over all real estimates. -/
+theorem endpointRoute_sound (n : ℕ) (hn : 3 ≤ n)
+    (c : Condition) (p : Prediction) :
+    match endpointRoute c p with
+    | none => universal c p
+    | some e =>
+        guard c (sampleMean (sample e n)) (orderedMedian (sample e n)) (target e) ∧
+        ¬conclusion p (sampleMean (sample e n)) (orderedMedian (sample e n)) (target e) := by
+  cases c <;> cases p <;> simp only [endpointRoute]
+  · exact ⟨(highHundredGuards n hn).1, (highHundredBad n hn).1⟩
+  · exact ⟨(highZeroGuards n hn).1, (highZeroBad n hn).1⟩
+  · exact ⟨(highZeroGuards n hn).1, (highZeroBad n hn).2⟩
+  · exact ⟨(highHundredGuards n hn).1, (highHundredBad n hn).2⟩
+  · exact valid_belowMidpoint
+  · exact ⟨(highZeroGuards n hn).2.1, (highZeroBad n hn).1⟩
+  · exact ⟨(highZeroGuards n hn).2.1, (highZeroBad n hn).2⟩
+  · exact ⟨(lowZeroGuards n hn).2.1, (lowZeroBad n hn).2⟩
+  · exact ⟨(highHundredGuards n hn).2.1, (highHundredBad n hn).1⟩
+  · exact valid_aboveMidpoint
+  · exact ⟨(lowHundredGuards n hn).2.1, (lowHundredBad n hn).2⟩
+  · exact ⟨(highHundredGuards n hn).2.1, (highHundredBad n hn).2⟩
+  · exact valid_belowBoth
+  · exact ⟨(highZeroGuards n hn).2.2, (highZeroBad n hn).1⟩
+  · exact ⟨(highZeroGuards n hn).2.2, (highZeroBad n hn).2⟩
+  · exact ⟨(lowZeroGuards n hn).2.2, (lowZeroBad n hn).2⟩
+  · exact ⟨(highHundredGuards n hn).2.2, (highHundredBad n hn).1⟩
+  · exact valid_aboveBoth
+  · exact ⟨(lowHundredGuards n hn).2.2, (lowHundredBad n hn).2⟩
+  · exact ⟨(highHundredGuards n hn).2.2, (highHundredBad n hn).2⟩
+
 /-- Every other cell has one of the two explicit sorted endpoint samples as a
 strict counterexample at target 0 or 100, for every integer size at least 3. -/
 theorem classify (n : ℕ) (hn : 3 ≤ n) (c : Condition) (p : Prediction) :
     if established c p then universal c p else refutedByEndpoint n c p := by
-  cases c <;> cases p <;> simp [established]
-  · exact ⟨.highHundred, (highHundredGuards n hn).1, (highHundredBad n hn).1⟩
-  · exact ⟨.highZero, (highZeroGuards n hn).1, (highZeroBad n hn).1⟩
-  · exact ⟨.highZero, (highZeroGuards n hn).1, (highZeroBad n hn).2⟩
-  · exact ⟨.highHundred, (highHundredGuards n hn).1, (highHundredBad n hn).2⟩
-  · exact valid_belowMidpoint
-  · exact ⟨.highZero, (highZeroGuards n hn).2.1, (highZeroBad n hn).1⟩
-  · exact ⟨.highZero, (highZeroGuards n hn).2.1, (highZeroBad n hn).2⟩
-  · exact ⟨.lowZero, (lowZeroGuards n hn).2.1, (lowZeroBad n hn).2⟩
-  · exact ⟨.highHundred, (highHundredGuards n hn).2.1, (highHundredBad n hn).1⟩
-  · exact valid_aboveMidpoint
-  · exact ⟨.lowHundred, (lowHundredGuards n hn).2.1, (lowHundredBad n hn).2⟩
-  · exact ⟨.highHundred, (highHundredGuards n hn).2.1, (highHundredBad n hn).2⟩
-  · exact valid_belowBoth
-  · exact ⟨.highZero, (highZeroGuards n hn).2.2, (highZeroBad n hn).1⟩
-  · exact ⟨.highZero, (highZeroGuards n hn).2.2, (highZeroBad n hn).2⟩
-  · exact ⟨.lowZero, (lowZeroGuards n hn).2.2, (lowZeroBad n hn).2⟩
-  · exact ⟨.highHundred, (highHundredGuards n hn).2.2, (highHundredBad n hn).1⟩
-  · exact valid_aboveBoth
-  · exact ⟨.lowHundred, (lowHundredGuards n hn).2.2, (lowHundredBad n hn).2⟩
-  · exact ⟨.highHundred, (highHundredGuards n hn).2.2, (highHundredBad n hn).2⟩
+  rw [route_agrees_with_established]
+  cases h : endpointRoute c p with
+  | none =>
+      simpa [h] using endpointRoute_sound n hn c p
+  | some e =>
+      have hw := endpointRoute_sound n hn c p
+      simp only [h] at hw
+      simpa [h] using (show refutedByEndpoint n c p from ⟨e, hw⟩)
 
 /-- Exactly four cells of this registered language are universal. A false cell
 is refuted at every `n ≥ 3`, so it cannot be an overlooked general theorem. -/

@@ -26,3 +26,7 @@ jobs:
           leanchecker-args: InwardFormal
           axiom-audit: true
           axiom-audit-root: InwardFormal
+      - name: Check formal routes against browser and Python
+        run: |
+          (cd formal && lake env lean --run ExportRegisteredRoutes.lean) > "$RUNNER_TEMP/inward-routes.tsv"
+          python3 tools/check_registered_routes.py "$RUNNER_TEMP/inward-routes.tsv"
