@@ -106,6 +106,17 @@ sorts arbitrary input, and selects the global closest route is still checked
 by the independent certificate verifier rather than proved equivalent to
 this Lean model.
 
+`InwardFormal.AffineEquivariance` proves that changing units by
+`v ↦ scale * v + shift` multiplies the squared-error difference and its
+factored form by `scale²`. For positive `scale`, a strict mean win and an
+exact tie therefore remain unchanged for arbitrary real estimates and
+targets. Seeded Python and browser tests separately check the stronger
+whole-certificate rule: when transformed inputs satisfy the documented
+input limits, winners and route indices stay the same, all knots,
+thresholds, and witnesses transform by the same affine map, and distances
+multiply by `scale`. The Lean statements concern estimates and target;
+they do not formalize arbitrary-list sorting or runtime source equivalence.
+
 To run the route gate after `lake build`:
 
 ```sh
