@@ -635,6 +635,58 @@ theorem middle_squared_error_product (n S c t x : ℝ) (hn : n ≠ 0) :
   field_simp [hn]
   ring
 
+/-- The actual ordered four-reading example when `40 ≤ x ≤ 50`. -/
+def fourReadingSample (x : ℝ) : List ℝ := [40, x, 50, 80]
+
+theorem four_reading_mean (x : ℝ) :
+    sampleMean (fourReadingSample x) = (170 + x) / 4 := by
+  simp [sampleMean, fourReadingSample] <;> ring
+
+theorem four_reading_median (x : ℝ) :
+    orderedMedian (fourReadingSample x) = (x + 50) / 2 := by
+  simp [orderedMedian, fourReadingSample]
+
+/-- On this sorted middle cell the mean wins exactly below the claimed tie. -/
+theorem four_reading_middle_mean_wins_iff (x : ℝ) (h40 : 40 ≤ x) (h50 : x ≤ 50) :
+    |sampleMean (fourReadingSample x) - 50| <
+      |orderedMedian (fourReadingSample x) - 50| ↔ x < 130 / 3 := by
+  rw [four_reading_mean, four_reading_median]
+  have hm : 0 < (170 + x) / 4 - 50 := by nlinarith
+  have hd : (x + 50) / 2 - 50 ≤ 0 := by nlinarith
+  rw [abs_of_pos hm, abs_of_nonpos hd]
+  constructor <;> intro h <;> nlinarith
+
+/-- The checked example starts with the median strictly closer at `x = 45`. -/
+theorem four_reading_baseline :
+    |orderedMedian (fourReadingSample 45) - 50| <
+      |sampleMean (fourReadingSample 45) - 50| := by
+  rw [four_reading_mean, four_reading_median]
+  norm_num
+
+/-- The exact boundary is a tie, rather than an attained strict reversal. -/
+theorem four_reading_threshold_tie :
+    |sampleMean (fourReadingSample (130 / 3)) - 50| =
+      |orderedMedian (fourReadingSample (130 / 3)) - 50| := by
+  rw [four_reading_mean, four_reading_median]
+  norm_num
+
+/-- The receipt's `125/3` witness lies on the strictly opposing side. -/
+theorem four_reading_witness :
+    |sampleMean (fourReadingSample (125 / 3)) - 50| <
+      |orderedMedian (fourReadingSample (125 / 3)) - 50| := by
+  exact (four_reading_middle_mean_wins_iff (125 / 3)
+    (by norm_num) (by norm_num)).2 (by norm_num)
+
+/-- Any strict reversal on this middle cell moves farther than `5/3`. -/
+theorem four_reading_middle_strict_distance (x : ℝ) (h40 : 40 ≤ x) (h50 : x ≤ 50)
+    (hwin : |sampleMean (fourReadingSample x) - 50| <
+      |orderedMedian (fourReadingSample x) - 50|) :
+    5 / 3 < |x - 45| := by
+  have hx := (four_reading_middle_mean_wins_iff x h40 h50).mp hwin
+  have hneg : x - 45 < 0 := by nlinarith
+  rw [abs_of_neg hneg]
+  nlinarith
+
 end EvenSample
 
 end InwardFormal

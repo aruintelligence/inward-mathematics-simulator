@@ -81,6 +81,16 @@ the finite partition's completeness, the global infimum selection, or the
 browser/Python implementations. The independent receipt verifiers check
 individual records with exact rational arithmetic.
 
+For the checked four-reading example `[40,45,50,80]` at target `50`, the
+module also computes the mean and central-pair median on the explicitly
+ordered list `[40,x,50,80]`. For `40 ≤ x ≤ 50`,
+`four_reading_middle_mean_wins_iff` proves that the mean is strictly closer
+exactly when `x < 130/3`. Separate theorems verify the median-winning start
+at `x=45`, the tie at `130/3`, the mean-winning witness at `125/3`, and that
+every strict reversal *within this middle cell* moves farther than `5/3`.
+This proves the exhibited local route, not its optimality among all movable
+readings and cells; the receipt verifier checks that global selection.
+
 To run the route gate after `lake build`:
 
 ```sh
