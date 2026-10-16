@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent exact verifier for continuous odd target-box certificates."""
+"""Independent exact verifier for odd, even, and quantified target-box certificates."""
 from fractions import Fraction
 import hashlib
 import json
@@ -9,6 +9,7 @@ import sys
 
 FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
+GAP_FORMAT = "inward-target-box-gap-v3"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
@@ -92,9 +93,47 @@ def all_outcomes(fixed, knots, target_low, target_high):
     return [name for name in ORDER if name in found]
 
 
+def gap_at(fixed, moved, target):
+    mean, median = estimators(fixed, moved)
+    return (mean - target) ** 2 - (median - target) ** 2
+
+
+def extrema(fixed, knots, target_low, target_high):
+    values = []
+    for target in (target_low, target_high):
+        for left, right in zip(knots, knots[1:]):
+            values.extend((gap_at(fixed, left, target), gap_at(fixed, right, target)))
+            count = len(fixed) + 1
+            _, median_left = estimators(fixed, left)
+            _, median_right = estimators(fixed, right)
+            median_slope = (median_right - median_left) / (right - left)
+            median_base = median_left - median_slope * left
+            mean_slope, mean_base = Fraction(1, count), sum(fixed) / count
+            quadratic = mean_slope ** 2 - median_slope ** 2
+            linear = 2 * ((mean_base - target) * mean_slope -
+                          (median_base - target) * median_slope)
+            if quadratic:
+                vertex = -linear / (2 * quadratic)
+                if left < vertex < right:
+                    values.append(gap_at(fixed, vertex, target))
+    return {"min": min(values), "max": max(values)}
+
+
+def check_gap(gap, expected, fixed, low, high, target_low, target_high, label):
+    fields(gap, {"min", "max"}, label)
+    for extreme in ("min", "max"):
+        point = gap[extreme]
+        fields(point, {"value", "reading", "target"}, f"{label} {extreme}")
+        value = rational(point["value"], f"{label} {extreme} value")
+        moved = rational(point["reading"], f"{label} {extreme} reading", low, high)
+        target = rational(point["target"], f"{label} {extreme} target", target_low, target_high)
+        if value != expected[extreme] or gap_at(fixed, moved, target) != value:
+            raise ValueError(f"Incorrect {label} {extreme} or unattained witness")
+
+
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] not in (FORMAT, EVEN_FORMAT):
+    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
     fields(inputs, {"readings", "movement", "target"}, "inputs")
@@ -108,17 +147,21 @@ def verify(record):
         raise ValueError("Invalid interval order")
     raw = inputs["readings"]
     if type(raw) is not list or not 3 <= len(raw) <= 21 or \
-            (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
+            record["format"] != GAP_FORMAT and (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
         raise ValueError("Reading count must match certificate format, between 3 and 21")
     readings = [rational(value, "reading", low, high) for value in raw]
     claim = record["claim"]
-    fields(claim, {"routes", "reachable", "guarantee"}, "claim")
+    quantified = record["format"] == GAP_FORMAT
+    fields(claim, {"routes", "reachable", "guarantee", "gap"} if quantified else
+           {"routes", "reachable", "guarantee"}, "claim")
     routes = claim["routes"]
     if type(routes) is not list or len(routes) != len(readings):
         raise ValueError("Missing one-reading routes")
     overall = set()
+    route_extrema = []
     for index, route in enumerate(routes):
-        fields(route, {"index", "knots", "reachable", "guarantee", "witnesses"}, "route")
+        fields(route, {"index", "knots", "reachable", "guarantee", "witnesses", "gap"} if quantified else
+               {"index", "knots", "reachable", "guarantee", "witnesses"}, "route")
         if type(route["index"]) is not int or route["index"] != index:
             raise ValueError("Incorrect route index")
         fixed = readings[:index] + readings[index + 1:]
@@ -142,12 +185,39 @@ def verify(record):
             target = rational(witness["target"], "witness target", target_low, target_high)
             if outcome(fixed, moved, target) != name:
                 raise ValueError(f"False {name} witness on route {index}")
+        if quantified:
+            expected_gap = extrema(fixed, expected, target_low, target_high)
+            check_gap(route["gap"], expected_gap, fixed, low, high,
+                      target_low, target_high, f"route {index + 1} gap")
+            if route["guarantee"] == "Mean" and expected_gap["max"] >= 0 or \
+                    route["guarantee"] == "Median" and expected_gap["min"] <= 0:
+                raise ValueError(f"Gap contradicts route {index + 1} guarantee")
+            route_extrema.append(expected_gap)
         overall.update(reachable)
     expected = [name for name in ORDER if name in overall]
     guarantee = expected[0] if len(expected) == 1 and expected[0] != "Tie" else None
     if claim["reachable"] != expected or claim["guarantee"] != guarantee:
         raise ValueError("Incorrect global outcomes or strict guarantee")
-    return {"routes": len(readings), "reachable": expected, "guarantee": guarantee}
+    if quantified:
+        fields(claim["gap"], {"min", "max"}, "global gap")
+        for extreme in ("min", "max"):
+            expected_value = (min if extreme == "min" else max)(
+                item[extreme] for item in route_extrema)
+            point = claim["gap"][extreme]
+            fields(point, {"value", "index", "reading", "target"}, f"global gap {extreme}")
+            index = point["index"]
+            if type(index) is not int or not 0 <= index < len(readings):
+                raise ValueError("Invalid global gap route index")
+            value = rational(point["value"], f"global {extreme} value")
+            moved = rational(point["reading"], f"global {extreme} reading", low, high)
+            target = rational(point["target"], f"global {extreme} target", target_low, target_high)
+            fixed = readings[:index] + readings[index + 1:]
+            if value != expected_value or gap_at(fixed, moved, target) != value:
+                raise ValueError(f"Incorrect global {extreme} or unattained witness")
+    result = {"routes": len(readings), "reachable": expected, "guarantee": guarantee}
+    if quantified:
+        result["gap"] = claim["gap"]
+    return result
 
 
 def main():
@@ -163,6 +233,11 @@ def main():
         result = verify(record)
         print(f"Verified {result['routes']} exhaustive routes: {', '.join(result['reachable'])}; "
               f"strict guarantee: {result['guarantee'] or 'none'}")
+        if "gap" in result:
+            lower, upper = result["gap"]["min"], result["gap"]["max"]
+            print(f"Exact attained squared-error gap D: [{lower['value']}, {upper['value']}]; "
+                  f"min route {lower['index'] + 1} at x={lower['reading']}, t={lower['target']}; "
+                  f"max route {upper['index'] + 1} at x={upper['reading']}, t={upper['target']}")
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

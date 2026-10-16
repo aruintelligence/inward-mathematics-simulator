@@ -126,6 +126,7 @@
         body.append(node("p", `${result.routes} routes independently rechecked with exact fractions. A tie threshold is usually not an attained smallest strict move. The inputs are stipulated, not authenticated measurements.`));
       } else {
         body.append(node("p", `${record.inputs.readings.length} readings · ${record.inputs.readings.length % 2 ? "middle-reading" : "central-pair average"} median · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
+        if (result.gap) body.append(node("p", `Exact attained squared-error gap D spans [${result.gap.min.value}, ${result.gap.max.value}] across all one-reading routes. Minimum at reading ${result.gap.min.index + 1}, x=${result.gap.min.reading}, t=${result.gap.min.target}; maximum at reading ${result.gap.max.index + 1}, x=${result.gap.max.reading}, t=${result.gap.max.target}. Negative favors Mean; positive favors Median.`));
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;

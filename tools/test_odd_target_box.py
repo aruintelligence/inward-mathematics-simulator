@@ -6,7 +6,7 @@ from pathlib import Path
 import random
 import unittest
 
-from odd_target_box import certificate, winner
+from odd_target_box import certificate, gap_certificate, winner
 from verify_odd_target_box import verify
 
 
@@ -66,6 +66,49 @@ class TargetBoxTests(unittest.TestCase):
             edit(forged)
             with self.assertRaises(ValueError):
                 verify(forged)
+
+    def test_gap_envelope_interior_vertex_and_attained_witnesses(self):
+        example = gap_certificate(["40", "45", "50", "80"], "0", "100", "48", "52")
+        self.assertEqual(example,
+                         json.loads(Path("examples/target-box-gap-v3.json").read_text()))
+        self.assertEqual(verify(example)["gap"]["min"]["value"], "-1435/16")
+        vertex = gap_certificate(["11", "20", "4", "2", "5"], "0", "20", "6", "9")
+        self.assertEqual(vertex["claim"]["routes"][2]["gap"]["max"],
+                         {"value": "49/6", "reading": "79/12", "target": "6"})
+        self.assertNotIn("79/12", vertex["claim"]["routes"][2]["knots"])
+        verify(vertex)
+        for edit in (lambda c: c["claim"]["routes"][2]["gap"]["max"].update(value="8"),
+                     lambda c: c["claim"]["gap"]["min"].update(index=0),
+                     lambda c: c.update(format="inward-odd-target-box-v1")):
+            forged = copy.deepcopy(vertex)
+            edit(forged)
+            with self.assertRaises(ValueError):
+                verify(forged)
+        rng = random.Random(20261016)
+        for i in range(18):
+            count = 3 + i
+            readings = [str(Fraction(rng.randrange(-8, 9), rng.choice((1, 2, 3, 7))))
+                        for _ in range(count)]
+            low, high = min(map(Fraction, readings)) - 1, max(map(Fraction, readings)) + 1
+            a, b = sorted((Fraction(rng.randrange(-9, 10), 2),
+                           Fraction(rng.randrange(-9, 10), 3)))
+            record = gap_certificate(readings, str(low), str(high), str(a), str(b))
+            verify(record)
+            for route in record["claim"]["routes"]:
+                fixed = list(map(Fraction, readings))
+                fixed.pop(route["index"])
+                lower = Fraction(route["gap"]["min"]["value"])
+                upper = Fraction(route["gap"]["max"]["value"])
+                for x_index in range(11):
+                    x = low + (high - low) * x_index / 10
+                    values = sorted([*fixed, x])
+                    mean = sum(values) / count
+                    median = (values[(count - 1) // 2] + values[count // 2]) / 2
+                    for t_index in range(11):
+                        target = a + (b - a) * t_index / 10
+                        d = (mean - target) ** 2 - (median - target) ** 2
+                        self.assertLessEqual(lower, d)
+                        self.assertLessEqual(d, upper)
 
     def test_rejected_inputs_and_noncanonical_values(self):
         with self.assertRaises(ValueError):

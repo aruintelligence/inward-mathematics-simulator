@@ -81,6 +81,30 @@ test('even receipts reject forged middle-cell roots and mismatched format', () =
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
+test('v3 exact gap extrema and their attaining witnesses are independently checked', () => {
+  const record = core.gapCertificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+  const dir = mkdtempSync(join(tmpdir(), 'target-box-gap-verify-'));
+  try {
+    assert.equal(checkPython(record, dir).status, 0);
+    assert.equal(verifier.verify(record).gap.min.value, '-1435/16');
+    const edits = [
+      x => { x.claim.routes[0].gap.min.value = '0'; },
+      x => { x.claim.routes[0].gap.min.reading = '99'; },
+      x => { x.claim.routes[0].gap.max.target = '52'; },
+      x => { x.claim.gap.min.value = '-1'; },
+      x => { x.claim.gap.max.index = 2; },
+      x => { x.claim.gap.max.reading = '100'; },
+      x => { delete x.claim.routes[0].gap; },
+      x => { x.format = 'inward-even-target-box-v2'; }
+    ];
+    for (const edit of edits) {
+      const forged = clone(record); edit(forged);
+      assert.throws(() => verifier.verify(forged));
+      assert.notEqual(checkPython(forged, dir).status, 0);
+    }
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -163,6 +187,12 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   assert.equal(elements['save-to-archive'].disabled, false);
   await elements['save-to-archive'].handlers.click();
   assert.deepEqual(saved, [exampleText]);
+  elements['receipt-json'].value = readFileSync('examples/target-box-gap-v3.json', 'utf8');
+  elements['receipt-json'].handlers.input();
+  await elements['verify-button'].handlers.click();
+  assert.equal(elements.report.hidden, false);
+  assert.match(elements['report-intro'].textContent, /\[-1435\/16, 3885\/16\]/);
+  assert.match(elements.routes.children[0].children[3].textContent, /Exact D range/);
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);

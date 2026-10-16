@@ -52,6 +52,9 @@
       `${guaranteedRoutes.length} of ${claim.routes.length} individual routes have a strict winner throughout the target box.`;
     $("summary-copy").textContent = "Exact outcomes across all routes: " + claim.reachable.join(", ") +
       ". A route marked guaranteed has the same strict winner for every real value in its rectangle.";
+    $("gap-summary").textContent = claim.gap ?
+      `Exact squared-error gap D = (mean − target)² − (median − target)² spans [${claim.gap.min.value}, ${claim.gap.max.value}] across every route. Minimum: reading ${claim.gap.min.index + 1} at ${claim.gap.min.reading}, target ${claim.gap.min.target}. Maximum: reading ${claim.gap.max.index + 1} at ${claim.gap.max.reading}, target ${claim.gap.max.target}. Negative favors Mean; positive favors Median. These bounds are attained.` :
+      "Choose Quantify exact gap to certify the attained worst and best squared-error difference.";
     const facts = $("facts"); facts.replaceChildren();
     for (const value of [`${inputs.readings.length} readings`,
       inputs.readings.length % 2 ? "Median: middle reading" : "Median: central-pair average",
@@ -81,15 +84,18 @@
         list.append(item);
       }
       card.append(list, element("p", `${route.knots.length} exact partition knots: ${route.knots.join(" · ")}`, "meta"));
+      if (route.gap) card.append(element("p",
+        `Exact D range [${route.gap.min.value}, ${route.gap.max.value}]. Minimum at x=${route.gap.min.reading}, t=${route.gap.min.target}; maximum at x=${route.gap.max.reading}, t=${route.gap.max.target}.`, "meta"));
       routes.append(card);
     }
     $("download").disabled = false;
   }
-  function analyze(event) {
+  function analyze(event, quantify = false) {
     if (event) event.preventDefault();
     try {
       const readings = $("readings").value.split(",").map(part => part.trim());
-      const result = InwardTargetBox.certificate(readings, $("move-low").value.trim(),
+      const result = (quantify ? InwardTargetBox.gapCertificate : InwardTargetBox.certificate)(
+        readings, $("move-low").value.trim(),
         $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
       $("input-error").textContent = "";
       show(result);
@@ -99,6 +105,7 @@
       $("headline").textContent = "Check the inputs";
       $("headline-detail").textContent = "The earlier result has been cleared.";
       $("summary-copy").textContent = "No certificate for these inputs.";
+      $("gap-summary").textContent = "";
       $("facts").replaceChildren(); $("routes").replaceChildren();
       $("input-error").textContent = error.message;
     }
@@ -109,6 +116,18 @@
     $("results").scrollIntoView({behavior: "smooth"});
   }
   $("box-form").addEventListener("submit", analyze);
+  $("quantify").addEventListener("click", () => analyze(null, true));
+  for (const id of ["readings", "move-low", "move-high", "target-low", "target-high"]) {
+    $(id).addEventListener("input", () => {
+      latest = null;
+      $("download").disabled = true;
+      $("headline").textContent = "Analyze inputs";
+      $("headline-detail").textContent = "The inputs changed. Certify the new rectangle before exporting.";
+      $("summary-copy").textContent = "No certificate for the current inputs.";
+      $("gap-summary").textContent = "";
+      $("facts").replaceChildren(); $("routes").replaceChildren();
+    });
+  }
   $("locked-example").addEventListener("click", () => example({readings: "24, 13, 45, 41, 38",
     "move-low": "13", "move-high": "45", "target-low": "49", "target-high": "51"}));
   $("signed-example").addEventListener("click", () => example({readings: "-2, -1, 0, 1, 35",
