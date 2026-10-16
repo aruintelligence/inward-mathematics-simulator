@@ -712,6 +712,72 @@ that their route knots, thresholds, witnesses, and distances transform too.
 -/
 namespace AffineEquivariance
 
+/-- Change the units of every reading in a list without changing its position. -/
+noncomputable def rebase (scale shift : ℝ) (xs : List ℝ) : List ℝ :=
+  xs.map (fun value => scale * value + shift)
+
+private theorem sum_rebase (xs : List ℝ) (scale shift : ℝ) :
+    (rebase scale shift xs).sum = scale * xs.sum + (xs.length : ℝ) * shift := by
+  induction xs with
+  | nil => simp [rebase]
+  | cons value rest ih =>
+    simp only [rebase, List.map_cons, List.sum_cons, List.length_cons,
+      Nat.cast_add, Nat.cast_one] at ih ⊢
+    rw [ih]
+    ring
+
+/-- The usual mean changes units exactly, for every nonempty reading list. -/
+theorem sampleMean_rebase (xs : List ℝ) (scale shift : ℝ)
+    (hxs : 0 < xs.length) :
+    sampleMean (rebase scale shift xs) = scale * sampleMean xs + shift := by
+  have hn : (xs.length : ℝ) ≠ 0 := by exact_mod_cast (ne_of_gt hxs)
+  have hsum := sum_rebase xs scale shift
+  simp only [rebase] at hsum
+  simp only [sampleMean, rebase, List.length_map]
+  rw [hsum]
+  field_simp [hn]
+
+private theorem getD_rebase (xs : List ℝ) (scale shift : ℝ) (i : ℕ)
+    (hi : i < xs.length) :
+    (rebase scale shift xs)[i]?.getD 0 =
+      scale * (xs[i]?.getD 0) + shift := by
+  have hget : xs[i]? = some xs[i] := getElem?_pos xs i hi
+  simp [rebase, hget]
+
+/-- Both central order statistics change units exactly, for odd or even size.
+The input is already ordered when this expression represents a median. -/
+theorem orderedMedian_rebase (xs : List ℝ) (scale shift : ℝ)
+    (hxs : 0 < xs.length) :
+    orderedMedian (rebase scale shift xs) =
+      scale * orderedMedian xs + shift := by
+  have hlo : (xs.length - 1) / 2 < xs.length := by omega
+  have hhi : xs.length / 2 < xs.length := by omega
+  have hlow := getD_rebase xs scale shift ((xs.length - 1) / 2) hlo
+  have hhigh := getD_rebase xs scale shift (xs.length / 2) hhi
+  simp only [rebase] at hlow hhigh
+  unfold orderedMedian rebase
+  simp only [List.length_map]
+  rw [hlow, hhigh]
+  ring
+
+/-- A positive unit change preserves the ordering of an already sorted list. -/
+theorem sorted_rebase (xs : List ℝ) (scale shift : ℝ) (hs : 0 < scale)
+    (hordered : List.Pairwise (· ≤ ·) xs) :
+    List.Pairwise (· ≤ ·) (rebase scale shift xs) := by
+  induction xs with
+  | nil => exact List.Pairwise.nil
+  | cons value rest ih =>
+    obtain ⟨hhead, htail⟩ := List.pairwise_cons.mp hordered
+    change List.Pairwise (· ≤ ·) ((scale * value + shift) :: rebase scale shift rest)
+    apply List.Pairwise.cons
+    · intro converted hconverted
+      have hmember : converted ∈ rest.map (fun v => scale * v + shift) := by
+        simpa only [rebase] using hconverted
+      obtain ⟨original, horiginal, rfl⟩ := List.mem_map.mp hmember
+      have hle := mul_le_mul_of_nonneg_left (hhead original horiginal) (le_of_lt hs)
+      linarith
+    · exact ih htail
+
 theorem squared_error_scales (mean median target scale shift : ℝ) :
     ((scale * mean + shift) - (scale * target + shift)) ^ 2 -
       ((scale * median + shift) - (scale * target + shift)) ^ 2 =
@@ -757,6 +823,32 @@ theorem tie_iff (mean median target scale shift : ℝ) (hs : 0 < scale) :
     · exact hproduct
   · intro h
     simp [h]
+
+/-- For any nonempty ordered sample, a positive unit change preserves a
+strict mean win after recomputing the mean and central-pair median. -/
+theorem sample_mean_wins_iff (xs : List ℝ) (target scale shift : ℝ)
+    (hxs : 0 < xs.length) (hs : 0 < scale) :
+    (sampleMean (rebase scale shift xs) - orderedMedian (rebase scale shift xs)) *
+      (sampleMean (rebase scale shift xs) + orderedMedian (rebase scale shift xs) -
+        2 * (scale * target + shift)) < 0 ↔
+      (sampleMean xs - orderedMedian xs) *
+        (sampleMean xs + orderedMedian xs - 2 * target) < 0 := by
+  rw [sampleMean_rebase xs scale shift hxs,
+    orderedMedian_rebase xs scale shift hxs]
+  exact mean_wins_iff (sampleMean xs) (orderedMedian xs) target scale shift hs
+
+/-- The same list calculation preserves exact ties, including coincident
+mean and median. -/
+theorem sample_tie_iff (xs : List ℝ) (target scale shift : ℝ)
+    (hxs : 0 < xs.length) (hs : 0 < scale) :
+    (sampleMean (rebase scale shift xs) - orderedMedian (rebase scale shift xs)) *
+      (sampleMean (rebase scale shift xs) + orderedMedian (rebase scale shift xs) -
+        2 * (scale * target + shift)) = 0 ↔
+      (sampleMean xs - orderedMedian xs) *
+        (sampleMean xs + orderedMedian xs - 2 * target) = 0 := by
+  rw [sampleMean_rebase xs scale shift hxs,
+    orderedMedian_rebase xs scale shift hxs]
+  exact tie_iff (sampleMean xs) (orderedMedian xs) target scale shift hs
 
 end AffineEquivariance
 

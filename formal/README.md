@@ -110,12 +110,17 @@ this Lean model.
 `v ↦ scale * v + shift` multiplies the squared-error difference and its
 factored form by `scale²`. For positive `scale`, a strict mean win and an
 exact tie therefore remain unchanged for arbitrary real estimates and
-targets. Seeded Python and browser tests separately check the stronger
+targets. It additionally proves that the mean of every nonempty real list,
+and both central entries of its order-statistic median, transform by the
+same affine map. A positive scale preserves sorted order, so this applies
+to both odd and even already sorted samples. The resulting list-level
+theorems preserve strict mean wins and exact ties after recomputing both
+estimates. Seeded Python and browser tests separately check the stronger
 whole-certificate rule: when transformed inputs satisfy the documented
 input limits, winners and route indices stay the same, all knots,
 thresholds, and witnesses transform by the same affine map, and distances
-multiply by `scale`. The Lean statements concern estimates and target;
-they do not formalize arbitrary-list sorting or runtime source equivalence.
+multiply by `scale`. The Lean statements do not formalize the particular
+runtime sorting algorithm, its JSON parser, or source equivalence.
 
 To run the route gate after `lake build`:
 
