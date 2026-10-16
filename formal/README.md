@@ -91,6 +91,21 @@ every strict reversal *within this middle cell* moves farther than `5/3`.
 This proves the exhibited local route, not its optimality among all movable
 readings and cells; the receipt verifier checks that global selection.
 
+`InwardFormal.AffinePartition` proves a general interval principle behind
+both parities' continuous search. An affine factor with no zero in an open
+cell has the same strict sign at every point as at its midpoint: opposite
+signs would force an explicit zero between them. The product of two such
+factors has the same winner sign throughout the cell. A factor zero at two
+distinct points is identically zero, covering the degenerate tie case.
+These theorems justify the midpoint argument when the cell is known to
+contain no roots. `no_zero_if_root_outside` derives that premise from a
+nonconstant factor's exact root at or outside the cell; the product theorem
+then applies directly to two such located roots. The code that enumerates
+and clips every root,
+sorts arbitrary input, and selects the global closest route is still checked
+by the independent certificate verifier rather than proved equivalent to
+this Lean model.
+
 To run the route gate after `lake build`:
 
 ```sh

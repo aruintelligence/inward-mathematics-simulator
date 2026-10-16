@@ -543,6 +543,168 @@ theorem universal_iff_established (n : ℕ) (hn : 3 ≤ n)
 end RegisteredClaim
 
 /-!
+The continuous-movement receipts partition the domain at roots of affine
+error factors. These elementary lemmas justify using one interior reading to
+determine each nonzero factor's sign throughout a root-free open cell. They
+apply equally to odd and even sample medians, once the median cell is fixed.
+-/
+namespace AffinePartition
+
+/-- Opposite strict signs of an affine function force an explicit interior
+zero. This avoids a grid or an appeal to numerical sampling. -/
+theorem zero_between_of_opposite (A B x y : ℝ) (hxy : x < y)
+    (hx : A + B * x < 0) (hy : 0 < A + B * y) :
+    ∃ z, x < z ∧ z < y ∧ A + B * z = 0 := by
+  have hB : 0 < B := by
+    by_contra h
+    have hnonpos : B ≤ 0 := le_of_not_gt h
+    have hprod : B * (y - x) ≤ 0 :=
+      mul_nonpos_of_nonpos_of_nonneg hnonpos (by linarith)
+    nlinarith
+  refine ⟨-A / B, ?_, ?_, ?_⟩
+  · exact (lt_div_iff₀ hB).2 (by nlinarith)
+  · exact (div_lt_iff₀ hB).2 (by nlinarith)
+  · field_simp [ne_of_gt hB]
+    ring
+
+/-- A nonconstant affine factor cannot vanish in a cell whose exact root lies
+at or outside one of its boundaries. -/
+theorem no_zero_if_root_outside (A B left right : ℝ) (hB : B ≠ 0)
+    (hroot : -A / B ≤ left ∨ right ≤ -A / B) :
+    ∀ x, left < x → x < right → A + B * x ≠ 0 := by
+  intro x hlx hxr hzero
+  have hx : x = -A / B := by
+    apply (eq_div_iff hB).2
+    nlinarith
+  rcases hroot with hleft | hright
+  · rw [hx] at hlx
+    linarith
+  · rw [hx] at hxr
+    linarith
+
+/-- The strict sign at one point holds at every point of a root-free cell. -/
+theorem positive_from_anchor (A B left right anchor x : ℝ)
+    (hla : left < anchor) (har : anchor < right)
+    (hlx : left < x) (hxr : x < right)
+    (hno : ∀ z, left < z → z < right → A + B * z ≠ 0)
+    (ha : 0 < A + B * anchor) : 0 < A + B * x := by
+  rcases lt_trichotomy (A + B * x) 0 with hneg | hzero | hpos
+  · rcases lt_trichotomy x anchor with hxa | heq | hax
+    · obtain ⟨z, hxz, hza, hz⟩ := zero_between_of_opposite A B x anchor hxa hneg ha
+      exact False.elim ((hno z (lt_trans hlx hxz) (lt_trans hza har)) hz)
+    · subst x
+      exact ha
+    · obtain ⟨z, haz, hzx, hz⟩ := zero_between_of_opposite (-A) (-B) anchor x hax
+        (by nlinarith) (by nlinarith)
+      have hz' : A + B * z = 0 := by nlinarith
+      exact False.elim ((hno z (lt_trans hla haz) (lt_trans hzx hxr)) hz')
+  · exact False.elim ((hno x hlx hxr) hzero)
+  · exact hpos
+
+theorem negative_from_anchor (A B left right anchor x : ℝ)
+    (hla : left < anchor) (har : anchor < right)
+    (hlx : left < x) (hxr : x < right)
+    (hno : ∀ z, left < z → z < right → A + B * z ≠ 0)
+    (ha : A + B * anchor < 0) : A + B * x < 0 := by
+  have h : 0 < -A + -B * x := positive_from_anchor (-A) (-B) left right anchor x
+    hla har hlx hxr (by
+      intro z hlz hzr hz
+      apply hno z hlz hzr
+      nlinarith) (by nlinarith)
+  nlinarith
+
+/-- An interior midpoint carries the factor's exact sign on a root-free cell. -/
+theorem sign_agrees_with_midpoint (A B left right x : ℝ)
+    (hlr : left < right) (hlx : left < x) (hxr : x < right)
+    (hno : ∀ z, left < z → z < right → A + B * z ≠ 0) :
+    (0 < A + B * x ↔ 0 < A + B * ((left + right) / 2)) ∧
+    (A + B * x < 0 ↔ A + B * ((left + right) / 2) < 0) := by
+  have hlm : left < (left + right) / 2 := by linarith
+  have hmr : (left + right) / 2 < right := by linarith
+  constructor
+  · constructor
+    · intro hx
+      exact positive_from_anchor A B left right x _ hlx hxr hlm hmr hno hx
+    · intro hm
+      exact positive_from_anchor A B left right _ x hlm hmr hlx hxr hno hm
+  · constructor
+    · intro hx
+      exact negative_from_anchor A B left right x _ hlx hxr hlm hmr hno hx
+    · intro hm
+      exact negative_from_anchor A B left right _ x hlm hmr hlx hxr hno hm
+
+/-- The midpoint also determines the winner encoded by two affine factors.
+The factors' roots must already have been excluded from this open cell. -/
+theorem product_negative_iff_midpoint (A B C D left right x : ℝ)
+    (hlr : left < right) (hlx : left < x) (hxr : x < right)
+    (hfirst : ∀ z, left < z → z < right → A + B * z ≠ 0)
+    (hsecond : ∀ z, left < z → z < right → C + D * z ≠ 0) :
+    (A + B * x) * (C + D * x) < 0 ↔
+      (A + B * ((left + right) / 2)) *
+        (C + D * ((left + right) / 2)) < 0 := by
+  have hf := sign_agrees_with_midpoint A B left right x hlr hlx hxr hfirst
+  have hg := sign_agrees_with_midpoint C D left right x hlr hlx hxr hsecond
+  constructor
+  · intro hproduct
+    rcases lt_trichotomy (A + B * x) 0 with hneg | hzero | hpos
+    · have hother : 0 < C + D * x := by
+        by_contra h
+        have hnonpos : C + D * x ≤ 0 := le_of_not_gt h
+        have hnonneg := mul_nonneg_of_nonpos_of_nonpos (le_of_lt hneg) hnonpos
+        exact (not_le_of_gt hproduct) hnonneg
+      exact mul_neg_of_neg_of_pos (hf.2.mp hneg) (hg.1.mp hother)
+    · simp [hzero] at hproduct
+    · have hother : C + D * x < 0 := by
+        by_contra h
+        have hnonneg : 0 ≤ C + D * x := le_of_not_gt h
+        have hnonnegProduct := mul_nonneg (le_of_lt hpos) hnonneg
+        exact (not_le_of_gt hproduct) hnonnegProduct
+      exact mul_neg_of_pos_of_neg (hf.1.mp hpos) (hg.2.mp hother)
+  · intro hproduct
+    rcases lt_trichotomy (A + B * ((left + right) / 2)) 0 with hneg | hzero | hpos
+    · have hother : 0 < C + D * ((left + right) / 2) := by
+        by_contra h
+        have hnonpos : C + D * ((left + right) / 2) ≤ 0 := le_of_not_gt h
+        have hnonneg := mul_nonneg_of_nonpos_of_nonpos (le_of_lt hneg) hnonpos
+        exact (not_le_of_gt hproduct) hnonneg
+      exact mul_neg_of_neg_of_pos (hf.2.mpr hneg) (hg.1.mpr hother)
+    · simp [hzero] at hproduct
+    · have hother : C + D * ((left + right) / 2) < 0 := by
+        by_contra h
+        have hnonneg : 0 ≤ C + D * ((left + right) / 2) := le_of_not_gt h
+        have hnonnegProduct := mul_nonneg (le_of_lt hpos) hnonneg
+        exact (not_le_of_gt hproduct) hnonnegProduct
+      exact mul_neg_of_pos_of_neg (hf.1.mpr hpos) (hg.2.mpr hother)
+
+/-- Supplying both exact roots outside the cell is enough to justify the
+midpoint's winner classification for the entire open cell. -/
+theorem product_negative_iff_midpoint_of_roots_outside
+    (A B C D left right x : ℝ)
+    (hlr : left < right) (hlx : left < x) (hxr : x < right)
+    (hB : B ≠ 0) (hD : D ≠ 0)
+    (hfirst : -A / B ≤ left ∨ right ≤ -A / B)
+    (hsecond : -C / D ≤ left ∨ right ≤ -C / D) :
+    (A + B * x) * (C + D * x) < 0 ↔
+      (A + B * ((left + right) / 2)) *
+        (C + D * ((left + right) / 2)) < 0 := by
+  exact product_negative_iff_midpoint A B C D left right x hlr hlx hxr
+    (no_zero_if_root_outside A B left right hB hfirst)
+    (no_zero_if_root_outside C D left right hD hsecond)
+
+/-- If an affine factor vanishes at two distinct points, it ties everywhere. -/
+theorem zero_at_two_points (A B p q x : ℝ) (hpq : p ≠ q)
+    (hp : A + B * p = 0) (hq : A + B * q = 0) : A + B * x = 0 := by
+  have hproduct : B * (p - q) = 0 := by nlinarith
+  have hB : B = 0 := by
+    rcases mul_eq_zero.mp hproduct with hb | heq
+    · exact hb
+    · exact False.elim (hpq (sub_eq_zero.mp heq))
+  have hA : A = 0 := by simpa [hB] using hp
+  simp [hA, hB]
+
+end AffinePartition
+
+/-!
 The moving-reading calculation for an even sample is piecewise affine. On its
 middle cell the central-pair median is `(c + x) / 2`; on either outer cell it
 is constant. These lemmas establish the factor equations and their *only*
