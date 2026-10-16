@@ -146,11 +146,17 @@ factorization and checked in Lean. This is a complete classification of the
 registered 20-pair language for conventional mean and median, **not** a
 general theorem-discovery algorithm or a novel mathematical theorem.
 
-The [Lean module](../formal/InwardFormal.lean) now checks the exact mean and
+The [Lean module](../formal/InwardFormal.lean) checks the exact mean and
 central-pair median formulas for both sorted endpoint lists for all $n\ge3$.
-It also checks the strict winner at both endpoint targets. The small routing
-table from those four cases to the 16 refutable statements, arbitrary input
-sorting, and JSON receipt verification remain separate code and checks.
+It also checks the strict winner at both endpoint targets. Its typed
+`RegisteredClaim` theorem checks all 20 cells of the table above: four are
+universal for arbitrary real estimates, and each other cell has a sorted
+endpoint counterexample at every $n\ge3$. The Lean table is encoded
+separately from the browser and Python tables; the build does not prove that
+the source files have identical routing definitions. Separate Lean lemmas
+equate its midpoint guard to the app's average-of-estimates rule and expand
+the two endpoint guards into inequalities for each estimate. Arbitrary input
+sorting and JSON receipt verification remain outside Lean.
 
 The v6 `classification.construction` identifies one-high or one-low and its
 endpoint target. The browser and Python verifiers independently rebuild all
