@@ -4,7 +4,12 @@ const {spawnSync} = require('node:child_process');
 const {mkdtempSync, writeFileSync, rmSync, readFileSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
+const vm = require('node:vm');
+const crypto = require('node:crypto');
 const core = require('../odd-flip-core.js');
+const independent = require('../odd-flip-verifier.js');
+const archive = require('../research-archive-core.js');
+const strictJson = require('../tools/target-lens-proof-core.js').parseReceipt;
 
 function python(readings, target, low, high) {
   const args = ['tools/odd_sample_flip.py', `--readings=${readings.join(',')}`, `--target=${target}`];
@@ -164,9 +169,84 @@ test('invalid inputs produce no certificate and the UI keeps values local', () =
   const script = readFileSync('odd-flip-lab.js', 'utf8');
   assert.match(html, /id="even-example"/);
   assert.match(script, /Median: average of central pair/);
-  assert.match(html, /<script src="odd-flip-core.js"><\/script><script src="odd-flip-lab.js"><\/script>/);
+  for (const scriptName of ['odd-flip-core.js', 'odd-flip-verifier.js',
+    'tools/target-lens-proof-core.js', 'research-archive-core.js', 'odd-flip-lab.js']) {
+    const version = html.match(new RegExp(`${scriptName.replaceAll('.', '\\.') }\\?v=([0-9a-f]{12})`));
+    assert.ok(version, `${scriptName} must have a content fingerprint`);
+    assert.equal(version[1], crypto.createHash('sha256').update(readFileSync(scriptName))
+      .digest('hex').slice(0, 12));
+  }
   assert.match(html, /role="alert"/);
   assert.match(html, /id="low".*id="high"/s);
   assert.match(script, /textContent/);
   assert.doesNotMatch(script, /fetch\(|XMLHttpRequest|location\.search/);
+});
+
+test('lab independently checks before direct local save and clears stale results on edits', async () => {
+  function element(tag) {
+    return {tag, children: [], handlers: {}, textContent: '', disabled: false, value: '',
+      append(...items) { this.children.push(...items); },
+      replaceChildren(...items) { this.children = [...items]; },
+      setAttribute() {}, addEventListener(event, handler) { this.handlers[event] = handler; }};
+  }
+  const ids = ['flip-form', 'readings', 'target', 'low', 'high', 'input-facts',
+    'result-label', 'result-value', 'result-explanation', 'result-summary', 'routes',
+    'download', 'save-local', 'save-status', 'print', 'even-example', 'mean-example',
+    'tie-example', 'signed-example', 'input-error'];
+  const fields = Object.fromEntries(ids.map(id => [id, element(id)]));
+  Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
+  Object.assign(fields.target, {value: '50'});
+  Object.assign(fields.low, {value: '0'});
+  Object.assign(fields.high, {value: '100'});
+  const saves = [];
+  let closed = 0;
+  const mockArchive = {
+    open: async () => ({close() { closed++; }}),
+    add: async (_db, source, label, checkers, cryptoApi) => {
+      assert.equal(label, '');
+      assert.equal(checkers.sampleReversal, independent);
+      assert.equal(checkers.strictJson, strictJson);
+      const checked = await archive.inspect(source, null, checkers, cryptoApi);
+      saves.push(checked);
+      return {created: true, digest: checked.digest};
+    }
+  };
+  vm.runInNewContext(readFileSync('odd-flip-lab.js', 'utf8'), {
+    InwardOddFlip: core, InwardOddFlipVerifier: independent,
+    InwardResearchArchive: mockArchive, TargetLensVerifier: {parseReceipt: strictJson},
+    document: {getElementById: id => fields[id], createElement: element,
+      createElementNS: (_ns, tag) => element(tag), body: element('body')},
+    crypto: crypto.webcrypto, URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}},
+    Blob, setTimeout: callback => callback(), window: {print() {}}
+  }, {timeout: 5000});
+  assert.equal(fields.download.disabled, false);
+  assert.equal(fields['save-local'].disabled, false);
+  await fields['save-local'].handlers.click();
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].record.claim.best.threshold, '22');
+  assert.match(fields['save-status'].textContent, /Independently checked and saved locally/);
+  assert.equal(closed, 1);
+  fields.readings.value = '1, 2, 3';
+  fields.readings.handlers.input();
+  assert.equal(fields.download.disabled, true);
+  assert.equal(fields['save-local'].disabled, true);
+  assert.equal(fields.routes.children.length, 0);
+  await fields['save-local'].handlers.click();
+  assert.equal(saves.length, 1);
+  fields['flip-form'].handlers.submit({preventDefault() {}});
+  assert.equal(fields.download.disabled, false);
+  await fields['save-local'].handlers.click();
+  assert.equal(saves.length, 2);
+  assert.deepEqual(Array.from(saves[1].record.inputs.readings), ['1', '2', '3']);
+  let resolveOpen;
+  mockArchive.open = () => new Promise(resolve => { resolveOpen = resolve; });
+  const pending = fields['save-local'].handlers.click();
+  fields.target.value = '4';
+  fields.target.handlers.input();
+  resolveOpen({close() { closed++; }});
+  await pending;
+  assert.equal(saves.length, 2, 'changed inputs must not save a waiting action');
+  assert.equal(closed, 3);
+  assert.equal(fields['save-status'].textContent, '');
+  assert.equal(fields['save-local'].disabled, true);
 });
