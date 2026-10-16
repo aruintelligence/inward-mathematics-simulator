@@ -1,0 +1,43 @@
+{
+  "format": "inward-conditional-claim-v4",
+  "claim": {
+    "condition": "target-at-or-above-both",
+    "prediction": "mean-no-worse",
+    "statement": "For any 3 real readings, if the target is at or above both estimates, the mean is no farther than the median."
+  },
+  "domain": {
+    "readingCount": 3,
+    "readingValues": [
+      "50",
+      "100"
+    ],
+    "targetValues": [
+      "0",
+      "1"
+    ],
+    "readingMultisets": 4
+  },
+  "search": {
+    "casesChecked": 0,
+    "status": "unrefuted-on-finite-grid",
+    "counterexample": null
+  },
+  "proof": null,
+  "formal": null,
+  "classification": {
+    "status": "refuted-by-exact-witness",
+    "counterexample": {
+      "readings": [
+        "0",
+        "50",
+        "50"
+      ],
+      "target": "50",
+      "mean": "100/3",
+      "median": "50",
+      "lower": "100/3",
+      "higher": "50",
+      "actualWinner": "median"
+    }
+  }
+}

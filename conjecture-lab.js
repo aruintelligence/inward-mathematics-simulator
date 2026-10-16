@@ -113,7 +113,7 @@
     point.readings.forEach(raw => {
       const stack = seen.get(raw) || 0;
       seen.set(raw, stack + 1);
-      shape("circle", {cx:amount(raw),cy:45-stack*8,r:5,fill:"#53c4db"});
+      shape("circle", {cx:amount(raw),cy:45-stack*5,r:5,fill:"#53c4db"});
     });
     shape("line", {x1:amount(point.target),y1:7,x2:amount(point.target),y2:69,stroke:"#ffca73","stroke-width":2,"stroke-dasharray":"3 4"});
     shape("circle", {cx:amount(point.mean),cy:63,r:6,fill:"#70e5b8",stroke:"#081922","stroke-width":1});
@@ -191,7 +191,7 @@
     $("claim-status").classList.remove("error");
     try {
       const report = engine.compose($("reading-values").value, $("target-values").value,
-        $("claim-condition").value, $("claim-prediction").value);
+        $("claim-condition").value, $("claim-prediction").value, Number($("claim-reading-count").value));
       const source = JSON.stringify(report, null, 2) + "\n";
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
       if (started !== revision) return;
@@ -202,7 +202,7 @@
       const label = report.proof ? "General algebraic proof" : "Universal claim refuted";
       $("claim-badge").textContent = label;
       $("claim-results").classList.toggle("counterexample", Boolean(globalPoint));
-      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} five-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
+      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} ${report.domain.readingCount}-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
       $("claim-formal-link").hidden = !report.proof;
       $("claim-formal-ref").hidden = !report.formal;
       if (report.formal) {
@@ -238,7 +238,7 @@
   $("search-form").addEventListener("submit", run);
   $("claim-form").addEventListener("submit", runClaim);
   for (const id of ["reading-values", "target-values"]) $(id).addEventListener("input", reset);
-  for (const id of ["claim-condition", "claim-prediction"]) $(id).addEventListener("change", resetClaim);
+  for (const id of ["claim-condition", "claim-prediction", "claim-reading-count"]) $(id).addEventListener("change", resetClaim);
   $("fraction-example").addEventListener("click", () => {
     $("reading-values").value = "0,1/2,1,3/2,2";
     $("target-values").value = "0,1/4,1/2,1,3/2,2";
@@ -261,7 +261,7 @@
     const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "inward-conditional-claim-v3.json";
+    anchor.download = "inward-conditional-claim-v4.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

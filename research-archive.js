@@ -23,7 +23,7 @@
     const {record, result, label, digest} = entry;
     if (entry.kind === "conditional-claim") {
       const witness = result.classification?.counterexample || result.counterexample;
-      const searchable = [label, digest, record.claim.statement, record.claim.condition,
+      const searchable = [label, digest, record.domain.readingCount || 5, record.claim.statement, record.claim.condition,
         record.claim.prediction, result.status, result.classification?.status, ...record.domain.readingValues,
         ...record.domain.targetValues, ...(witness?.readings || []), witness?.target,
         witness?.mean, witness?.median, result.formal?.declaration].join(" ").toLocaleLowerCase();
@@ -84,7 +84,7 @@
       const {record, result} = entry;
       if (entry.kind === "conditional-claim") {
         body.append(node("p", record.claim.statement));
-        body.append(node("p", `${result.casesChecked} eligible exact cases checked across ${result.readingMultisets} five-reading multisets. Reading grid: ${record.domain.readingValues.join(", ")}; target grid: ${record.domain.targetValues.join(", ")}.`));
+        body.append(node("p", `${result.casesChecked} eligible exact cases checked across ${result.readingMultisets} ${result.readingCount}-reading multisets. Reading grid: ${record.domain.readingValues.join(", ")}; target grid: ${record.domain.targetValues.join(", ")}.`));
         if (result.proof) {
           body.append(node("p",
             "General result under the stated target condition: this record was independently replayed. A separate Lean proof checks the corresponding real-number inequality, not these JSON bytes or source measurements. This is established mathematics."));

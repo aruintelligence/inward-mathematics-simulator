@@ -58,7 +58,7 @@
           checked.status === "counterexample-found" ? "Counterexample found" : "Unrefuted on this finite grid";
       $("result").classList.toggle("refuted", Boolean(checked.classification?.counterexample || checked.counterexample));
       $("statement").textContent = checked.statement;
-      $("count").textContent = `${checked.casesChecked} eligible exact cases checked across ${checked.readingMultisets} five-reading multisets.`;
+      $("count").textContent = `${checked.casesChecked} eligible exact cases checked across ${checked.readingMultisets} ${checked.readingCount}-reading multisets.`;
       $("formal-reference").hidden = !checked.proof;
       $("formal-source").hidden = !checked.formal;
       $("formal-declaration").textContent = checked.formal ?

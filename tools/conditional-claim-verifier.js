@@ -1,4 +1,4 @@
-/* Independent checker for conditional claims v1/v2/v3. Does not import the constructor. */
+/* Independent checker for conditional claims v1–v4. Does not import the constructor. */
 (function (root, factory) {
   const parser = typeof module === "object" && module.exports ?
     require("./target-lens-proof-core.js") : root.TargetLensVerifier;
@@ -7,8 +7,9 @@
   else root.InwardConditionalClaimVerifier = api;
 })(globalThis, function (parser) {
   "use strict";
-  const FORMAT = "inward-conditional-claim-v3";
-  const PREVIOUS_FORMAT = "inward-conditional-claim-v2";
+  const FORMAT = "inward-conditional-claim-v4";
+  const PREVIOUS_FORMAT = "inward-conditional-claim-v3";
+  const EARLIER_FORMAT = "inward-conditional-claim-v2";
   const LEGACY_FORMAT = "inward-conditional-claim-v1";
   const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
   const FORMAL_THEOREMS = {
@@ -123,16 +124,17 @@
     if (condition === "target-at-or-below-both") return compare(target, lo) <= 0;
     return compare(target, hi) >= 0;
   }
-  function replay(values, targets, condition, prediction) {
+  function replay(values, targets, condition, prediction, readingCount) {
     let checked = 0, witness = null, total = 0;
     const visit = (readings, start) => {
-      if (readings.length < 5) {
+      if (readings.length < readingCount) {
         for (let i = start; i < values.length; i++) visit([...readings, values[i]], i);
         return;
       }
       total++;
       if (witness) return;
-      const mean = divide(readings.reduce(sum, fraction(0n)), 5n), median = readings[2];
+      const mean = divide(readings.reduce(sum, fraction(0n)), BigInt(readingCount));
+      const median = readings[Math.floor(readingCount / 2)];
       const order = compare(mean, median);
       const lower = order <= 0 ? mean : median, higher = order <= 0 ? median : mean;
       for (const target of targets) {
@@ -157,20 +159,24 @@
   function verify(report) {
     const current = report?.format === FORMAT;
     const previous = report?.format === PREVIOUS_FORMAT;
-    if (!current && !previous && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
-    fields(report, current ? ["format", "claim", "domain", "search", "proof", "formal", "classification"] :
-      previous ? ["format", "claim", "domain", "search", "proof", "formal"] :
+    const earlier = report?.format === EARLIER_FORMAT;
+    if (!current && !previous && !earlier && report?.format !== LEGACY_FORMAT) fail("Unsupported claim format");
+    fields(report, current || previous ? ["format", "claim", "domain", "search", "proof", "formal", "classification"] :
+      earlier ? ["format", "claim", "domain", "search", "proof", "formal"] :
       ["format", "claim", "domain", "search", "proof"], "claim record");
     fields(report.claim, ["condition", "prediction", "statement"], "claim");
     const {condition, prediction} = report.claim;
     if (typeof condition !== "string" || !Object.hasOwn(CONDITIONS, condition) ||
       typeof prediction !== "string" || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unsupported claim choice");
-    const statement = `For any five real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`;
+    const readingCount = current ? report.domain?.readingCount : 5;
+    if (![3, 5, 7].includes(readingCount)) fail("Unsupported reading count");
+    const statement = `For any ${current ? readingCount : "five"} real readings, ${CONDITIONS[condition]}, ${PREDICTIONS[prediction]}.`;
     if (report.claim.statement !== statement) fail("Claim statement does not match choices");
-    fields(report.domain, ["readingValues", "targetValues", "readingMultisets"], "domain");
+    fields(report.domain, current ? ["readingCount", "readingValues", "targetValues", "readingMultisets"] :
+      ["readingValues", "targetValues", "readingMultisets"], "domain");
     const values = grid(report.domain.readingValues, 6, "reading grid");
     const targets = grid(report.domain.targetValues, 12, "target grid");
-    const {checked, witness, total} = replay(values, targets, condition, prediction);
+    const {checked, witness, total} = replay(values, targets, condition, prediction, readingCount);
     if (!Number.isSafeInteger(report.domain.readingMultisets) || report.domain.readingMultisets !== total) {
       fail("Incorrect reading multiset count");
     }
@@ -187,17 +193,18 @@
       }
     }
     if (!same(report.proof, proof)) fail("Algebraic proof does not follow from the condition");
-    const formal = proof && (current || previous) ? {system: "Lean 4/Mathlib",
+    const formal = proof && (current || previous || earlier) ? {system: "Lean 4/Mathlib",
       declaration: FORMAL_THEOREMS[condition], sourceCommit: FORMAL_COMMIT} : null;
-    if ((current || previous) && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
+    if ((current || previous || earlier) && !same(report.formal, formal)) fail("Formal theorem reference does not match the proved claim");
     const basis = [fraction(0n), fraction(50n), fraction(100n)];
-    const universalWitness = current && !proof ? replay(basis, basis, condition, prediction).witness : null;
-    if (current && !proof && !universalWitness) fail("Claim language classification is incomplete");
-    const classification = current ? {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
+    const universalWitness = (current || previous) && !proof ?
+      replay(basis, basis, condition, prediction, readingCount).witness : null;
+    if ((current || previous) && !proof && !universalWitness) fail("Claim language classification is incomplete");
+    const classification = current || previous ? {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
       counterexample: universalWitness} : null;
-    if (current && !same(report.classification, classification)) fail("Universal classification does not match exact witness");
+    if ((current || previous) && !same(report.classification, classification)) fail("Universal classification does not match exact witness");
     return {status, casesChecked: checked, readingMultisets: total, counterexample: witness,
-      statement, proof: Boolean(proof), formal, classification};
+      statement, proof: Boolean(proof), formal, classification, readingCount};
   }
   function parseClaim(source) {
     const record = parser.parseReceipt(source);
