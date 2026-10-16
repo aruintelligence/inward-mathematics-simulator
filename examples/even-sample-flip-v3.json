@@ -1,0 +1,168 @@
+{
+  "format": "inward-even-sample-flip-v3",
+  "inputs": {
+    "readings": [
+      "40",
+      "45",
+      "50",
+      "80"
+    ],
+    "target": "50",
+    "bounds": {
+      "low": "0",
+      "high": "100"
+    }
+  },
+  "claim": {
+    "kind": "strict-baseline",
+    "baseline": "Median",
+    "routes": [
+      {
+        "index": 0,
+        "knots": [
+          "0",
+          "15",
+          "35",
+          "45",
+          "75",
+          "80",
+          "85",
+          "100"
+        ],
+        "pointWinners": [
+          "Median",
+          "Tie",
+          "Tie",
+          "Median",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Median"
+        ],
+        "intervalWinners": [
+          "Median",
+          "Mean",
+          "Median",
+          "Median",
+          "Mean",
+          "Mean",
+          "Median"
+        ],
+        "threshold": "35",
+        "distance": "5",
+        "witness": "25"
+      },
+      {
+        "index": 1,
+        "knots": [
+          "0",
+          "10",
+          "40",
+          "130/3",
+          "70",
+          "80",
+          "90",
+          "100"
+        ],
+        "pointWinners": [
+          "Median",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Median"
+        ],
+        "intervalWinners": [
+          "Median",
+          "Mean",
+          "Mean",
+          "Median",
+          "Mean",
+          "Mean",
+          "Median"
+        ],
+        "threshold": "130/3",
+        "distance": "5/3",
+        "witness": "125/3"
+      },
+      {
+        "index": 2,
+        "knots": [
+          "0",
+          "5",
+          "40",
+          "145/3",
+          "75",
+          "80",
+          "85",
+          "100"
+        ],
+        "pointWinners": [
+          "Median",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Median"
+        ],
+        "intervalWinners": [
+          "Median",
+          "Mean",
+          "Mean",
+          "Median",
+          "Mean",
+          "Mean",
+          "Median"
+        ],
+        "threshold": "145/3",
+        "distance": "5/3",
+        "witness": "265/6"
+      },
+      {
+        "index": 3,
+        "knots": [
+          "0",
+          "35",
+          "40",
+          "45",
+          "50",
+          "55",
+          "75",
+          "100"
+        ],
+        "pointWinners": [
+          "Median",
+          "Tie",
+          "Mean",
+          "Tie",
+          "Median",
+          "Tie",
+          "Tie",
+          "Median"
+        ],
+        "intervalWinners": [
+          "Median",
+          "Mean",
+          "Mean",
+          "Median",
+          "Median",
+          "Mean",
+          "Median"
+        ],
+        "threshold": "75",
+        "distance": "5",
+        "witness": "65"
+      }
+    ],
+    "best": {
+      "index": 1,
+      "threshold": "130/3",
+      "distance": "5/3",
+      "witness": "125/3"
+    }
+  }
+}

@@ -54,6 +54,45 @@ test('both independent checkers accept signed bounds and reject forged domains',
   assert.throws(() => verifier.verify(legacy));
 });
 
+test('both independent checkers verify even-sample central-pair partitions and reject tampering', () => {
+  const example = python(['40','45','50','80'], '50');
+  assert.equal(example.format, 'inward-even-sample-flip-v3');
+  assert.deepEqual(verifier.verify(example).best,
+    {index: 1, threshold: '130/3', distance: '5/3', witness: '125/3'});
+  const folder = mkdtempSync(join(tmpdir(), 'even-verifier-'));
+  let seed = 0x7e22b843;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  try {
+    for (let i = 0; i < 18; i++) {
+      const count = 4 + 2 * (i % 9);
+      const low = i % 2 ? -20 : 0, high = i % 2 ? 40 : 100;
+      const readings = Array.from({length: count}, (_, index) =>
+        index % 3 === 0 ? `${2 * (low + next() % (high - low)) + 1}/2` :
+          String(low + next() % (high - low + 1)));
+      const target = i % 2 ? String(low - 10 + next() % (high - low + 21)) :
+        String(next() % 101);
+      const record = i % 2 ? python(readings, target, String(low), String(high)) :
+        python(readings, target);
+      assert.equal(verifier.verify(record).kind, record.claim.kind, `even case ${i}`);
+      const file = join(folder, `${i}.json`);
+      writeFileSync(file, JSON.stringify(record));
+      const checked = spawnSync('python3', ['tools/verify_odd_sample_flip.py', file], {encoding:'utf8'});
+      assert.equal(checked.status, 0, checked.stderr);
+    }
+  } finally {rmSync(folder, {recursive:true, force:true});}
+  const edits = [
+    x => {x.format = 'inward-odd-sample-flip-v2';},
+    x => {delete x.inputs.bounds;},
+    x => {x.claim.routes[1].knots.splice(1, 1);},
+    x => {x.claim.routes[1].threshold = '43';},
+    x => {x.claim.routes[1].witness = '130/3';},
+  ];
+  for (const edit of edits) {
+    const forged = clone(example); edit(forged);
+    assert.throws(() => verifier.verify(forged));
+  }
+});
+
 test('browser and Python checkers agree across seeded samples, rational inputs, and tied baselines', () => {
   const folder = mkdtempSync(join(tmpdir(), 'odd-verifier-'));
   let seed = 0x5a3e19c7;

@@ -57,7 +57,9 @@
     const bounds = inputs.bounds || {low: "0", high: "100"};
     $("input-facts").replaceChildren(...inputs.readings.map((reading, i) =>
       element("span", "", `r${i + 1} = ${reading}`)), element("span", "", `target = ${inputs.target}`),
-      element("span", "", `movement ∈ [${bounds.low}, ${bounds.high}]`));
+      element("span", "", `movement ∈ [${bounds.low}, ${bounds.high}]`),
+      element("span", "", inputs.readings.length % 2 ? "Median: middle reading" :
+        "Median: average of central pair"));
     const best = claim.best;
     $("result-label").textContent = claim.kind === "baseline-tie" ? "Starting outcome" : "Strict reversal infimum";
     $("result-value").textContent = claim.kind === "baseline-tie" ? "Already tied" :
@@ -90,6 +92,10 @@
     }
   }
   $("flip-form").addEventListener("submit", analyze);
+  $("even-example").addEventListener("click", () => {
+    $("readings").value = "40, 45, 50, 80"; $("target").value = "50";
+    $("low").value = "0"; $("high").value = "100"; analyze();
+  });
   $("mean-example").addEventListener("click", () => {
     $("readings").value = "40, 42, 50, 60, 68"; $("target").value = "52";
     $("low").value = "0"; $("high").value = "100"; analyze();
