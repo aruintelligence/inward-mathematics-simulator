@@ -10,6 +10,7 @@
   const STORE = "target-box-certificates";
   const MAX_ENTRIES = 100;
   const COLLECTION_FORMAT = "inward-research-collection-v1";
+  const COLLECTION_FORMAT_V2 = "inward-research-collection-v2";
   const MAX_COLLECTION_BYTES = 10_000_000;
   const FORMATS = {"inward-odd-target-box-v1": "target-box",
     "inward-conditional-claim-v1": "conditional-claim",
@@ -17,7 +18,10 @@
     "inward-conditional-claim-v3": "conditional-claim",
     "inward-conditional-claim-v4": "conditional-claim",
     "inward-conditional-claim-v5": "conditional-claim",
-    "inward-conditional-claim-v6": "conditional-claim"};
+    "inward-conditional-claim-v6": "conditional-claim",
+    "inward-odd-sample-flip-v1": "sample-reversal",
+    "inward-odd-sample-flip-v2": "sample-reversal",
+    "inward-even-sample-flip-v3": "sample-reversal"};
   const fail = message => { throw new Error(message); };
   function labelText(raw, fallback) {
     if (typeof raw !== "string" || raw.length > 100) fail("Label must have at most 100 characters");
@@ -26,6 +30,9 @@
   }
   function shortSummary(record) {
     if (FORMATS[record.format] === "conditional-claim") return record.claim.statement;
+    if (FORMATS[record.format] === "sample-reversal") {
+      return `${record.inputs.readings.length} readings · reversal at target ${record.inputs.target}`;
+    }
     const {readings, target} = record.inputs;
     return `${readings.length} readings · target ${target.low}–${target.high}`;
   }
@@ -36,14 +43,15 @@
     // Dispatch after a strict syntax parse so duplicate keys cannot disguise
     // the format; the selected verifier then checks its entire schema.
     const preparse = checkers?.targetBox?.parseReceipt || checkers?.parseReceipt ||
-      checkers?.conditionalClaim?.parseClaim;
+      checkers?.strictJson || checkers?.conditionalClaim?.parseClaim ||
+      checkers?.sampleReversal?.parseReceipt;
     if (typeof preparse !== "function") fail("Independent verifier unavailable");
     const format = preparse(source)?.format;
     const kind = typeof format === "string" && Object.hasOwn(FORMATS, format) ? FORMATS[format] : null;
     if (!kind) fail("Unsupported research record format");
     const checker = kind === "target-box" ? (checkers?.targetBox || checkers) :
-      checkers?.conditionalClaim;
-    const parser = kind === "target-box" ? checker?.parseReceipt : checker?.parseClaim;
+      kind === "conditional-claim" ? checkers?.conditionalClaim : checkers?.sampleReversal;
+    const parser = kind === "conditional-claim" ? checker?.parseClaim : checker?.parseReceipt;
     if (typeof parser !== "function" || typeof checker.verify !== "function") {
       fail("Independent verifier unavailable for this record format");
     }
@@ -128,7 +136,9 @@
         }
         // Version-1 entries predate the kind field and can only be Target Box.
         const kind = entry.kind === undefined ? "target-box" : entry.kind;
-        if (kind !== "target-box" && kind !== "conditional-claim") fail("Unknown stored record type");
+        if (!["target-box", "conditional-claim", "sample-reversal"].includes(kind)) {
+          fail("Unknown stored record type");
+        }
         const verified = await inspect(entry.source, entry.digest, checkers, cryptoApi, kind);
         return {...verified, label: entry.label, savedAt: entry.savedAt, valid: true};
       } catch (error) {
@@ -147,11 +157,13 @@
       .sort((a, b) => a.digest < b.digest ? -1 : a.digest > b.digest ? 1 : 0);
     // Metadata is intentionally limited to labels. The bundle asserts neither
     // a creation date nor ownership; every receipt remains byte-identical.
-    const source = JSON.stringify({format: COLLECTION_FORMAT, records}, null, 2) + "\n";
+    const format = records.some(item => item.kind === "sample-reversal") ?
+      COLLECTION_FORMAT_V2 : COLLECTION_FORMAT;
+    const source = JSON.stringify({format, records}, null, 2) + "\n";
     if (new TextEncoder().encode(source).length > MAX_COLLECTION_BYTES) {
       fail("Collection exceeds 10 MB. Export individual records instead");
     }
-    return {source, count: records.length};
+    return {source, count: records.length, format};
   }
   async function parseCollection(source, checkers, cryptoApi = globalThis.crypto) {
     if (typeof source !== "string" || new TextEncoder().encode(source).length > MAX_COLLECTION_BYTES) {
@@ -162,7 +174,8 @@
     const exact = (value, keys) => value && typeof value === "object" &&
       !Array.isArray(value) && Object.keys(value).length === keys.length &&
       keys.every(key => Object.hasOwn(value, key));
-    if (!exact(bundle, ["format", "records"]) || bundle.format !== COLLECTION_FORMAT ||
+    if (!exact(bundle, ["format", "records"]) ||
+        ![COLLECTION_FORMAT, COLLECTION_FORMAT_V2].includes(bundle.format) ||
         !Array.isArray(bundle.records) || bundle.records.length < 1 ||
         bundle.records.length > MAX_ENTRIES) fail("Invalid research collection structure");
     const checked = [];
@@ -172,7 +185,8 @@
           typeof item.digest !== "string" || !/^[0-9a-f]{64}$/.test(item.digest) ||
           item.digest <= previous || typeof item.label !== "string" ||
           !item.label.trim() || item.label.length > 100 ||
-          (item.kind !== "target-box" && item.kind !== "conditional-claim")) {
+          !["target-box", "conditional-claim", ...(bundle.format === COLLECTION_FORMAT_V2 ?
+            ["sample-reversal"] : [])].includes(item.kind)) {
         fail("Invalid or unsorted collection entry");
       }
       const verified = await inspect(item.source, item.digest, checkers, cryptoApi, item.kind);

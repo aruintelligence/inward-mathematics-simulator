@@ -31,6 +31,8 @@ The [interactive research lab](../odd-flip-lab.html) applies the same partition 
 
 The [browser certificate inspector](../verify-odd-flip.html) can check the download locally without Python. Its separate verifier recomputes the partition using the closed-form roots above and compares *squared errors* with exact BigInt fractions, instead of importing the browser constructor or using its factored verdict. It checks every recorded winner, tie threshold, and strict witness, rejects duplicate JSON keys including escaped names, and shows a SHA-256 fingerprint of the exact checked file bytes. Paste and file input stay in the browser. The independent Python verifier remains useful as a second language implementation. Run `node --test tests/odd-flip-verifier.test.cjs` for cross-checks and forged-certificate rejection. Neither checker authenticates where the input values came from.
 
+The [Local Research Archive](../research-archive.html) now accepts these v1–v3 reversal certificates. It independently checks them before saving, on every view, and before export. You can search by readings, bounds, threshold, witness, distance, or fingerprint, download the original JSON, and include the result in a portable v2 collection. The separate Python collection checker replays each embedded certificate. Browser storage is local and is not encrypted or an authorship record.
+
 ## Why the search is exhaustive over real changes
 
 Write the odd count as $n=2k+1$, and sort the other $2k$ fixed readings as $s_1\le\cdots\le s_{2k}$. With movable value $x$, fixed sum $S$, and target $t$:

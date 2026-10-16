@@ -8,8 +8,10 @@ import sys
 
 import verify_conditional_claim as claim
 import verify_odd_target_box as box
+import verify_odd_sample_flip as reversal
 
 FORMAT = "inward-research-collection-v1"
+FORMAT_V2 = "inward-research-collection-v2"
 MAX_BYTES = 10_000_000
 FINGERPRINT = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -37,9 +39,11 @@ def verify(data):
         raise ValueError("Collection must be UTF-8 JSON no larger than 10 MB")
     bundle = parse(data.decode("utf-8"))
     fields(bundle, {"format", "records"}, "collection")
-    if bundle["format"] != FORMAT or type(bundle["records"]) is not list or \
+    if bundle["format"] not in (FORMAT, FORMAT_V2) or type(bundle["records"]) is not list or \
             not 1 <= len(bundle["records"]) <= 100:
         raise ValueError("Invalid collection format or record count")
+    kinds = ("target-box", "conditional-claim", "sample-reversal") if \
+        bundle["format"] == FORMAT_V2 else ("target-box", "conditional-claim")
     previous = ""
     results = []
     for item in bundle["records"]:
@@ -48,7 +52,7 @@ def verify(data):
         if type(digest) is not str or FINGERPRINT.fullmatch(digest) is None or \
                 digest <= previous or type(label) is not str or \
                 not label.strip() or len(label.encode("utf-16-le", "surrogatepass")) // 2 > 100 or \
-                kind not in ("target-box", "conditional-claim") or type(source) is not str:
+                kind not in kinds or type(source) is not str:
             raise ValueError("Invalid or unsorted collection entry")
         raw = source.encode("utf-8")
         if len(raw) > (1_000_000 if kind == "conditional-claim" else 2_000_000):
@@ -56,15 +60,20 @@ def verify(data):
         if hashlib.sha256(raw).hexdigest() != digest:
             raise ValueError("Embedded receipt fingerprint mismatch")
         receipt = parse(source)
-        accepted = claim.FORMATS if kind == "conditional-claim" else (box.FORMAT,)
+        accepted = (claim.FORMATS if kind == "conditional-claim" else
+                    (box.FORMAT,) if kind == "target-box" else
+                    (reversal.FORMAT, reversal.BOUNDED_FORMAT, reversal.EVEN_FORMAT))
         if type(receipt) is not dict or receipt.get("format") not in accepted:
             raise ValueError("Stored kind does not match receipt format")
         if kind == "conditional-claim":
             status, count = claim.verify(receipt)
             results.append((digest, kind, receipt.get("classification", {}).get("status", status), count))
-        else:
+        elif kind == "target-box":
             result = box.verify(receipt)
             results.append((digest, kind, "/".join(result["reachable"]), result["routes"]))
+        else:
+            result = reversal.verify(receipt)
+            results.append((digest, kind, result["kind"], result["routes"]))
         previous = digest
     return results
 

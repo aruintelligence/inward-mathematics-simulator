@@ -4,6 +4,7 @@
   const archive = globalThis.InwardResearchArchive;
   const checkers = {targetBox: globalThis.InwardTargetBoxVerifier,
     conditionalClaim: globalThis.InwardConditionalClaimVerifier,
+    sampleReversal: globalThis.InwardOddFlipVerifier,
     strictJson: globalThis.TargetLensVerifier?.parseReceipt};
   let db = null, entries = [];
   function node(tag, content, className) {
@@ -31,6 +32,18 @@
         filter === result.classification?.status) &&
         (!term || searchable.includes(term));
     }
+    if (entry.kind === "sample-reversal") {
+      const bounds = record.inputs.bounds || {low: "0", high: "100"};
+      const searchable = [label, digest, record.format, record.inputs.readings.length,
+        ...record.inputs.readings, record.inputs.target, bounds.low, bounds.high,
+        result.kind, result.baseline, result.best?.threshold, result.best?.distance,
+        result.best?.witness, ...record.claim.routes.flatMap(route =>
+          [route.threshold, route.distance, route.witness, ...route.knots])]
+        .join(" ").toLocaleLowerCase();
+      const qualifies = filter === "all" || filter === "sample-reversal" ||
+        filter === result.kind || filter === "strict-reversal" && Boolean(result.best);
+      return qualifies && (!term || searchable.includes(term));
+    }
     const witnessValues = record.claim.routes.flatMap(route =>
       route.reachable.flatMap(name => [route.witnesses[name].reading, route.witnesses[name].target]));
     const searchable = [label, digest, ...record.inputs.readings,
@@ -53,7 +66,7 @@
   }
   function download(entry) {
     downloadJson(entry.source,
-      `inward-${entry.kind === "conditional-claim" ? "conditional-claim" : "target-box"}-${entry.digest.slice(0, 12)}.json`);
+      `inward-${entry.kind}-${entry.digest.slice(0, 12)}.json`);
   }
   async function discard(entry) {
     if (!window.confirm("Remove this device's local copy? Export its JSON first if you need a backup.")) return;
@@ -68,7 +81,8 @@
     item.dataset.valid = String(entry.valid);
     const summary = node("summary", "");
     summary.append(node("small", entry.valid ?
-      `${entry.kind === "conditional-claim" ? "Conditional claim" : "Target Box"} · independently rechecked` :
+      `${entry.kind === "conditional-claim" ? "Conditional claim" :
+        entry.kind === "sample-reversal" ? "Sample reversal" : "Target Box"} · independently rechecked` :
       "Stored item needs attention"));
     summary.append(node("h3", entry.valid ? entry.label : "Record cannot be verified"));
     const claimStatus = {"proved-by-algebra": "General algebraic proof",
@@ -76,7 +90,10 @@
       "unrefuted-on-finite-grid": "Unrefuted on finite grid"};
     const badge = entry.valid ? entry.kind === "conditional-claim" ?
       entry.result.classification?.counterexample ? "Universal claim refuted" :
-        claimStatus[entry.result.status] : entry.result.reachable.join(" · ") : "Not verified";
+        claimStatus[entry.result.status] : entry.kind === "sample-reversal" ?
+          entry.result.kind === "baseline-tie" ? "Starting tie" :
+            entry.result.best ? "Strict reversal found" : "No one-reading reversal" :
+          entry.result.reachable.join(" · ") : "Not verified";
     summary.append(node("span", badge, entry.valid ? "badge" : "badge warning"));
     item.append(summary);
     const body = node("div", "", "card-body");
@@ -99,6 +116,14 @@
           const point = result.classification?.counterexample || result.counterexample;
           body.append(node("p", `${result.classification?.construction ? "Constructed endpoint counterexample" : result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
         } else body.append(node("p", "No counterexample on this finite grid. This does not prove a general claim."));
+      } else if (entry.kind === "sample-reversal") {
+        const bounds = record.inputs.bounds || {low: "0", high: "100"};
+        body.append(node("p", `${record.inputs.readings.length} exact readings · target ${record.inputs.target} · movement [${bounds.low}, ${bounds.high}]. Starting verdict: ${result.baseline}.`));
+        body.append(node("p", result.kind === "baseline-tie" ?
+          "The original mean and median tie; no strict starting winner can reverse." :
+          result.best ? `Closest route: move reading ${result.best.index + 1} to ${result.best.threshold}. The infimum distance is ${result.best.distance}; ${result.best.witness} witnesses the strict opposing winner.` :
+            "No single reading can reverse the strict starting winner inside these bounds."));
+        body.append(node("p", `${result.routes} routes independently rechecked with exact fractions. A tie threshold is usually not an attained smallest strict move. The inputs are stipulated, not authenticated measurements.`));
       } else {
         body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
@@ -162,7 +187,7 @@
     $("collection-status").textContent = "Rechecking every stored record before collection export...";
     try {
       const bundle = await archive.exportCollection(db, checkers, crypto);
-      downloadJson(bundle.source, "inward-research-collection-v1.json");
+      downloadJson(bundle.source, `${bundle.format || "inward-research-collection-v1"}.json`);
       $("collection-status").textContent = `Exported ${bundle.count} independently checked records. Keep the JSON as a portable backup.`;
     } catch (error) { $("collection-status").textContent = `Collection not exported: ${error.message}`; }
     finally { $("export-collection").disabled = false; }
@@ -177,7 +202,8 @@
       if (file.size > archive.MAX_COLLECTION_BYTES) throw new Error("File exceeds the 10 MB collection limit");
       const source = new TextDecoder("utf-8", {fatal: true, ignoreBOM: true})
         .decode(await file.arrayBuffer());
-      const isCollection = JSON.parse(source)?.format === "inward-research-collection-v1";
+      const isCollection = ["inward-research-collection-v1", "inward-research-collection-v2"]
+        .includes(JSON.parse(source)?.format);
       const saved = isCollection ? await archive.importCollection(db, source, checkers, crypto) :
         await archive.add(db, source, $("certificate-label").value, checkers, crypto);
       await refresh();

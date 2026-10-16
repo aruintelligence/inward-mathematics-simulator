@@ -8,6 +8,7 @@ import verify_research_collection as collection
 
 
 BOX = Path(__file__).resolve().parents[1] / "examples/odd-target-box-v1.json"
+EVEN = Path(__file__).resolve().parents[1] / "examples/even-sample-flip-v3.json"
 
 
 def fixture():
@@ -44,6 +45,32 @@ class ResearchCollectionTests(unittest.TestCase):
             collection.verify(good.replace('"format":', '"format": "fake", "format":', 1).encode())
         with self.assertRaisesRegex(ValueError, "Noninteger"):
             collection.verify(good.replace('"records":', '"float": 1.0, "records":', 1).encode())
+
+    def test_v2_reversal_receipt_and_v1_downgrade_are_checked(self):
+        bundle = fixture()
+        source = EVEN.read_text(encoding="utf-8")
+        item = {"digest": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                "kind": "sample-reversal", "label": "Even sample", "source": source}
+        bundle["format"] = collection.FORMAT_V2
+        bundle["records"].append(item)
+        bundle["records"].sort(key=lambda record: record["digest"])
+        results = collection.verify(json.dumps(bundle).encode())
+        self.assertEqual(next(result for result in results if result[1] == "sample-reversal")[2:],
+                         ("strict-baseline", 4))
+        bundle["format"] = collection.FORMAT
+        with self.assertRaisesRegex(ValueError, "unsorted collection entry"):
+            collection.verify(json.dumps(bundle).encode())
+
+    def test_v2_rejects_forged_reversal_even_with_recomputed_digest(self):
+        bundle = fixture()
+        source = json.loads(EVEN.read_text(encoding="utf-8"))
+        source["claim"]["routes"][0]["knots"].pop()
+        altered = json.dumps(source)
+        bundle["format"] = collection.FORMAT_V2
+        bundle["records"] = [{"digest": hashlib.sha256(altered.encode()).hexdigest(),
+                              "kind": "sample-reversal", "label": "Forged", "source": altered}]
+        with self.assertRaisesRegex(ValueError, "partition"):
+            collection.verify(json.dumps(bundle).encode())
 
 
 if __name__ == "__main__":
