@@ -104,13 +104,20 @@ test('every supported condition and prediction has an independently replayed sta
         assert.equal(report.search.status, 'proved-by-algebra');
         assert.equal(report.search.counterexample, null);
         assert.match(report.formal.declaration, /^InwardFormal\./);
-        assert.deepEqual(report.classification, {status: 'proved-by-algebra', counterexample: null});
+        assert.deepEqual(report.classification,
+          {status: 'proved-by-algebra', counterexample: null, construction: null});
         proved++;
       } else {
         assert.equal(report.formal, null);
         assert.equal(report.search.status, 'counterexample-found');
         assert.equal(report.classification.status, 'refuted-by-exact-witness');
         assert.ok(report.classification.counterexample);
+        assert.equal(report.classification.construction.method, 'endpoint-family-v1');
+        const witness = report.classification.counterexample;
+        assert.equal(witness.target, report.classification.construction.target);
+        assert.equal(witness.median, report.classification.construction.family === 'one-high' ? '0' : '100');
+        assert.equal(witness.readings.filter(x => x === '0').length,
+          report.classification.construction.family === 'one-high' ? readingCount - 1 : 1);
         refuted++;
       }
     }
@@ -142,11 +149,11 @@ test('every supported condition and prediction has an independently replayed sta
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
-test('published v5 examples reproduce exact bytes while v2/v3/v4 examples remain checkable', () => {
+test('published v6 examples reproduce exact bytes while v2–v5 examples remain checkable', () => {
   const regenerated = lab.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse', 6);
   const source = JSON.stringify(regenerated, null, 2) + '\n';
-  assert.equal(readFileSync('examples/conditional-claim-v5.json', 'utf8'), source);
+  assert.equal(readFileSync('examples/conditional-claim-v6.json', 'utf8'), source);
   const dir = mkdtempSync(join(tmpdir(), 'theorem-bound-example-'));
   try {
     const verified = checkClaim(source, dir);
@@ -154,13 +161,14 @@ test('published v5 examples reproduce exact bytes while v2/v3/v4 examples remain
     assert.match(verified.stdout, /Verified proved-by-algebra; [0-9]+ exact eligible cases/);
     const refuted = lab.compose('0,1,2', '1/4,1/2', 'any-target', 'mean-no-worse', 4);
     const refutedSource = JSON.stringify(refuted, null, 2) + '\n';
-    assert.equal(readFileSync('examples/conditional-claim-v5-even-witness.json', 'utf8'), refutedSource);
+    assert.equal(readFileSync('examples/conditional-claim-v6-endpoint.json', 'utf8'), refutedSource);
     assert.equal(refuted.search.counterexample.median, '1/2');
     assert.equal(refuted.search.counterexample.mean, '3/4');
     assert.match(checkClaim(refutedSource, dir).stdout, /Verified refuted-by-exact-witness/);
     assert.equal(checkClaim(readFileSync('examples/conditional-claim-v2.json', 'utf8'), dir).status, 0);
     for (const name of ['conditional-claim-v3.json', 'conditional-claim-v3-grid-miss.json',
-      'conditional-claim-v4.json', 'conditional-claim-v4-grid-miss.json']) {
+      'conditional-claim-v4.json', 'conditional-claim-v4-grid-miss.json',
+      'conditional-claim-v5.json', 'conditional-claim-v5-even-witness.json']) {
       assert.equal(checkClaim(readFileSync(`examples/${name}`, 'utf8'), dir).status, 0);
     }
   } finally { rmSync(dir, {recursive: true, force: true}); }
@@ -187,6 +195,10 @@ test('independent checker rejects forged universal proof, witness, status, input
       [refuted, x => { x.proof = clone(proved.proof); }],
       [refuted, x => { x.formal = clone(proved.formal); }],
       [refuted, x => { x.classification.counterexample.target = '100'; }],
+      [refuted, x => { x.classification.construction.family = 'one-low'; }],
+      [refuted, x => { x.classification.construction.method = 'finite-search'; }],
+      [refuted, x => { x.classification.construction.target = '100'; }],
+      [refuted, x => { delete x.classification.construction; }],
       [refuted, x => { delete x.classification; }],
       [refuted, x => { x.search.counterexample.target = '100'; }],
       [refuted, x => { x.domain.readingMultisets = true; }],
@@ -323,7 +335,7 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.equal(fields['claim-badge'].textContent, 'Universal claim refuted');
   assert.match(fields['claim-count'].textContent, /0 eligible exact cases/);
-  assert.match(fields['claim-summary'].textContent, /fixed 0, 50, 100 witness basis/);
+  assert.match(fields['claim-summary'].textContent, /Constructed endpoint counterexample/);
   assert.match(fields['claim-proof'].textContent, /chosen grid missed/);
   assert.equal(fields['claim-plot'].children.length, 1);
   assert.equal(fields['claim-crossover'].hidden, false);

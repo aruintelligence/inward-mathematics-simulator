@@ -13,7 +13,7 @@ and only if `a+b ≤ 2*t`. Their tie occurs if and only if `2*t = a+b`;
 coincident estimates tie for every target. Together these results justify an
 exhaustive three-region target map for any *fixed* pair of estimates, even
 when the chosen finite target grid misses the crossover. They do not verify
-that the 3, 5, or 7 readings, mean, median, or target in a particular exported JSON
+that the 3–7 readings, mean, median, or target in a particular exported JSON
 record were parsed or computed correctly.
 
 From this directory, with `elan` installed:
@@ -29,9 +29,14 @@ The `Formal midpoint proof` GitHub Actions job builds the module with
 Lean 4 v4.35.0 and Mathlib v4.35.0, also runs Lean's checker and audits the
 theorems' axioms. The declaration names in this file can be compared with
 the four proof-bearing pairs documented in `docs/CONJECTURE_LAB.md`.
-The v2, v3, and v4 claim exporters name one of those four declarations and pin this
+The v2–v6 claim exporters name one of those four declarations and pin this
 file's source revision. Its independent receipt verifiers check the mapping
 and schema; they do not turn a JSON file into a Lean proof object.
+
+The v6 refutation construction uses two endpoint sample families for every
+integer sample size at least three. Its elementary algebra is documented in
+`docs/CONJECTURE_LAB.md`; this Lean module proves the four surviving
+two-estimate implications, not the sample-family mean or median formulas.
 
 This verifies the **general mathematical implications**, not the app's JSON
 parser, the authenticity of measurements, the correctness of an arbitrary

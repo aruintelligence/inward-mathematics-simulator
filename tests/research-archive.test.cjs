@@ -153,7 +153,7 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(items.find(x => x.digest === first.digest).valid, true);
 });
 
-test('legacy v1–v4 claims remain readable and portable beside v5 claims', async () => {
+test('legacy v1–v5 claims remain readable and portable beside v6 claims', async () => {
   const db = memoryDB();
   const current = maker.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse');
@@ -176,9 +176,11 @@ test('legacy v1–v4 claims remain readable and portable beside v5 claims', asyn
     'Five-reading classified proof', checkers, crypto.webcrypto);
   await archive.add(db, readFileSync('examples/conditional-claim-v4.json', 'utf8'),
     'Seven-reading proof', checkers, crypto.webcrypto);
+  await archive.add(db, readFileSync('examples/conditional-claim-v5.json', 'utf8'),
+    'Six-reading proof', checkers, crypto.webcrypto);
   await archive.add(db, JSON.stringify(current), 'Classified proof', checkers, crypto.webcrypto);
   const listed = await archive.list(db, checkers, crypto.webcrypto);
-  assert.equal(listed.length, 5);
+  assert.equal(listed.length, 6);
   assert.ok(listed.every(item => item.valid && item.result.status === 'proved-by-algebra'));
   assert.equal(listed.find(item => item.record.format.endsWith('-v1')).result.formal, null);
   assert.equal(listed.find(item => item.record.format.endsWith('-v2')).result.formal.declaration,
@@ -188,6 +190,7 @@ test('legacy v1–v4 claims remain readable and portable beside v5 claims', asyn
   assert.equal(listed.find(item => item.record.format.endsWith('-v4')).result.readingCount, 7);
   assert.equal(listed.find(item => item.record.format.endsWith('-v5')).record.domain.medianRule,
     'central-order-statistics-v1');
+  assert.equal(listed.find(item => item.record.format.endsWith('-v6')).result.classification.construction, null);
   const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
   const dir = mkdtempSync(join(tmpdir(), 'inward-legacy-collection-'));
   try {
@@ -196,7 +199,7 @@ test('legacy v1–v4 claims remain readable and portable beside v5 claims', asyn
     const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
       {encoding: 'utf8'});
     assert.equal(checked.status, 0, checked.stderr);
-    assert.match(checked.stdout, /Verified 5 research records/);
+    assert.match(checked.stdout, /Verified 6 research records/);
   } finally {rmSync(dir, {recursive:true, force:true});}
 });
 

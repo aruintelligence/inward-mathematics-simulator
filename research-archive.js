@@ -97,7 +97,7 @@
         }
         else if (result.classification?.counterexample || result.counterexample) {
           const point = result.classification?.counterexample || result.counterexample;
-          body.append(node("p", `${result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
+          body.append(node("p", `${result.classification?.construction ? "Constructed endpoint counterexample" : result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
         } else body.append(node("p", "No counterexample on this finite grid. This does not prove a general claim."));
       } else {
         body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));

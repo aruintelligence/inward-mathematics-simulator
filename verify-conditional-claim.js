@@ -72,7 +72,7 @@
       } else if (checked.classification?.counterexample || checked.counterexample) {
         const point = checked.classification?.counterexample || checked.counterexample;
         $("explanation").textContent = checked.classification ?
-          `This exact fixed-basis witness refutes the universal claim even if the selected finite grid found none. The selected grid ${checked.counterexample ? "also found a counterexample" : "found no counterexample"}.` :
+          `This exact ${checked.classification.construction ? "endpoint construction" : "fixed-basis witness"} refutes the universal claim even if the selected finite grid found none. The selected grid ${checked.counterexample ? "also found a counterexample" : "found no counterexample"}.` :
           "A single exact witness refutes this universal claim in the stated model.";
         $("witness").textContent = `Readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. The ${point.actualWinner} is closer.`;
       } else {
