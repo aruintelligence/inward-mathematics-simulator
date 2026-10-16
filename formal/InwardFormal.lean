@@ -552,10 +552,10 @@ that a particular JSON receipt enumerates every cell.
 namespace EvenSample
 
 /-- `S` is the sum of the other `n - 1` readings. -/
-def movingMean (n S x : ℝ) : ℝ := (S + x) / n
+noncomputable def movingMean (n S x : ℝ) : ℝ := (S + x) / n
 
 /-- The median in the middle cell, with fixed central reading `c`. -/
-def middleMedian (c x : ℝ) : ℝ := (c + x) / 2
+noncomputable def middleMedian (c x : ℝ) : ℝ := (c + x) / 2
 
 theorem middle_first_factor (n S c x : ℝ) (hn : n ≠ 0) :
     movingMean n S x - middleMedian c x =
