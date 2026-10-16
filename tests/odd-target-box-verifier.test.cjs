@@ -45,7 +45,7 @@ test('independent checkers agree across seeded signed, rational, and singleton c
   try {
     for (let i = 0; i < 24; i++) {
       const low = -60 - next() % 20, high = 70 + next() % 20;
-      const readings = Array.from({length: 3 + 2 * (i % 10)}, (_, j) => {
+      const readings = Array.from({length: 3 + i % 19}, (_, j) => {
         const value = low + next() % (high - low);
         return j % 3 === 0 ? `${2 * value + 1}/2` : String(value);
       });
@@ -55,6 +55,28 @@ test('independent checkers agree across seeded signed, rational, and singleton c
       assert.equal(verifier.verify(cert).routes, readings.length, `case ${i}`);
       const python = checkPython(cert, dir);
       assert.equal(python.status, 0, `case ${i}: ${python.stderr}`);
+    }
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('even receipts reject forged middle-cell roots and mismatched format', () => {
+  const originalEven = core.certificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+  assert.equal(originalEven.format, 'inward-even-target-box-v2');
+  assert.equal(verifier.verify(originalEven).routes, 4);
+  const dir = mkdtempSync(join(tmpdir(), 'even-box-forge-'));
+  try {
+    assert.equal(checkPython(originalEven, dir).status, 0);
+    const edits = [
+      x => { x.claim.routes[1].knots.splice(2, 1); },
+      x => { x.claim.routes[1].knots[2] = '42'; },
+      x => { x.inputs.readings[1] = '44'; },
+      x => { x.format = 'inward-odd-target-box-v1'; },
+      x => { x.claim.routes[1].witnesses.Mean.target = '100'; }
+    ];
+    for (const edit of edits) {
+      const forged = clone(originalEven); edit(forged);
+      assert.throws(() => verifier.verify(forged));
+      assert.notEqual(checkPython(forged, dir).status, 0);
     }
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });

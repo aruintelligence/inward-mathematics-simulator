@@ -9,6 +9,7 @@ import verify_research_collection as collection
 
 BOX = Path(__file__).resolve().parents[1] / "examples/odd-target-box-v1.json"
 EVEN = Path(__file__).resolve().parents[1] / "examples/even-sample-flip-v3.json"
+EVEN_BOX = Path(__file__).resolve().parents[1] / "examples/even-target-box-v2.json"
 
 
 def fixture():
@@ -19,6 +20,19 @@ def fixture():
 
 
 class ResearchCollectionTests(unittest.TestCase):
+    def test_even_target_box_in_v1_collection(self):
+        source = EVEN_BOX.read_text(encoding="utf-8")
+        item = {"digest": hashlib.sha256(source.encode()).hexdigest(),
+                "kind": "target-box", "label": "Even rectangle", "source": source}
+        bundle = {"format": collection.FORMAT, "records": [item]}
+        self.assertEqual(collection.verify(json.dumps(bundle).encode())[0][3], 4)
+        changed = json.loads(source)
+        changed["claim"]["routes"][0]["knots"].pop()
+        item["source"] = json.dumps(changed)
+        item["digest"] = hashlib.sha256(item["source"].encode()).hexdigest()
+        with self.assertRaises(ValueError):
+            collection.verify(json.dumps(bundle).encode())
+
     def test_exact_embedded_receipt(self):
         results = collection.verify(json.dumps(fixture()).encode())
         self.assertEqual(len(results), 1)

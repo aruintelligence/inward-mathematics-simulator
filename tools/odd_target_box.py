@@ -8,6 +8,7 @@ from pathlib import Path
 from odd_sample_flip import exact
 
 FORMAT = "inward-odd-target-box-v1"
+EVEN_FORMAT = "inward-even-target-box-v2"
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -15,7 +16,8 @@ ORDER = ("Mean", "Median", "Tie")
 def winner(fixed, moved, target):
     values = [*fixed, moved]
     mean = sum(values) / len(values)
-    median = sorted(values)[len(values) // 2]
+    ordered = sorted(values)
+    median = (ordered[(len(values) - 1) // 2] + ordered[len(values) // 2]) / 2
     difference = (mean - median) * (mean + median - 2 * target)
     return "Mean" if difference < 0 else "Median" if difference > 0 else "Tie"
 
@@ -24,16 +26,23 @@ def partitions(fixed, low, high, target_low, target_high):
     """Include all median transitions and factor roots at both target endpoints."""
     n = len(fixed) + 1
     ordered = sorted(fixed)
-    lower, upper = ordered[n // 2 - 1], ordered[n // 2]
+    even, k = n % 2 == 0, n // 2
+    lower, upper = ordered[k - 2 if even else k - 1], ordered[k]
+    center = ordered[k - 1] if even else Fraction(0)
+    left_median = (lower + center) / 2 if even else lower
+    right_median = (center + upper) / 2 if even else upper
     total = sum(fixed)
     knots = {low, high, lower, upper}
-    for start, end, intercept, slope in ((low, lower, lower, 0),
-                                         (lower, upper, 0, 1),
-                                         (upper, high, upper, 0)):
+    for start, end, intercept, slope in ((low, lower, left_median, 0),
+                                         (lower, upper, center / 2 if even else 0,
+                                          Fraction(1, 2) if even else 1),
+                                         (upper, high, right_median, 0)):
         first = (total / n - intercept, Fraction(1, n) - slope)
         second = [(total / n + intercept - 2 * target, Fraction(1, n) + slope)
                   for target in (target_low, target_high)]
         for constant, coefficient in (first, *second):
+            if coefficient == 0:
+                continue
             root = -constant / coefficient
             if start <= root <= end:
                 knots.add(root)
@@ -48,7 +57,8 @@ def route(readings, index, low, high, target_low, target_high):
         samples.extend(((left + right) / 2, right))
     witnesses = {}
     for moved in samples:
-        median = sorted([*fixed, moved])[len(readings) // 2]
+        ordered = sorted([*fixed, moved])
+        median = (ordered[(len(readings) - 1) // 2] + ordered[len(readings) // 2]) / 2
         mean = (sum(fixed) + moved) / len(readings)
         crossing = (median + mean) / 2
         targets = [target_low, target_high]
@@ -66,8 +76,8 @@ def route(readings, index, low, high, target_low, target_high):
 
 
 def certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high):
-    if type(raw_readings) is not list or not 3 <= len(raw_readings) <= 21 or len(raw_readings) % 2 != 1:
-        raise ValueError("Supply an odd count of 3 through 21 readings")
+    if type(raw_readings) is not list or not 3 <= len(raw_readings) <= 21:
+        raise ValueError("Supply 3 through 21 readings")
     low, high = exact(raw_low, -LIMIT, LIMIT), exact(raw_high, -LIMIT, LIMIT)
     if low >= high:
         raise ValueError("Movement bounds must have positive width")
@@ -80,7 +90,7 @@ def certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high
               for i in range(len(readings))]
     reachable = [name for name in ORDER if any(name in item["reachable"] for item in routes)]
     guarantee = reachable[0] if len(reachable) == 1 and reachable[0] != "Tie" else None
-    return {"format": FORMAT,
+    return {"format": FORMAT if len(readings) % 2 else EVEN_FORMAT,
             "inputs": {"readings": list(map(str, readings)),
                        "movement": {"low": str(low), "high": str(high)},
                        "target": {"low": str(target_low), "high": str(target_high)}},

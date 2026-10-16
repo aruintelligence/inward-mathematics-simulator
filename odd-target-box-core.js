@@ -6,6 +6,7 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-odd-target-box-v1";
+  const EVEN_FORMAT = "inward-even-target-box-v2";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -46,7 +47,9 @@
   function estimators(fixed, moved) {
     const values = [...fixed, moved];
     const mean = div(values.reduce(add, ZERO), q(BigInt(values.length)));
-    const median = values.sort(cmp)[Math.floor(values.length / 2)];
+    values.sort(cmp);
+    const median = div(add(values[Math.floor((values.length - 1) / 2)],
+      values[Math.floor(values.length / 2)]), TWO);
     return [mean, median];
   }
   function winner(fixed, moved, target) {
@@ -57,17 +60,24 @@
   function partitions(fixed, low, high, targetLow, targetHigh) {
     const n = fixed.length + 1;
     const ordered = [...fixed].sort(cmp);
-    const lower = ordered[(n - 1) / 2 - 1], upper = ordered[(n - 1) / 2];
+    const even = n % 2 === 0, k = Math.floor(n / 2);
+    const lower = ordered[even ? k - 2 : k - 1], upper = ordered[k];
+    const center = even ? ordered[k - 1] : ZERO;
+    const leftMedian = even ? div(add(lower, center), TWO) : lower;
+    const rightMedian = even ? div(add(center, upper), TWO) : upper;
     const total = fixed.reduce(add, ZERO);
     const unit = div(q(1n), q(BigInt(n))), base = div(total, q(BigInt(n)));
     const knots = new Map([low, high, lower, upper].map(x => [string(x), x]));
     for (const [start, end, intercept, slope] of [
-      [low, lower, lower, ZERO], [lower, upper, ZERO, q(1n)], [upper, high, upper, ZERO]
+      [low, lower, leftMedian, ZERO],
+      [lower, upper, even ? div(center, TWO) : ZERO, even ? div(q(1n), TWO) : q(1n)],
+      [upper, high, rightMedian, ZERO]
     ]) {
       const first = [sub(base, intercept), sub(unit, slope)];
       const second = [targetLow, targetHigh].map(target =>
         [sub(add(base, intercept), mul(TWO, target)), add(unit, slope)]);
       for (const [constant, coefficient] of [first, ...second]) {
+        if (coefficient.n === 0n) continue;
         const root = div(q(-constant.n, constant.d), coefficient);
         if (cmp(start, root) <= 0 && cmp(root, end) <= 0) knots.set(string(root), root);
       }
@@ -99,8 +109,8 @@
   }
   function certificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh) {
     if (!Array.isArray(rawReadings) || rawReadings.length < 3 ||
-        rawReadings.length > 21 || rawReadings.length % 2 !== 1) {
-      throw new Error("Supply an odd count of 3 through 21 readings.");
+        rawReadings.length > 21) {
+      throw new Error("Supply 3 through 21 readings.");
     }
     const low = parse(rawLow), high = parse(rawHigh);
     if (cmp(low, high) >= 0) throw new Error("Movement bounds must have positive width.");
@@ -110,7 +120,7 @@
     const routes = readings.map((_, index) => route(readings, index, low, high, targetLow, targetHigh));
     const reachable = ["Mean", "Median", "Tie"].filter(name => routes.some(r => r.reachable.includes(name)));
     const guarantee = reachable.length === 1 && reachable[0] !== "Tie" ? reachable[0] : null;
-    return {format: FORMAT, inputs: {readings: readings.map(string),
+    return {format: readings.length % 2 ? FORMAT : EVEN_FORMAT, inputs: {readings: readings.map(string),
       movement: {low: string(low), high: string(high)},
       target: {low: string(targetLow), high: string(targetHigh)}},
     claim: {routes, reachable, guarantee}};

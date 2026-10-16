@@ -259,6 +259,32 @@ test('portable collection round trips mixed receipts and is independently replay
     collection.source);
 });
 
+test('even Target Box receipts remain portable in v1 collections', async () => {
+  const db = memoryDB();
+  const evenBox = readFileSync('examples/even-target-box-v2.json', 'utf8');
+  const added = await archive.add(db, evenBox, 'Four-reading rectangle', checkers, crypto.webcrypto);
+  assert.equal(added.kind, 'target-box');
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].valid, true);
+  assert.equal(listed[0].result.routes, 4);
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-even-box-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /target-box: Mean\/Median\/Tie; 4 exact routes/);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const restored = memoryDB();
+  assert.equal((await archive.importCollection(restored, exported.source,
+    checkers, crypto.webcrypto)).created, 1);
+  assert.equal((await archive.exportCollection(restored, checkers, crypto.webcrypto)).source,
+    exported.source);
+});
+
 test('v2 collection preserves and independently rechecks odd, signed, and even reversal receipts', async () => {
   const db = memoryDB();
   await archive.add(db, source, 'Target Box', checkers, crypto.webcrypto);

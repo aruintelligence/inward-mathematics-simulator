@@ -54,6 +54,7 @@
       ". A route marked guaranteed has the same strict winner for every real value in its rectangle.";
     const facts = $("facts"); facts.replaceChildren();
     for (const value of [`${inputs.readings.length} readings`,
+      inputs.readings.length % 2 ? "Median: middle reading" : "Median: central-pair average",
       `Movement [${inputs.movement.low}, ${inputs.movement.high}]`,
       `Target [${inputs.target.low}, ${inputs.target.high}]`,
       `${guaranteedRoutes.length} guaranteed routes`]) facts.append(element("span", value));
@@ -112,11 +113,13 @@
     "move-low": "13", "move-high": "45", "target-low": "49", "target-high": "51"}));
   $("signed-example").addEventListener("click", () => example({readings: "-2, -1, 0, 1, 35",
     "move-low": "-10", "move-high": "40", "target-low": "-1", "target-high": "1"}));
+  $("even-example").addEventListener("click", () => example({readings: "40, 45, 50, 80",
+    "move-low": "0", "move-high": "100", "target-low": "48", "target-high": "52"}));
   $("download").addEventListener("click", () => {
     if (!latest) return;
     const blob = new Blob([JSON.stringify(latest, null, 2) + "\n"], {type: "application/json"});
     const url = URL.createObjectURL(blob);
-    const anchor = element("a"); anchor.href = url; anchor.download = "inward-target-box-v1.json";
+    const anchor = element("a"); anchor.href = url; anchor.download = `${latest.format}.json`;
     document.body.append(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
