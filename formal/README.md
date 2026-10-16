@@ -33,12 +33,18 @@ The v2–v6 claim exporters name one of those four declarations and pin this
 file's source revision. Its independent receipt verifiers check the mapping
 and schema; they do not turn a JSON file into a Lean proof object.
 
-The v6 refutation construction uses two endpoint sample families for every
-integer sample size at least three. Its elementary algebra is documented in
-`docs/CONJECTURE_LAB.md`; this Lean module proves the four surviving
-two-estimate implications, not the sample-family mean or median formulas.
+The v6 refutation construction uses two sorted endpoint sample families for
+every integer sample size at least three. The same Lean module now defines
+the mean and central-pair median on those lists and proves their exact
+formulas, including the even-size case. It also proves that the means lie
+strictly between 0 and 100 and that each family switches its strict winner
+between targets 0 and 100. These are elementary facts, not novel theorems.
+The conditional-claim documentation explains how the four endpoint choices
+cover the 16 refutable pairs in its limited 20-pair language.
 
-This verifies the **general mathematical implications**, not the app's JSON
-parser, the authenticity of measurements, the correctness of an arbitrary
-claim, or a newly discovered mathematical result. The app and independent
-Python verifier still replay each specific certificate and finite search.
+The Lean result covers the two explicit sorted sample families and the
+general two-estimate implications. It does not formalize the UI's arbitrary
+sorting routine, the 20-pair routing table, the app's JSON parser, the
+authenticity of measurements, or the correctness of an arbitrary claim. The
+app and independent Python verifier still replay each specific certificate
+and finite search.

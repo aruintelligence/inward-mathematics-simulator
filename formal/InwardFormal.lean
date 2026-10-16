@@ -215,4 +215,37 @@ theorem endpoint_means_interior (n : ℕ) (hn : 3 ≤ n) :
   · linarith
   · linarith
 
+/-- The two families strictly favor opposite estimators at opposite targets.
+These are exactly the four endpoint choices used to refute the other pairs. -/
+theorem endpoint_strict_wins (n : ℕ) (hn : 3 ≤ n) :
+    |orderedMedian (oneHigh n) - 0| < |sampleMean (oneHigh n) - 0| ∧
+    |sampleMean (oneHigh n) - 100| < |orderedMedian (oneHigh n) - 100| ∧
+    |sampleMean (oneLow n) - 0| < |orderedMedian (oneLow n) - 0| ∧
+    |orderedMedian (oneLow n) - 100| < |sampleMean (oneLow n) - 100| := by
+  rcases endpoint_means_interior n hn with ⟨hhigh0, hhigh100, hlow0, hlow100⟩
+  have hhighNeg : sampleMean (oneHigh n) - 100 < 0 := by linarith
+  have hlowNeg : sampleMean (oneLow n) - 100 < 0 := by linarith
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rw [oneHigh_median n hn]
+    simp only [sub_zero, abs_zero]
+    rw [abs_of_pos hhigh0]
+    exact hhigh0
+  · have hright : |orderedMedian (oneHigh n) - 100| = (100 : ℝ) := by
+      rw [oneHigh_median n hn]
+      norm_num
+    rw [hright, abs_of_neg hhighNeg]
+    linarith
+  · have hright : |orderedMedian (oneLow n) - 0| = (100 : ℝ) := by
+      rw [oneLow_median n hn]
+      norm_num
+    rw [hright]
+    simp only [sub_zero]
+    rw [abs_of_pos hlow0]
+    exact hlow100
+  · have hleft : |orderedMedian (oneLow n) - 100| = (0 : ℝ) := by
+      rw [oneLow_median n hn]
+      norm_num
+    rw [hleft, abs_of_neg hlowNeg]
+    linarith
+
 end InwardFormal
