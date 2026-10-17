@@ -131,6 +131,32 @@
       `No strict winner holds across the target interval at the original readings. A tie already occurs at target ${stability.nearestFailure.target}; stability distance is zero.` :
       `Original verdict: ${stability.baseline}. No tie or change is possible anywhere in the specified movement range, moving one reading at a time.` :
       "Choose Find first failure to certify exact movement thresholds from the original readings.";
+    const horizon = claim.targetHorizon;
+    const horizonVisual = $("horizon-visual");
+    horizonVisual.replaceChildren();
+    if (horizon) {
+      if (horizon.allTargetTie) {
+        $("horizon-summary").textContent =
+          `Every real target ties if reading ${horizon.allTargetTie.index + 1} moves to ${horizon.allTargetTie.reading}. No strict global target guarantee exists for these movement bounds. The finite midpoint range [${horizon.low}, ${horizon.high}] does not remove this all-target tie.`;
+      } else {
+        $("horizon-summary").textContent =
+          `Across every one-reading move: strict ${horizon.below} for every target below ${horizon.low}; strict ${horizon.above} for every target above ${horizon.high}. At every target in [${horizon.low}, ${horizon.high}], some permitted move produces an exact tie. Both boundaries are attained ties.`;
+        const spectrum = element("div", undefined, "horizon-spectrum");
+        for (const [name, label] of [[horizon.below,
+          `${horizon.below} wins · t < ${horizon.low}`], ["Tie",
+          `A tie is reachable · ${horizon.low} ≤ t ≤ ${horizon.high}`],
+          [horizon.above, `${horizon.above} wins · t > ${horizon.high}`]]) {
+          spectrum.append(element("span", label, `horizon-segment ${name.toLowerCase()}`));
+        }
+        horizonVisual.append(spectrum);
+        horizonVisual.append(element("p", "Schematic bands; widths do not encode probability or target distance.", "meta"));
+      }
+      const {probe} = horizon;
+      horizonVisual.append(element("p", probe.witness ?
+        `Exact probe at the chosen target midpoint ${probe.target}: Tie. Move reading ${probe.witness.index + 1} to ${probe.witness.reading}.` :
+        `Exact probe at the chosen target midpoint ${probe.target}: strict ${probe.verdict} for every permitted one-reading move.`, "probe"));
+    } else $("horizon-summary").textContent =
+      "Choose Solve target horizon to find exact target ranges with a strict global winner and construct a tie witness when possible.";
     const facts = $("facts"); facts.replaceChildren();
     for (const value of [`${inputs.readings.length} readings`,
       inputs.readings.length % 2 ? "Median: middle reading" : "Median: central-pair average",
@@ -183,6 +209,9 @@
           `From ${inputs.readings[route.index]}, baseline ${route.stability.baseline}; safe region: ${describe("left")}, ${describe("right")}.` :
           `At the original reading ${inputs.readings[route.index]}, no strict winner holds across all targets. Tie at target ${route.stability.left.witness.target}; stability distance is zero.`, "meta"));
       }
+      if (route.targetHorizon) card.append(element("p",
+        `Tie-target span from movement endpoints: ${route.targetHorizon.atMovementLow} to ${route.targetHorizon.atMovementHigh}. ${route.targetHorizon.allTargetTie === null ?
+          "No all-target tie on this route." : `Every target ties at reading ${route.targetHorizon.allTargetTie}.`}`, "meta"));
       routes.append(card);
     }
     $("download").disabled = false;
@@ -193,7 +222,8 @@
       const readings = $("readings").value.split(",").map(part => part.trim());
       const constructor = mode === "gap" ? InwardTargetBox.gapCertificate :
         mode === "stability" ? InwardTargetBox.stabilityCertificate :
-          mode === "atlas" ? InwardTargetBox.atlasCertificate : InwardTargetBox.certificate;
+          mode === "atlas" ? InwardTargetBox.atlasCertificate :
+            mode === "horizon" ? InwardTargetBox.horizonCertificate : InwardTargetBox.certificate;
       const result = constructor(
         readings, $("move-low").value.trim(),
         $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
@@ -207,6 +237,8 @@
       $("summary-copy").textContent = "No certificate for these inputs.";
       $("gap-summary").textContent = "";
       $("stability-summary").textContent = "";
+      $("horizon-summary").textContent = "";
+      $("horizon-visual").replaceChildren();
       $("facts").replaceChildren(); $("routes").replaceChildren();
       $("input-error").textContent = error.message;
     }
@@ -220,6 +252,7 @@
   $("quantify").addEventListener("click", () => analyze(null, "gap"));
   $("first-failure").addEventListener("click", () => analyze(null, "stability"));
   $("region-atlas").addEventListener("click", () => analyze(null, "atlas"));
+  $("target-horizon").addEventListener("click", () => analyze(null, "horizon"));
   for (const id of ["readings", "move-low", "move-high", "target-low", "target-high"]) {
     $(id).addEventListener("input", () => {
       latest = null;
@@ -229,6 +262,8 @@
       $("summary-copy").textContent = "No certificate for the current inputs.";
       $("gap-summary").textContent = "";
       $("stability-summary").textContent = "";
+      $("horizon-summary").textContent = "";
+      $("horizon-visual").replaceChildren();
       $("facts").replaceChildren(); $("routes").replaceChildren();
     });
   }

@@ -8,6 +8,8 @@ The public lab demonstrates two toy models. Its strongest mathematical workflow 
 
 ## Market context and differentiation hypothesis
 
+The new target-horizon receipt adds an inverse question a prospective research or education pilot can inspect: which reference targets preserve a strict Mean or Median result against every permitted one-reading perturbation, and which targets admit a constructive tie? It handles the degenerate case where one movement makes the estimators equal for every target. This is a demonstrable modeling and audit feature; its commercial demand and fitness for any professional domain still require interviews and domain validation.
+
 | Existing option | Publicly described scope | Implication for an INWARD trial |
 | --- | --- | --- |
 | [Desmos](https://www.desmos.com/about) | Free math tools and graphing | A generic graphing subscription has a strong free substitute. Test whether inspectable uncertainty receipts solve a distinct problem. |

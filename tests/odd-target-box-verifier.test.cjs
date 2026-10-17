@@ -157,6 +157,49 @@ test('v5 region atlas rejects missing strips, false crossover lines and forged w
   } finally {rmSync(dir, {recursive: true, force: true});}
 });
 
+test('v6 target horizon rejects false bounds, strict sides, and unattained tie probes', () => {
+  const record = core.horizonCertificate(['8', '6', '8', '7', '0', '8'],
+    '0', '10', '6', '6');
+  const blocked = core.horizonCertificate(['48', '49', '50', '51', '85'],
+    '0', '100', '48', '52');
+  const dir = mkdtempSync(join(tmpdir(), 'target-horizon-forge-'));
+  try {
+    assert.equal(checkPython(record, dir).status, 0);
+    assert.equal(checkPython(blocked, dir).status, 0);
+    assert.equal(verifier.verify(record).targetHorizon.probe.verdict, 'Tie');
+    const edits = [
+      x => { x.claim.routes[0].targetHorizon.atMovementLow = '6'; },
+      x => { x.claim.routes[0].targetHorizon.atMovementHigh = '6'; },
+      x => { x.claim.routes[0].targetHorizon.allTargetTie = '4'; },
+      x => { x.claim.targetHorizon.low = '6'; },
+      x => { x.claim.targetHorizon.high = '8'; },
+      x => { x.claim.targetHorizon.below = 'Median'; },
+      x => { x.claim.targetHorizon.above = null; },
+      x => { x.claim.targetHorizon.probe.target = '7'; },
+      x => { x.claim.targetHorizon.probe.verdict = 'Mean'; },
+      x => { x.claim.targetHorizon.probe.witness.reading = '5'; },
+      x => { x.claim.targetHorizon.probe.witness.index = 99; },
+      x => { x.claim.targetHorizon.probe.witness.extra = true; },
+      x => { x.format = 'inward-even-target-box-v2'; }
+    ];
+    for (const edit of edits) {
+      const forged = clone(record); edit(forged);
+      assert.throws(() => verifier.verify(forged));
+      assert.notEqual(checkPython(forged, dir).status, 0);
+    }
+    for (const edit of [
+      x => {x.claim.targetHorizon.allTargetTie.reading = '16';},
+      x => {x.claim.targetHorizon.below = 'Mean';},
+      x => {x.claim.routes[0].targetHorizon.allTargetTie = null;},
+      x => {x.claim.targetHorizon.probe.witness.reading = '16';}
+    ]) {
+      const forged = clone(blocked); edit(forged);
+      assert.throws(() => verifier.verify(forged));
+      assert.notEqual(checkPython(forged, dir).status, 0);
+    }
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -256,6 +299,12 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   assert.match(elements['report-intro'].textContent, /region strips/);
   assert.equal(elements.routes.children[0].children[3].children[0].textContent,
     'Exact region rules');
+  elements['receipt-json'].value = readFileSync('examples/target-horizon-v6.json', 'utf8');
+  elements['receipt-json'].handlers.input();
+  await elements['verify-button'].handlers.click();
+  assert.match(elements['report-intro'].textContent, /target horizon \[17\/3, 95\/12\]/i);
+  assert.match(elements['report-intro'].textContent, /move reading 1 to 4/);
+  assert.match(elements.routes.children[0].children.at(-2).textContent, /Tie-target endpoints/);
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);

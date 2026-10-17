@@ -13,6 +13,7 @@ EVEN_BOX = Path(__file__).resolve().parents[1] / "examples/even-target-box-v2.js
 GAP = Path(__file__).resolve().parents[1] / "examples/target-box-gap-v3.json"
 STABILITY = Path(__file__).resolve().parents[1] / "examples/target-box-stability-v4.json"
 ATLAS = Path(__file__).resolve().parents[1] / "examples/target-box-atlas-v5.json"
+HORIZON = Path(__file__).resolve().parents[1] / "examples/target-horizon-v6.json"
 
 
 def fixture():
@@ -70,6 +71,19 @@ class ResearchCollectionTests(unittest.TestCase):
         self.assertEqual(collection.verify(json.dumps(bundle).encode())[0][3], 5)
         changed = json.loads(source)
         changed["claim"]["routes"][0]["region"]["stripes"][0]["tieFrom"] = "49"
+        item["source"] = json.dumps(changed)
+        item["digest"] = hashlib.sha256(item["source"].encode()).hexdigest()
+        with self.assertRaises(ValueError):
+            collection.verify(json.dumps(bundle).encode())
+
+    def test_target_horizon_in_v1_collection(self):
+        source = HORIZON.read_text(encoding="utf-8")
+        item = {"digest": hashlib.sha256(source.encode()).hexdigest(),
+                "kind": "target-box", "label": "Target horizon", "source": source}
+        bundle = {"format": collection.FORMAT, "records": [item]}
+        self.assertEqual(collection.verify(json.dumps(bundle).encode())[0][3], 6)
+        changed = json.loads(source)
+        changed["claim"]["targetHorizon"]["probe"]["witness"]["reading"] = "5"
         item["source"] = json.dumps(changed)
         item["digest"] = hashlib.sha256(item["source"].encode()).hexdigest()
         with self.assertRaises(ValueError):

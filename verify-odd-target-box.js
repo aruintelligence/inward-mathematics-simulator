@@ -81,6 +81,15 @@
       }
       if (result.atlas) $("report-intro").textContent +=
         " Exact region strips were rederived from mean and median squared errors. Below and above each linear tie target, the listed winners hold throughout the open reading strip. Vertical tie columns apply to every target.";
+      if (result.targetHorizon) {
+        const h = result.targetHorizon;
+        $("report-intro").textContent += h.allTargetTie ?
+          ` Every real target ties when reading ${h.allTargetTie.index + 1} moves to ${h.allTargetTie.reading}; there is no strict global target guarantee. The computed finite midpoint span is [${h.low}, ${h.high}].` :
+          ` Exact global target horizon [${h.low}, ${h.high}]: strict ${h.below} below it, strict ${h.above} above it, and a tie is attainable at every target inside it, including the endpoints.`;
+        $("report-intro").textContent += h.probe.witness ?
+          ` At probe target ${h.probe.target}, move reading ${h.probe.witness.index + 1} to ${h.probe.witness.reading} for a tie.` :
+          ` Probe target ${h.probe.target} has strict ${h.probe.verdict} throughout every permitted route.`;
+      }
       $("fingerprint").textContent = hash;
       const cards = record.claim.routes.map(route => {
         const card = node("article", "", "route");
@@ -104,6 +113,9 @@
             `Every target ties at reading ${route.region.verticalTies.join(", ")}.`));
           card.append(detail);
         }
+        if (route.targetHorizon) card.append(node("p",
+          `Tie-target endpoints: ${route.targetHorizon.atMovementLow} to ${route.targetHorizon.atMovementHigh}. ${route.targetHorizon.allTargetTie === null ?
+            "No all-target tie on this route." : `Every target ties at reading ${route.targetHorizon.allTargetTie}.`}`));
         const list = node("ul", "");
         route.reachable.forEach(name => {
           const witness = route.witnesses[name];

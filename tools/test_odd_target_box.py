@@ -6,7 +6,8 @@ from pathlib import Path
 import random
 import unittest
 
-from odd_target_box import certificate, gap_certificate, stability_certificate, atlas_certificate, winner
+from odd_target_box import (certificate, gap_certificate, stability_certificate,
+                            atlas_certificate, horizon_certificate, winner)
 from verify_odd_target_box import verify
 
 
@@ -168,6 +169,50 @@ class TargetBoxTests(unittest.TestCase):
                      lambda c: c["claim"]["routes"][0]["region"]["stripes"][0].update(below="Median"),
                      lambda c: c["claim"]["routes"][0]["region"]["verticalTies"].clear()):
             forged = copy.deepcopy(record)
+            edit(forged)
+            with self.assertRaises(ValueError):
+                verify(forged)
+
+    def test_target_horizon_constructs_ties_and_detects_all_target_equalities(self):
+        readings = ["8", "6", "8", "7", "0", "8"]
+        fixture = horizon_certificate(readings, "0", "10", "6", "6")
+        self.assertEqual(fixture, json.loads(Path("examples/target-horizon-v6.json").read_text()))
+        self.assertEqual(fixture["claim"]["targetHorizon"], {
+            "low": "17/3", "high": "95/12", "allTargetTie": None,
+            "below": "Mean", "above": "Median",
+            "probe": {"target": "6", "verdict": "Tie",
+                      "witness": {"index": 0, "reading": "4"}}})
+        for i in range(25):
+            t = Fraction(17, 3) + (Fraction(95, 12) - Fraction(17, 3)) * i / 24
+            receipt = horizon_certificate(readings, "0", "10", str(t), str(t))
+            probe = verify(receipt)["targetHorizon"]["probe"]
+            self.assertEqual(probe["verdict"], "Tie")
+            fixed = list(map(Fraction, readings))
+            fixed.pop(probe["witness"]["index"])
+            self.assertEqual(winner(fixed, Fraction(probe["witness"]["reading"]), t), "Tie")
+        for t, name in (("5", "Mean"), ("8", "Median")):
+            receipt = horizon_certificate(readings, "0", "10", t, t)
+            self.assertEqual(verify(receipt)["targetHorizon"]["probe"],
+                             {"target": t, "verdict": name, "witness": None})
+            for index in range(len(readings)):
+                fixed = list(map(Fraction, readings))
+                fixed.pop(index)
+                for step in range(17):
+                    self.assertEqual(winner(fixed, Fraction(10 * step, 16), Fraction(t)), name)
+        blocked = horizon_certificate(["48", "49", "50", "51", "85"],
+                                      "0", "100", "48", "52")
+        h = verify(blocked)["targetHorizon"]
+        self.assertEqual(h["allTargetTie"], {"index": 0, "reading": "15"})
+        for t in (Fraction(-999999), Fraction(0), Fraction(50), Fraction(999999)):
+            self.assertEqual(winner([Fraction(49), Fraction(50), Fraction(51), Fraction(85)],
+                                    Fraction(15), t), "Tie")
+        even = horizon_certificate(["40", "45", "50", "80"],
+                                   "0", "100", "48", "52")
+        verify(even)
+        for edit in (lambda c: c["claim"]["targetHorizon"].update(low="6"),
+                     lambda c: c["claim"]["targetHorizon"]["probe"]["witness"].update(reading="5"),
+                     lambda c: c["claim"]["routes"][0]["targetHorizon"].update(atMovementHigh="6")):
+            forged = copy.deepcopy(fixture)
             edit(forged)
             with self.assertRaises(ValueError):
                 verify(forged)

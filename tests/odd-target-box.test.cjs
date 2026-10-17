@@ -11,7 +11,8 @@ const verifier = require('../odd-target-box-verifier.js');
 
 function python(values, low, high, targetLow, targetHigh, mode = '') {
   const run = spawnSync('python3', ['tools/odd_target_box.py', ...(mode ? [mode === 'gap' || mode === true ?
-    '--gap-envelope' : mode === 'atlas' ? '--region-atlas' : '--stability-radius'] : []),
+    '--gap-envelope' : mode === 'atlas' ? '--region-atlas' : mode === 'horizon' ?
+      '--target-horizon' : '--stability-radius'] : []),
     `--readings=${values.join(',')}`, `--low=${low}`, `--high=${high}`,
     `--target-low=${targetLow}`, `--target-high=${targetHigh}`], {encoding: 'utf8'});
   assert.equal(run.status, 0, run.stderr);
@@ -49,7 +50,7 @@ test('v5 decision-region atlas has exact cross-language strips for odd, even, an
   let seed = 0x8143ab76;
   const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
   for (let i = 0; i < 18; i++) {
-    const n = 3 + i;
+    const n = 3 + i % 19;
     const readings = Array.from({length: n}, (_, j) => j % 3 === 0 ?
       `${2 * (next() % 21) - 19}/2` : String(next() % 21 - 10));
     const [a, b] = [next() % 31 - 15, next() % 31 - 15].sort((x, y) => x - y);
@@ -57,6 +58,47 @@ test('v5 decision-region atlas has exact cross-language strips for odd, even, an
     const atlas = core.atlasCertificate(readings, '-12', '12', String(a), String(tHigh));
     assert.deepEqual(atlas, python(readings, '-12', '12', String(a), String(tHigh), 'atlas'), `case ${i}`);
     assert.equal(verifier.verify(atlas).atlas, true);
+  }
+});
+
+test('v6 target horizon solves strict target sides and constructs exact tie probes', () => {
+  const values = ['8', '6', '8', '7', '0', '8'];
+  const cases = [['6', '6', 'Tie'], ['5', '5', 'Mean'], ['8', '8', 'Median'],
+    ['17/3', '17/3', 'Tie'], ['95/12', '95/12', 'Tie']];
+  for (const [a, b, expected] of cases) {
+    const record = core.horizonCertificate(values, '0', '10', a, b);
+    assert.deepEqual(record, python(values, '0', '10', a, b, 'horizon'));
+    assert.deepEqual([record.claim.targetHorizon.low, record.claim.targetHorizon.high],
+      ['17/3', '95/12']);
+    assert.equal(record.claim.targetHorizon.probe.verdict, expected);
+    assert.equal(verifier.verify(record).targetHorizon.probe.verdict, expected);
+    if (expected === 'Tie') assert.ok(record.claim.targetHorizon.probe.witness);
+  }
+  const fixture = core.horizonCertificate(values, '0', '10', '6', '6');
+  assert.deepEqual(fixture, JSON.parse(readFileSync('examples/target-horizon-v6.json')));
+  assert.deepEqual(fixture.claim.targetHorizon.probe.witness, {index: 0, reading: '4'});
+  const blocked = core.horizonCertificate(['48', '49', '50', '51', '85'],
+    '0', '100', '48', '52');
+  assert.deepEqual(blocked, python(['48', '49', '50', '51', '85'],
+    '0', '100', '48', '52', 'horizon'));
+  assert.deepEqual(blocked.claim.targetHorizon.allTargetTie, {index: 0, reading: '15'});
+  assert.equal(blocked.claim.targetHorizon.below, null);
+  assert.equal(verifier.verify(blocked).targetHorizon.probe.verdict, 'Tie');
+  const even = core.horizonCertificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+  assert.deepEqual(even, python(['40', '45', '50', '80'], '0', '100', '48', '52', 'horizon'));
+  assert.equal(verifier.verify(even).routes, 4);
+  let seed = 0x6027a65a;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (let i = 0; i < 20; i++) {
+    const n = 3 + i % 19;
+    const readings = Array.from({length: n}, (_, j) => j % 3 === 0 ?
+      `${2 * (next() % 21) - 19}/2` : String(next() % 21 - 10));
+    const [a, b] = [next() % 31 - 15, next() % 31 - 15].sort((x, y) => x - y);
+    const high = i % 4 === 0 ? a : b;
+    const record = core.horizonCertificate(readings, '-12', '12', String(a), String(high));
+    assert.deepEqual(record, python(readings, '-12', '12', String(a), String(high), 'horizon'),
+      `case ${i}`);
+    assert.equal(verifier.verify(record).routes, n);
   }
 });
 
@@ -207,8 +249,9 @@ test('workbench renders every route and clears stale results on an invalid edit'
   }
   const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
     'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
-    'summary-copy', 'gap-summary', 'stability-summary', 'facts', 'routes', 'download', 'print', 'quantify',
-    'first-failure', 'region-atlas', 'locked-example',
+    'summary-copy', 'gap-summary', 'stability-summary', 'horizon-summary', 'horizon-visual',
+    'facts', 'routes', 'download', 'print', 'quantify',
+    'first-failure', 'region-atlas', 'target-horizon', 'locked-example',
     'signed-example', 'even-example', 'results'].map(id => [id, element(id)]));
   Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
   Object.assign(fields['move-low'], {value: '0'});
@@ -244,6 +287,17 @@ test('workbench renders every route and clears stale results on an invalid edit'
   assert.match(patches[0].attrs.points, /^45,164 123,164 /);
   assert.ok(drawn.some(node => node.tag === 'line' && node.attrs.stroke === 'var(--map-tie)'));
   assert.ok(drawn.some(node => node.tag === 'circle' && node.attrs.fill === 'var(--map-tie)'));
+  fields['target-horizon'].handlers.click();
+  assert.match(fields['horizon-summary'].textContent, /Every real target ties/);
+  assert.match(fields['horizon-visual'].children[0].textContent, /Move reading 1 to 15/);
+  assert.match(fields.routes.children[0].children.at(-1).textContent, /Tie-target span/);
+  fields.readings.value = '8,6,8,7,0,8';
+  fields['move-low'].value = '0'; fields['move-high'].value = '10';
+  fields['target-low'].value = '6'; fields['target-high'].value = '6';
+  fields['target-horizon'].handlers.click();
+  assert.match(fields['horizon-summary'].textContent, /17\/3/);
+  assert.equal(fields['horizon-visual'].children[0].children.length, 3);
+  assert.match(fields['horizon-visual'].children[2].textContent, /Move reading 1 to 4/);
   fields.readings.value = '0, 1, 2';
   fields['move-low'].value = '0'; fields['move-high'].value = '2';
   fields['target-low'].value = '1'; fields['target-high'].value = '1';
@@ -257,6 +311,8 @@ test('workbench renders every route and clears stale results on an invalid edit'
   assert.equal(fields.routes.children.length, 0);
   assert.equal(fields['gap-summary'].textContent, '');
   assert.equal(fields['stability-summary'].textContent, '');
+  assert.equal(fields['horizon-summary'].textContent, '');
+  assert.equal(fields['horizon-visual'].children.length, 0);
   fields['even-example'].handlers.click();
   assert.equal(fields.routes.children.length, 4);
   assert.equal(fields.download.disabled, false);

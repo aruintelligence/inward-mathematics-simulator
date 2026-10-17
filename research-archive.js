@@ -53,11 +53,18 @@
       result.stability?.nearestFailure?.distance,
       result.stability?.nearestFailure?.reading,
       result.stability?.nearestFailure?.target,
+      result.targetHorizon?.low, result.targetHorizon?.high,
+      result.targetHorizon?.allTargetTie?.reading,
+      result.targetHorizon?.probe?.target,
+      result.targetHorizon?.probe?.witness?.reading,
       ...record.claim.routes.flatMap(route => route.stability ?
         [route.stability.left.limit, route.stability.right.limit] : []),
       ...record.claim.routes.flatMap(route => route.region ? [
         ...route.region.verticalTies, ...route.region.stripes.flatMap(stripe =>
-          [stripe.from, stripe.to, stripe.tieFrom, stripe.tieTo, stripe.below, stripe.above])] : [])]
+          [stripe.from, stripe.to, stripe.tieFrom, stripe.tieTo, stripe.below, stripe.above])] : []),
+      ...record.claim.routes.flatMap(route => route.targetHorizon ? [
+        route.targetHorizon.atMovementLow, route.targetHorizon.atMovementHigh,
+        route.targetHorizon.allTargetTie] : [])]
       .join(" ").toLocaleLowerCase();
     const qualifies = filter === "all" || filter === "target-box" || filter === "strict" &&
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
@@ -144,6 +151,15 @@
         }
         if (result.atlas) body.append(node("p",
           "Exact decision-region atlas: every open reading strip has a linear tie target and verified Mean/Median sides. An all-target vertical tie is listed where the two estimators coincide. Colored chart areas are outcomes, not probabilities."));
+        if (result.targetHorizon) {
+          const h = result.targetHorizon;
+          body.append(node("p", h.allTargetTie ?
+            `All real targets tie if reading ${h.allTargetTie.index + 1} moves to ${h.allTargetTie.reading}; no strict global target guarantee exists. Finite midpoint span: [${h.low}, ${h.high}].` :
+            `Target horizon [${h.low}, ${h.high}]: strict ${h.below} below, strict ${h.above} above, with a reachable tie for every target inside, including its endpoints.`));
+          body.append(node("p", h.probe.witness ?
+            `Probe t=${h.probe.target}: exact tie by moving reading ${h.probe.witness.index + 1} to ${h.probe.witness.reading}.` :
+            `Probe t=${h.probe.target}: strict ${h.probe.verdict} across all one-reading routes.`));
+        }
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;
@@ -163,6 +179,9 @@
               `Reading (${stripe.from}, ${stripe.to}): tie target ${stripe.tieFrom} to ${stripe.tieTo}; below ${stripe.below}, above ${stripe.above}.`));
             item.append(rules);
           }
+          if (route.targetHorizon) item.append(node("p",
+            `Tie-target endpoints ${route.targetHorizon.atMovementLow} to ${route.targetHorizon.atMovementHigh}; ${route.targetHorizon.allTargetTie === null ?
+              "no all-target tie" : `all-target tie at x=${route.targetHorizon.allTargetTie}`}.`));
           routes.append(item);
         });
         body.append(routes);
