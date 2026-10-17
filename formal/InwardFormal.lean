@@ -717,7 +717,8 @@ def affineMean (slope intercept x : ℝ) : ℝ := slope * x + intercept
 
 def affineMedian (slope intercept x : ℝ) : ℝ := slope * x + intercept
 
-def midpointTarget (meanSlope meanIntercept medianSlope medianIntercept x : ℝ) : ℝ :=
+noncomputable def midpointTarget
+    (meanSlope meanIntercept medianSlope medianIntercept x : ℝ) : ℝ :=
   (affineMean meanSlope meanIntercept x +
     affineMedian medianSlope medianIntercept x) / 2
 
@@ -771,7 +772,6 @@ theorem midpoint_target_interpolation (a b c d p q t : ℝ)
       t - midpointTarget a b c d p := by
     dsimp [u]
     field_simp [ne_of_gt hden]
-    ring
   refine ⟨p + (q - p) * u, ?_, ?_, ?_⟩
   · linarith
   · linarith
