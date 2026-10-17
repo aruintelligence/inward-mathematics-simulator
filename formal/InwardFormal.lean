@@ -705,6 +705,209 @@ theorem zero_at_two_points (A B p q x : ℝ) (hpq : p ≠ q)
 end AffinePartition
 
 /-!
+On a fixed movement cell the mean and median are affine in the moved reading.
+The mean has positive slope, and the median has nonnegative slope. These
+lemmas justify the v6 target-horizon interpolation and the strict guarantees
+outside its midpoint range. Cell boundaries and the global extrema must still
+be supplied by the receipt verifier; this module does not parse v6 JSON.
+-/
+namespace TargetHorizon
+
+def affineMean (slope intercept x : ℝ) : ℝ := slope * x + intercept
+
+def affineMedian (slope intercept x : ℝ) : ℝ := slope * x + intercept
+
+noncomputable def midpointTarget
+    (meanSlope meanIntercept medianSlope medianIntercept x : ℝ) : ℝ :=
+  (affineMean meanSlope meanIntercept x +
+    affineMedian medianSlope medianIntercept x) / 2
+
+/-- Affine interpolation exactly reconstructs every point of a median cell. -/
+theorem midpoint_target_affine (a b c d p q u : ℝ) :
+    midpointTarget a b c d (p + (q - p) * u) =
+      midpointTarget a b c d p +
+        (midpointTarget a b c d q - midpointTarget a b c d p) * u := by
+  dsimp [midpointTarget, affineMean, affineMedian]
+  ring
+
+/-- A positive mean slope makes the midpoint target strictly increasing,
+even when the median is constant on the cell. -/
+theorem midpoint_target_strict (a b c d p q : ℝ)
+    (ha : 0 < a) (hc : 0 ≤ c) (hpq : p < q) :
+    midpointTarget a b c d p < midpointTarget a b c d q := by
+  have hs : 0 < a + c := by linarith
+  have hq : 0 < q - p := sub_pos.mpr hpq
+  have hdiff : midpointTarget a b c d q - midpointTarget a b c d p =
+      (a + c) * (q - p) / 2 := by
+    dsimp [midpointTarget, affineMean, affineMedian]
+    ring
+  have hpositive : 0 < (a + c) * (q - p) / 2 :=
+    div_pos (mul_pos hs hq) (by norm_num)
+  exact sub_pos.mp (by rw [hdiff]; exact hpositive)
+
+/-- The exact rational interpolation formula gives an in-cell reading for
+every target between the cell's endpoint midpoint targets. -/
+theorem midpoint_target_interpolation (a b c d p q t : ℝ)
+    (ha : 0 < a) (hc : 0 ≤ c) (hpq : p < q)
+    (hpt : midpointTarget a b c d p ≤ t)
+    (htq : t ≤ midpointTarget a b c d q) :
+    ∃ x, p ≤ x ∧ x ≤ q ∧ midpointTarget a b c d x = t := by
+  have hden : 0 < midpointTarget a b c d q - midpointTarget a b c d p :=
+    sub_pos.mpr (midpoint_target_strict a b c d p q ha hc hpq)
+  let u : ℝ := (t - midpointTarget a b c d p) /
+    (midpointTarget a b c d q - midpointTarget a b c d p)
+  have hu0 : 0 ≤ u := by
+    dsimp [u]
+    exact div_nonneg (sub_nonneg.mpr hpt) (le_of_lt hden)
+  have hu1 : u ≤ 1 := by
+    dsimp [u]
+    apply (div_le_iff₀ hden).2
+    linarith
+  have hprod0 : 0 ≤ (q - p) * u :=
+    mul_nonneg (sub_nonneg.mpr (le_of_lt hpq)) hu0
+  have hprod1 : (q - p) * u ≤ q - p := by
+    have h := mul_le_mul_of_nonneg_left hu1 (sub_nonneg.mpr (le_of_lt hpq))
+    nlinarith
+  have hratio : (midpointTarget a b c d q - midpointTarget a b c d p) * u =
+      t - midpointTarget a b c d p := by
+    dsimp [u]
+    field_simp [ne_of_gt hden]
+  refine ⟨p + (q - p) * u, ?_, ?_, ?_⟩
+  · linarith
+  · linarith
+  · rw [midpoint_target_affine a b c d p q u]
+    linarith
+
+/-- Interpolation locates an actual equal-error reading, not just a sampled
+or approximately plotted target value. -/
+theorem interpolated_error_tie (a b c d p q t : ℝ)
+    (ha : 0 < a) (hc : 0 ≤ c) (hpq : p < q)
+    (hpt : midpointTarget a b c d p ≤ t)
+    (htq : t ≤ midpointTarget a b c d q) :
+    ∃ x, p ≤ x ∧ x ≤ q ∧
+      |affineMean a b x - t| = |affineMedian c d x - t| := by
+  obtain ⟨x, hpx, hxq, hx⟩ :=
+    midpoint_target_interpolation a b c d p q t ha hc hpq hpt htq
+  refine ⟨x, hpx, hxq, ?_⟩
+  rw [← hx]
+  apply midpoint_tie
+  dsimp [midpointTarget]
+  ring
+
+/-- Strictly below the midpoint target, the lower estimate strictly wins. -/
+theorem lower_strict_below_midpoint (m d t : ℝ)
+    (hmd : m < d) (ht : 2 * t < m + d) : |m - t| < |d - t| := by
+  have hle := lower_no_worse_at_midpoint m d t (le_of_lt hmd) (le_of_lt ht)
+  rcases lt_or_eq_of_le hle with hlt | heq
+  · exact hlt
+  · have hmid := (distinct_estimates_tie_iff_midpoint m d t hmd).mp heq
+    linarith
+
+/-- Strictly above the midpoint target, the higher estimate strictly wins. -/
+theorem higher_strict_above_midpoint (m d t : ℝ)
+    (hmd : m < d) (ht : m + d < 2 * t) : |d - t| < |m - t| := by
+  have hle := higher_no_worse_at_midpoint m d t (le_of_lt hmd) (le_of_lt ht)
+  rcases lt_or_eq_of_le hle with hlt | heq
+  · exact hlt
+  · have hmid := (distinct_estimates_tie_iff_midpoint m d t hmd).mp heq.symm
+    linarith
+
+/-- Once the endpoint bounds and common strict ordering have been checked,
+the outside winner follows for every route, including infinitely many real
+movement positions. `Route` need not be finite. -/
+theorem strict_outside_horizon (Route : Type*)
+    (mean median : Route → ℝ) (lower upper t : ℝ)
+    (horder : ∀ r, mean r < median r)
+    (hlower : ∀ r, lower ≤ (mean r + median r) / 2)
+    (hupper : ∀ r, (mean r + median r) / 2 ≤ upper) :
+    (t < lower → ∀ r, |mean r - t| < |median r - t|) ∧
+      (upper < t → ∀ r, |median r - t| < |mean r - t|) := by
+  constructor
+  · intro ht r
+    apply lower_strict_below_midpoint (mean r) (median r) t (horder r)
+    have h := hlower r
+    linarith
+  · intro ht r
+    apply higher_strict_above_midpoint (mean r) (median r) t (horder r)
+    have h := hupper r
+    linarith
+
+/-- The same outside-horizon guarantee with the median below the mean. -/
+theorem strict_outside_horizon_reverse (Route : Type*)
+    (mean median : Route → ℝ) (lower upper t : ℝ)
+    (horder : ∀ r, median r < mean r)
+    (hlower : ∀ r, lower ≤ (mean r + median r) / 2)
+    (hupper : ∀ r, (mean r + median r) / 2 ≤ upper) :
+    (t < lower → ∀ r, |median r - t| < |mean r - t|) ∧
+      (upper < t → ∀ r, |mean r - t| < |median r - t|) := by
+  exact strict_outside_horizon Route median mean lower upper t horder
+    (by intro r; have h := hlower r; linarith)
+    (by intro r; have h := hupper r; linarith)
+
+/-- If one permitted reading makes the estimates equal, neither estimator
+can strictly win on every route at any target. -/
+theorem equal_estimates_block_global_strict (Route : Type*)
+    (mean median : Route → ℝ) (r : Route) (heq : mean r = median r) (t : ℝ) :
+    (¬ ∀ s, |mean s - t| < |median s - t|) ∧
+      (¬ ∀ s, |median s - t| < |mean s - t|) := by
+  constructor
+  · intro h
+    have hr := h r
+    rw [heq] at hr
+    exact (lt_irrefl _) hr
+  · intro h
+    have hr := h r
+    rw [heq] at hr
+    exact (lt_irrefl _) hr
+
+/-- Explicitly sorted sample after replacing the first `8` in the v6
+example `[8,6,8,7,0,8]` by `4`. -/
+def sixReadingTieSample : List ℝ := [0, 4, 6, 7, 8, 8]
+
+theorem six_reading_mean : sampleMean sixReadingTieSample = 11 / 2 := by
+  norm_num [sampleMean, sixReadingTieSample]
+
+theorem six_reading_median : orderedMedian sixReadingTieSample = 13 / 2 := by
+  norm_num [orderedMedian, sixReadingTieSample]
+
+theorem six_reading_target_six_tie :
+    |sampleMean sixReadingTieSample - 6| =
+      |orderedMedian sixReadingTieSample - 6| := by
+  rw [six_reading_mean, six_reading_median]
+  norm_num
+
+/-- The first route at movement low `0`; the receipt separately checks that
+this endpoint attains the minimum over every route. -/
+def sixReadingLowEndpoint : List ℝ := [0, 0, 6, 7, 8, 8]
+
+theorem six_reading_low_endpoint_midpoint :
+    (sampleMean sixReadingLowEndpoint + orderedMedian sixReadingLowEndpoint) / 2 =
+      17 / 3 := by
+  norm_num [sampleMean, orderedMedian, sixReadingLowEndpoint]
+
+/-- The fifth route at movement high `10`; the receipt separately checks
+that this endpoint attains the maximum over every route. -/
+def sixReadingHighEndpoint : List ℝ := [6, 7, 8, 8, 8, 10]
+
+theorem six_reading_high_endpoint_midpoint :
+    (sampleMean sixReadingHighEndpoint + orderedMedian sixReadingHighEndpoint) / 2 =
+      95 / 12 := by
+  norm_num [sampleMean, orderedMedian, sixReadingHighEndpoint]
+
+/-- The five-reading v6 obstruction after replacing the first `48` by `15`. -/
+def fiveReadingEqualSample : List ℝ := [15, 49, 50, 51, 85]
+
+theorem five_reading_all_target_tie (t : ℝ) :
+    |sampleMean fiveReadingEqualSample - t| =
+      |orderedMedian fiveReadingEqualSample - t| := by
+  have h : sampleMean fiveReadingEqualSample =
+      orderedMedian fiveReadingEqualSample := by
+    norm_num [sampleMean, orderedMedian, fiveReadingEqualSample]
+  rw [h]
+
+end TargetHorizon
+
+/-!
 A positive affine change of units sends each estimate and target from `v` to
 `scale * v + shift`. The comparison sign is unchanged. The executable
 certificate implementations are separately tested for the stronger claim
