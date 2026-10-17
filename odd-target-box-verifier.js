@@ -8,6 +8,7 @@
   const FORMAT = "inward-odd-target-box-v1";
   const EVEN_FORMAT = "inward-even-target-box-v2";
   const GAP_FORMAT = "inward-target-box-gap-v3";
+  const STABILITY_FORMAT = "inward-target-box-stability-v4";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
@@ -209,9 +210,44 @@
       }
     }
   }
+  function checkStability(stability, fixed, start, roots, low, high, targetLow, targetHigh, index) {
+    fields(stability, ["baseline", "left", "right"], `route ${index + 1} stability`);
+    const atStart = [outcome(fixed, start, targetLow), outcome(fixed, start, targetHigh)];
+    const baseline = atStart[0] === atStart[1] && atStart[0] !== "Tie" ? atStart[0] : null;
+    if (stability.baseline !== baseline) fail(`Incorrect route ${index + 1} baseline`);
+    const failures = [];
+    for (const [side, edge] of [["left", low], ["right", high]]) {
+      const detail = stability[side];
+      fields(detail, ["limit", "included", "witness"], `${side} stability boundary`);
+      const candidates = [start, ...roots.filter(x => side === "left" ?
+        compare(x, start) < 0 : compare(x, start) > 0)].sort((a, b) =>
+          side === "left" ? -compare(a, b) : compare(a, b));
+      const first = candidates.find(x => baseline === null ||
+        outcome(fixed, x, targetLow) !== baseline || outcome(fixed, x, targetHigh) !== baseline);
+      const limit = rational(detail.limit, `${side} stability limit`, low, high);
+      if (first === undefined) {
+        if (compare(limit, edge) !== 0 || detail.included !== true || detail.witness !== null) {
+          fail(`Incorrect safe ${side} boundary on route ${index + 1}`);
+        }
+        continue;
+      }
+      if (compare(limit, first) !== 0 || detail.included !== false) {
+        fail(`Incorrect first ${side} failure on route ${index + 1}`);
+      }
+      fields(detail.witness, ["reading", "target"], `${side} failure witness`);
+      const moved = rational(detail.witness.reading, "failure reading", low, high);
+      const target = rational(detail.witness.target, "failure target", targetLow, targetHigh);
+      if (compare(moved, first) !== 0 || outcome(fixed, moved, target) !== "Tie") {
+        fail(`False ${side} tie witness on route ${index + 1}`);
+      }
+      failures.push({distance: side === "left" ? subtract(start, first) : subtract(first, start),
+        index, side, reading: first, target});
+    }
+    return {baseline, failures};
+  }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT].includes(record.format)) fail("Unknown certificate format");
+    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT].includes(record.format)) fail("Unknown certificate format");
     fields(record.inputs, ["readings", "movement", "target"], "inputs");
     fields(record.inputs.movement, ["low", "high"], "movement");
     fields(record.inputs.target, ["low", "high"], "target");
@@ -222,23 +258,26 @@
     const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
     if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
     if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
-        inputs.readings.length > 21 || record.format !== GAP_FORMAT &&
+        inputs.readings.length > 21 || ![GAP_FORMAT, STABILITY_FORMAT].includes(record.format) &&
         (inputs.readings.length % 2 === 0) !== (record.format === EVEN_FORMAT)) {
       fail("Reading count must match certificate format and be between 3 and 21");
     }
     const readings = inputs.readings.map((item, index) =>
       rational(item, `reading ${index + 1}`, low, high));
     const quantified = record.format === GAP_FORMAT;
-    fields(claim, quantified ? ["routes", "reachable", "guarantee", "gap"] :
-      ["routes", "reachable", "guarantee"], "claim");
+    const stable = record.format === STABILITY_FORMAT;
+    fields(claim, ["routes", "reachable", "guarantee",
+      ...(quantified ? ["gap"] : stable ? ["stability"] : [])], "claim");
     if (!Array.isArray(claim.routes) || claim.routes.length !== readings.length) {
       fail("Missing one-reading routes");
     }
     const overall = new Set();
     const routeExtrema = [];
+    const failures = [];
+    let baseline = null;
     claim.routes.forEach((route, index) => {
-      fields(route, quantified ? ["index", "knots", "reachable", "guarantee", "witnesses", "gap"] :
-        ["index", "knots", "reachable", "guarantee", "witnesses"], `route ${index + 1}`);
+      fields(route, ["index", "knots", "reachable", "guarantee", "witnesses",
+        ...(quantified ? ["gap"] : stable ? ["stability"] : [])], `route ${index + 1}`);
       if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
       const fixed = readings.filter((_, i) => i !== index);
       const roots = allRoots(fixed, low, high, targetLow, targetHigh);
@@ -268,6 +307,13 @@
         }
         routeExtrema.push(expected);
       }
+      if (stable) {
+        const checked = checkStability(route.stability, fixed, readings[index], roots,
+          low, high, targetLow, targetHigh, index);
+        if (index === 0) baseline = checked.baseline;
+        else if (baseline !== checked.baseline) fail("Baseline differs across routes");
+        failures.push(...checked.failures);
+      }
       reachable.forEach(name => overall.add(name));
     });
     const reachable = ORDER.filter(name => overall.has(name));
@@ -294,8 +340,29 @@
         }
       }
     }
-    return quantified ? {routes: readings.length, reachable, guarantee, gap: claim.gap} :
-      {routes: readings.length, reachable, guarantee};
+    if (stable) {
+      fields(claim.stability, ["baseline", "nearestFailure"], "global stability");
+      if (claim.stability.baseline !== baseline) fail("Incorrect global baseline");
+      failures.sort((a, b) => compare(a.distance, b.distance) || a.index - b.index ||
+        (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
+      const nearest = failures[0];
+      if (!nearest) {
+        if (claim.stability.nearestFailure !== null) fail("False global failure");
+      } else {
+        const reported = claim.stability.nearestFailure;
+        fields(reported, ["distance", "index", "side", "reading", "target"], "nearest failure");
+        const distance = rational(reported.distance, "nearest failure distance", ZERO);
+        const reading = rational(reported.reading, "nearest failure reading", low, high);
+        const target = rational(reported.target, "nearest failure target", targetLow, targetHigh);
+        if (compare(distance, nearest.distance) !== 0 || reported.index !== nearest.index ||
+            reported.side !== nearest.side || compare(reading, nearest.reading) !== 0 ||
+            outcome(readings.filter((_, i) => i !== nearest.index), reading, target) !== "Tie") {
+          fail("Incorrect global nearest failure or witness");
+        }
+      }
+    }
+    return {routes: readings.length, reachable, guarantee,
+      ...(quantified ? {gap: claim.gap} : stable ? {stability: claim.stability} : {})};
   }
   return {parseReceipt, verify};
 });

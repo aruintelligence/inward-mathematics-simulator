@@ -21,6 +21,11 @@
     const x = value => 45 + 520 * InwardTargetBox.position(value, inputs.movement.low, inputs.movement.high);
     const y = value => inputs.target.low === inputs.target.high ? 94 :
       164 - 140 * InwardTargetBox.position(value, inputs.target.low, inputs.target.high);
+    if (route.stability?.baseline) {
+      const left = x(route.stability.left.limit), right = x(route.stability.right.limit);
+      plot.append(svg("rect", {x: left, y: 24, width: Math.max(0, right - left),
+        height: 140, fill: "#40cfa7", opacity: ".17"}));
+    }
     plot.append(svg("rect", {x: 45, y: 24, width: 520, height: 140, fill: "none", stroke: "currentColor", opacity: ".45"}));
     for (const value of route.knots) {
       const line = svg("line", {x1: x(value), x2: x(value), y1: 24, y2: 164,
@@ -38,7 +43,7 @@
       plot.append(marker);
     }
     figure.append(plot);
-    figure.append(element("figcaption", "Horizontal: moved reading. Vertical: target. Lines mark exact partition knots; dots are certified witnesses."));
+    figure.append(element("figcaption", "Horizontal: moved reading. Vertical: target. Lines mark exact partition knots; dots are certified witnesses. A shaded band, when present, is the strict baseline region; its exact boundary status is given below."));
     return figure;
   }
   function show(record) {
@@ -55,6 +60,12 @@
     $("gap-summary").textContent = claim.gap ?
       `Exact squared-error gap D = (mean − target)² − (median − target)² spans [${claim.gap.min.value}, ${claim.gap.max.value}] across every route. Minimum: reading ${claim.gap.min.index + 1} at ${claim.gap.min.reading}, target ${claim.gap.min.target}. Maximum: reading ${claim.gap.max.index + 1} at ${claim.gap.max.reading}, target ${claim.gap.max.target}. Negative favors Mean; positive favors Median. These bounds are attained.` :
       "Choose Quantify exact gap to certify the attained worst and best squared-error difference.";
+    const stability = claim.stability;
+    $("stability-summary").textContent = stability ? stability.nearestFailure ? stability.baseline ?
+      `Original verdict across the target interval: ${stability.baseline}. First possible tie after a one-reading movement of ${stability.nearestFailure.distance}: reading ${stability.nearestFailure.index + 1}, ${stability.nearestFailure.side}, at ${stability.nearestFailure.reading} with target ${stability.nearestFailure.target}. All smaller permitted absolute movements preserve the strict verdict.` :
+      `No strict winner holds across the target interval at the original readings. A tie already occurs at target ${stability.nearestFailure.target}; stability distance is zero.` :
+      `Original verdict: ${stability.baseline}. No tie or change is possible anywhere in the specified movement range, moving one reading at a time.` :
+      "Choose Find first failure to certify exact movement thresholds from the original readings.";
     const facts = $("facts"); facts.replaceChildren();
     for (const value of [`${inputs.readings.length} readings`,
       inputs.readings.length % 2 ? "Median: middle reading" : "Median: central-pair average",
@@ -86,15 +97,27 @@
       card.append(list, element("p", `${route.knots.length} exact partition knots: ${route.knots.join(" · ")}`, "meta"));
       if (route.gap) card.append(element("p",
         `Exact D range [${route.gap.min.value}, ${route.gap.max.value}]. Minimum at x=${route.gap.min.reading}, t=${route.gap.min.target}; maximum at x=${route.gap.max.reading}, t=${route.gap.max.target}.`, "meta"));
+      if (route.stability) {
+        const describe = side => {
+          const part = route.stability[side];
+          return `${side} ${part.limit} (${part.included ? "included: still strict" :
+            `excluded: tie at target ${part.witness.target}`})`;
+        };
+        card.append(element("p", route.stability.baseline ?
+          `From ${inputs.readings[route.index]}, baseline ${route.stability.baseline}; safe region: ${describe("left")}, ${describe("right")}.` :
+          `At the original reading ${inputs.readings[route.index]}, no strict winner holds across all targets. Tie at target ${route.stability.left.witness.target}; stability distance is zero.`, "meta"));
+      }
       routes.append(card);
     }
     $("download").disabled = false;
   }
-  function analyze(event, quantify = false) {
+  function analyze(event, mode = "outcomes") {
     if (event) event.preventDefault();
     try {
       const readings = $("readings").value.split(",").map(part => part.trim());
-      const result = (quantify ? InwardTargetBox.gapCertificate : InwardTargetBox.certificate)(
+      const constructor = mode === "gap" ? InwardTargetBox.gapCertificate :
+        mode === "stability" ? InwardTargetBox.stabilityCertificate : InwardTargetBox.certificate;
+      const result = constructor(
         readings, $("move-low").value.trim(),
         $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
       $("input-error").textContent = "";
@@ -106,6 +129,7 @@
       $("headline-detail").textContent = "The earlier result has been cleared.";
       $("summary-copy").textContent = "No certificate for these inputs.";
       $("gap-summary").textContent = "";
+      $("stability-summary").textContent = "";
       $("facts").replaceChildren(); $("routes").replaceChildren();
       $("input-error").textContent = error.message;
     }
@@ -116,7 +140,8 @@
     $("results").scrollIntoView({behavior: "smooth"});
   }
   $("box-form").addEventListener("submit", analyze);
-  $("quantify").addEventListener("click", () => analyze(null, true));
+  $("quantify").addEventListener("click", () => analyze(null, "gap"));
+  $("first-failure").addEventListener("click", () => analyze(null, "stability"));
   for (const id of ["readings", "move-low", "move-high", "target-low", "target-high"]) {
     $(id).addEventListener("input", () => {
       latest = null;
@@ -125,6 +150,7 @@
       $("headline-detail").textContent = "The inputs changed. Certify the new rectangle before exporting.";
       $("summary-copy").textContent = "No certificate for the current inputs.";
       $("gap-summary").textContent = "";
+      $("stability-summary").textContent = "";
       $("facts").replaceChildren(); $("routes").replaceChildren();
     });
   }

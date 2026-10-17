@@ -6,7 +6,7 @@ from pathlib import Path
 import random
 import unittest
 
-from odd_target_box import certificate, gap_certificate, winner
+from odd_target_box import certificate, gap_certificate, stability_certificate, winner
 from verify_odd_target_box import verify
 
 
@@ -109,6 +109,37 @@ class TargetBoxTests(unittest.TestCase):
                         d = (mean - target) ** 2 - (median - target) ** 2
                         self.assertLessEqual(lower, d)
                         self.assertLessEqual(d, upper)
+
+    def test_exact_first_failure_and_strict_interior(self):
+        record = stability_certificate(["48", "49", "50", "51", "85"], "0", "100", "48", "52")
+        self.assertEqual(record, json.loads(Path("examples/target-box-stability-v4.json").read_text()))
+        self.assertEqual(verify(record)["stability"]["nearestFailure"],
+                         {"distance": "8", "index": 2, "side": "left", "reading": "42", "target": "52"})
+        # Independent finite spot checks test the meaningful strict interior;
+        # the root-completeness argument supplies the continuous guarantee.
+        values = list(map(Fraction, [48, 49, 50, 51, 85]))
+        for index in range(len(values)):
+            fixed = values[:index] + values[index + 1:]
+            for step in range(-15, 16):
+                moved = values[index] + Fraction(step, 2)
+                for target in (Fraction(48), Fraction(49), Fraction(52)):
+                    self.assertEqual(winner(fixed, moved, target), "Median")
+        fixed = values[:2] + values[3:]
+        self.assertEqual(winner(fixed, Fraction(42), Fraction(52)), "Tie")
+        protected = stability_certificate(["8", "6", "8", "7", "0", "8"],
+                                          "0", "10", "30", "40")
+        self.assertIsNone(verify(protected)["stability"]["nearestFailure"])
+        initial_tie = stability_certificate(["40", "45", "50", "80"],
+                                            "0", "100", "48", "52")
+        self.assertEqual(verify(initial_tie)["stability"]["nearestFailure"]["distance"], "0")
+        for edit in (lambda c: c["claim"]["routes"][2]["stability"]["left"].update(limit="41"),
+                     lambda c: c["claim"]["routes"][2]["stability"]["left"].update(included=True),
+                     lambda c: c["claim"]["routes"][2]["stability"]["left"]["witness"].update(target="48"),
+                     lambda c: c["claim"]["stability"]["nearestFailure"].update(distance="7")):
+            forged = copy.deepcopy(record)
+            edit(forged)
+            with self.assertRaises(ValueError):
+                verify(forged)
 
     def test_rejected_inputs_and_noncanonical_values(self):
         with self.assertRaises(ValueError):

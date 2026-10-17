@@ -10,6 +10,7 @@ from odd_sample_flip import exact
 FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
+STABILITY_FORMAT = "inward-target-box-stability-v4"
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -156,6 +157,54 @@ def gap_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_
     return record
 
 
+def stability_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high):
+    record = certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high)
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    low = Fraction(record["inputs"]["movement"]["low"])
+    high = Fraction(record["inputs"]["movement"]["high"])
+    target_low = Fraction(record["inputs"]["target"]["low"])
+    target_high = Fraction(record["inputs"]["target"]["high"])
+    failures = []
+    baseline = None
+    for route in record["claim"]["routes"]:
+        index = route["index"]
+        start = readings[index]
+        fixed = readings[:index] + readings[index + 1:]
+        outcomes = (winner(fixed, start, target_low), winner(fixed, start, target_high))
+        current = outcomes[0] if outcomes[0] == outcomes[1] and outcomes[0] != "Tie" else None
+        if index == 0:
+            baseline = current
+        stability = {"baseline": current}
+        knots = list(map(Fraction, route["knots"]))
+        for side, edge in (("left", low), ("right", high)):
+            candidates = ([start] + sorted((x for x in knots if x < start), reverse=True)
+                          if side == "left" else [start] + sorted(x for x in knots if x > start))
+            failure = next((x for x in candidates if current is None or
+                            winner(fixed, x, target_low) != current or
+                            winner(fixed, x, target_high) != current), None)
+            if failure is None:
+                stability[side] = {"limit": str(edge), "included": True, "witness": None}
+                continue
+            values = sorted([*fixed, failure])
+            mean = sum(values) / len(values)
+            median = (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2
+            target = target_low if mean == median else (mean + median) / 2
+            stability[side] = {"limit": str(failure), "included": False,
+                               "witness": {"reading": str(failure), "target": str(target)}}
+            failures.append((abs(failure - start), index, 0 if side == "left" else 1,
+                             side, failure, target))
+        route["stability"] = stability
+    if failures:
+        distance, index, _, side, moved, target = min(failures)
+        nearest = {"distance": str(distance), "index": index, "side": side,
+                   "reading": str(moved), "target": str(target)}
+    else:
+        nearest = None
+    record["claim"]["stability"] = {"baseline": baseline, "nearestFailure": nearest}
+    record["format"] = STABILITY_FORMAT
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--readings", required=True, help="comma-separated rational readings")
@@ -166,9 +215,14 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--gap-envelope", action="store_true",
                         help="include exact global and per-route squared-error gap extrema (v3)")
+    parser.add_argument("--stability-radius", action="store_true",
+                        help="include exact first-failure thresholds from each original reading (v4)")
     args = parser.parse_args()
     try:
-        constructor = gap_certificate if args.gap_envelope else certificate
+        if args.gap_envelope and args.stability_radius:
+            raise ValueError("Choose one certificate mode at a time")
+        constructor = (stability_certificate if args.stability_radius else
+                       gap_certificate if args.gap_envelope else certificate)
         result = constructor([part.strip() for part in args.readings.split(",")],
                              args.low, args.high, args.target_low, args.target_high)
         output = json.dumps(result, indent=2, ensure_ascii=False) + "\n"

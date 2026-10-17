@@ -15,6 +15,7 @@
   const FORMATS = {"inward-odd-target-box-v1": "target-box",
     "inward-even-target-box-v2": "target-box",
     "inward-target-box-gap-v3": "target-box",
+    "inward-target-box-stability-v4": "target-box",
     "inward-conditional-claim-v1": "conditional-claim",
     "inward-conditional-claim-v2": "conditional-claim",
     "inward-conditional-claim-v3": "conditional-claim",

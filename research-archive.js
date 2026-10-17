@@ -49,7 +49,13 @@
     const searchable = [label, digest, ...record.inputs.readings,
       record.inputs.movement.low, record.inputs.movement.high,
       record.inputs.target.low, record.inputs.target.high, ...result.reachable,
-      ...witnessValues].join(" ").toLocaleLowerCase();
+      ...witnessValues, result.stability?.baseline,
+      result.stability?.nearestFailure?.distance,
+      result.stability?.nearestFailure?.reading,
+      result.stability?.nearestFailure?.target,
+      ...record.claim.routes.flatMap(route => route.stability ?
+        [route.stability.left.limit, route.stability.right.limit] : [])]
+      .join(" ").toLocaleLowerCase();
     const qualifies = filter === "all" || filter === "target-box" || filter === "strict" &&
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
     return qualifies && (!term || searchable.includes(term));
@@ -127,6 +133,12 @@
       } else {
         body.append(node("p", `${record.inputs.readings.length} readings · ${record.inputs.readings.length % 2 ? "middle-reading" : "central-pair average"} median · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
         if (result.gap) body.append(node("p", `Exact attained squared-error gap D spans [${result.gap.min.value}, ${result.gap.max.value}] across all one-reading routes. Minimum at reading ${result.gap.min.index + 1}, x=${result.gap.min.reading}, t=${result.gap.min.target}; maximum at reading ${result.gap.max.index + 1}, x=${result.gap.max.reading}, t=${result.gap.max.target}. Negative favors Mean; positive favors Median.`));
+        if (result.stability) {
+          const point = result.stability.nearestFailure;
+          body.append(node("p", point ?
+            `Starting verdict across the target interval: ${result.stability.baseline || "no strict winner"}. First tie after movement ${point.distance} on reading ${point.index + 1} (${point.side}), at x=${point.reading}, t=${point.target}. The tie boundary is excluded from the strict safe region.` :
+            `Starting verdict: ${result.stability.baseline}. Every permitted one-reading movement remains strictly ${result.stability.baseline} across the target interval.`));
+        }
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;
@@ -136,7 +148,10 @@
           const witnesses = route.reachable.map(name =>
             `${name} at x=${route.witnesses[name].reading}, t=${route.witnesses[name].target}`).join("; ");
           routes.append(node("li",
-            `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.`));
+            `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.` +
+            (route.stability ? route.stability.baseline ?
+              ` Baseline safe region: ${route.stability.left.limit} (${route.stability.left.included ? "included" : "tie boundary"}) to ${route.stability.right.limit} (${route.stability.right.included ? "included" : "tie boundary"}).` :
+              ` No strict baseline across targets; tie at original reading with target ${route.stability.left.witness.target}.` : "")));
         });
         body.append(routes);
       }
