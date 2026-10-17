@@ -820,6 +820,55 @@ theorem two_cell_error_tie
       exact hright
     · exact hhi
 
+/-- A finite chain of adjoining midpoint cells. A leaf supplies its own
+interval coverage; `append` glues any two chains at a shared reading.
+This structure is independent of how a concrete receipt enumerates cells. -/
+inductive MidpointPath (h : ℝ → ℝ) : ℝ → ℝ → Prop where
+  | cell (p q : ℝ) (ordered : p ≤ q) (rising : h p ≤ h q)
+      (covers : ∀ target, h p ≤ target → target ≤ h q →
+        ∃ x, p ≤ x ∧ x ≤ q ∧ h x = target) : MidpointPath h p q
+  | append {p q r : ℝ} (left : MidpointPath h p q)
+      (right : MidpointPath h q r) : MidpointPath h p r
+
+/-- Any finite chain of adjoining cells covers all midpoint targets between
+its outer endpoints. This closes the no-gap step for any number of cells. -/
+theorem midpoint_path_covers {h : ℝ → ℝ} {p q : ℝ}
+    (path : MidpointPath h p q) :
+    p ≤ q ∧ h p ≤ h q ∧
+      ∀ target, h p ≤ target → target ≤ h q →
+        ∃ x, p ≤ x ∧ x ≤ q ∧ h x = target := by
+  induction path with
+  | cell p q ordered rising covers =>
+      exact ⟨ordered, rising, covers⟩
+  | @append p q r left right ihleft ihright =>
+      obtain ⟨hpq, hphq, hleft⟩ := ihleft
+      obtain ⟨hqr, hqhr, hright⟩ := ihright
+      refine ⟨le_trans hpq hqr, le_trans hphq hqhr, ?_⟩
+      intro target hpt htr
+      rcases le_total target (h q) with htq | hqt
+      · obtain ⟨x, hpx, hxq, hx⟩ := hleft target hpt htq
+        exact ⟨x, hpx, le_trans hxq hqr, hx⟩
+      · obtain ⟨x, hqx, hxr, hx⟩ := hright target hqt htr
+        exact ⟨x, le_trans hpq hqx, hxr, hx⟩
+
+/-- A cell with positive mean slope and nonnegative median slope supplies
+a leaf of the path, provided the actual route midpoint agrees with its
+affine formula throughout that cell. -/
+theorem affine_cell_path (h : ℝ → ℝ) (a b c d p q : ℝ)
+    (ha : 0 < a) (hc : 0 ≤ c) (hpq : p < q)
+    (hagrees : ∀ x, p ≤ x → x ≤ q →
+      h x = midpointTarget a b c d x) : MidpointPath h p q := by
+  apply MidpointPath.cell p q (le_of_lt hpq)
+  · rw [hagrees p (le_refl p) (le_of_lt hpq),
+      hagrees q (le_of_lt hpq) (le_refl q)]
+    exact le_of_lt (midpoint_target_strict a b c d p q ha hc hpq)
+  · intro target hpt htq
+    rw [hagrees p (le_refl p) (le_of_lt hpq)] at hpt
+    rw [hagrees q (le_of_lt hpq) (le_refl q)] at htq
+    obtain ⟨x, hpx, hxq, hx⟩ :=
+      midpoint_target_interpolation a b c d p q target ha hc hpq hpt htq
+    exact ⟨x, hpx, hxq, (hagrees x hpx hxq).trans hx⟩
+
 /-- The common original sample joins the midpoint ranges of different
 reading routes. If the reported lower and upper endpoints are attained by
 routes at the movement limits, and each route interpolates all targets
@@ -857,6 +906,41 @@ theorem common_anchor_horizon_tie (Route : Type*)
     obtain ⟨x, horiginalx, hxhigh, hx⟩ :=
       hinterpolate r original high t hlow hhigh (le_refl high)
         (by rw [hanchor r]; exact hright)
+        (by rw [hr]; exact htu)
+    refine ⟨r, x, le_trans hlow horiginalx, hxhigh, ?_⟩
+    apply midpoint_tie (mean r x) (median r x) t
+    linarith
+
+/-- With finite affine-cell paths on each side of the shared original
+reading, global horizon coverage follows without assuming route-level
+interpolation separately. `affine_cell_path` and `MidpointPath.append`
+can construct the two paths from every verified cell on a route. -/
+theorem cell_paths_horizon_tie (Route : Type*)
+    (mean median : Route → ℝ → ℝ)
+    (low original high lower upper anchor t : ℝ)
+    (hlow : low ≤ original) (hhigh : original ≤ high)
+    (hmin : ∃ r, (mean r low + median r low) / 2 = lower)
+    (hmax : ∃ r, (mean r high + median r high) / 2 = upper)
+    (hanchor : ∀ r, (mean r original + median r original) / 2 = anchor)
+    (hpaths : ∀ r,
+      MidpointPath (fun x => (mean r x + median r x) / 2) low original ∧
+      MidpointPath (fun x => (mean r x + median r x) / 2) original high)
+    (hlt : lower ≤ t) (htu : t ≤ upper) :
+    ∃ r x, low ≤ x ∧ x ≤ high ∧
+      |mean r x - t| = |median r x - t| := by
+  rcases le_total t anchor with hleft | hright
+  · obtain ⟨r, hr⟩ := hmin
+    obtain ⟨_, _, hcover⟩ := midpoint_path_covers (hpaths r).1
+    obtain ⟨x, hlowx, hxoriginal, hx⟩ :=
+      hcover t (by rw [hr]; exact hlt)
+        (by rw [hanchor r]; exact hleft)
+    refine ⟨r, x, hlowx, le_trans hxoriginal hhigh, ?_⟩
+    apply midpoint_tie (mean r x) (median r x) t
+    linarith
+  · obtain ⟨r, hr⟩ := hmax
+    obtain ⟨_, _, hcover⟩ := midpoint_path_covers (hpaths r).2
+    obtain ⟨x, horiginalx, hxhigh, hx⟩ :=
+      hcover t (by rw [hanchor r]; exact hright)
         (by rw [hr]; exact htu)
     refine ⟨r, x, le_trans hlow horiginalx, hxhigh, ?_⟩
     apply midpoint_tie (mean r x) (median r x) t
