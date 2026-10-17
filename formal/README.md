@@ -111,7 +111,15 @@ on a cell where both estimates are affine in the moved reading. A positive
 mean slope and nonnegative median slope make the midpoint target strictly
 increasing. Its interpolation theorem constructs an in-cell reading for
 **every real target** between the endpoint midpoints and proves the two
-absolute errors tie there. A separate theorem gives strict winners outside
+absolute errors tie there. `two_cell_error_tie` joins adjacent affine cells
+at a common midpoint knot, including a target exactly at that knot.
+`common_anchor_horizon_tie` proves the global no-gap argument: all routes
+share the original sample midpoint, so a target below that anchor can be
+reached along the route attaining the lower endpoint, while a target above
+it can be reached along the route attaining the upper endpoint. These can
+be different routes. Every target between the reported endpoints has an
+exact equal-error witness provided each route interpolates between its
+endpoint midpoints. A separate theorem gives strict winners outside
 supplied global midpoint bounds for an arbitrary collection of routes whose
 estimates have the same strict ordering. Equality of the estimates on even
 one route blocks either universal strict winner for every target. The module
@@ -119,12 +127,15 @@ also checks the mean, median, and target-6 tie for the six-reading v6 example,
 both exhibited endpoint midpoint values `17/3` and `95/12`, and the
 five-reading all-target equality example.
 
-These proofs take the affine cell, endpoint bounds, and route ordering as
-hypotheses. They do not prove that a JSON record enumerates every median
-cell, that its endpoint values are global extrema, or that a supplied list
-was obtained by moving one input reading and sorting it. The independently
-implemented browser and Python receipt verifiers check those concrete
-claims. No v6 JSON file is parsed or checked by Lean.
+These proofs take the affine cell, cell agreement at a shared knot, route
+interpolation, endpoint attainment, common anchor, global bounds, and route
+ordering as hypotheses where used. In particular, the global theorem does
+not derive route interpolation from a concrete receipt's cell list. They do
+not prove that a JSON record enumerates every median cell, that its endpoint
+values are global extrema, or that a supplied list was obtained by moving
+one input reading and sorting it. The independently implemented browser and
+Python receipt verifiers check those concrete claims. No v6 JSON file is
+parsed or checked by Lean.
 
 `InwardFormal.AffineEquivariance` proves that changing units by
 `v ↦ scale * v + shift` multiplies the squared-error difference and its

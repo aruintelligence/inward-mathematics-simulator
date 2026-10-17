@@ -794,6 +794,74 @@ theorem interpolated_error_tie (a b c d p q t : ℝ)
   dsimp [midpointTarget]
   ring
 
+/-- Two adjacent affine cells cover every target between their outer
+midpoints, even when the target lies exactly at the shared knot. The
+agreement hypothesis states that the two cell formulas describe the same
+midpoint at the knot. -/
+theorem two_cell_error_tie
+    (a₁ b₁ c₁ d₁ a₂ b₂ c₂ d₂ low knot high t : ℝ)
+    (ha₁ : 0 < a₁) (hc₁ : 0 ≤ c₁) (ha₂ : 0 < a₂) (hc₂ : 0 ≤ c₂)
+    (hlk : low < knot) (hkh : knot < high)
+    (hjoin : midpointTarget a₁ b₁ c₁ d₁ knot =
+      midpointTarget a₂ b₂ c₂ d₂ knot)
+    (hlo : midpointTarget a₁ b₁ c₁ d₁ low ≤ t)
+    (hhi : t ≤ midpointTarget a₂ b₂ c₂ d₂ high) :
+    (∃ x, low ≤ x ∧ x ≤ knot ∧
+      |affineMean a₁ b₁ x - t| = |affineMedian c₁ d₁ x - t|) ∨
+    (∃ x, knot ≤ x ∧ x ≤ high ∧
+      |affineMean a₂ b₂ x - t| = |affineMedian c₂ d₂ x - t|) := by
+  rcases le_total t (midpointTarget a₁ b₁ c₁ d₁ knot) with hleft | hright
+  · left
+    exact interpolated_error_tie a₁ b₁ c₁ d₁ low knot t
+      ha₁ hc₁ hlk hlo hleft
+  · right
+    apply interpolated_error_tie a₂ b₂ c₂ d₂ knot high t ha₂ hc₂ hkh
+    · rw [← hjoin]
+      exact hright
+    · exact hhi
+
+/-- The common original sample joins the midpoint ranges of different
+reading routes. If the reported lower and upper endpoints are attained by
+routes at the movement limits, and each route interpolates all targets
+between its own endpoint midpoints, then *every* target in the global
+horizon has an exact equal-error witness. The endpoint routes can differ.
+
+Route interpolation is an explicit hypothesis: the verifier must enumerate
+and glue every affine median cell for the concrete input. This theorem does
+not infer that hypothesis or the global extrema from a JSON receipt. -/
+theorem common_anchor_horizon_tie (Route : Type*)
+    (mean median : Route → ℝ → ℝ)
+    (low original high lower upper anchor t : ℝ)
+    (hlow : low ≤ original) (hhigh : original ≤ high)
+    (hmin : ∃ r, (mean r low + median r low) / 2 = lower)
+    (hmax : ∃ r, (mean r high + median r high) / 2 = upper)
+    (hanchor : ∀ r, (mean r original + median r original) / 2 = anchor)
+    (hinterpolate : ∀ r p q target, low ≤ p → p ≤ q → q ≤ high →
+      (mean r p + median r p) / 2 ≤ target →
+      target ≤ (mean r q + median r q) / 2 →
+      ∃ x, p ≤ x ∧ x ≤ q ∧
+        (mean r x + median r x) / 2 = target)
+    (hlt : lower ≤ t) (htu : t ≤ upper) :
+    ∃ r x, low ≤ x ∧ x ≤ high ∧
+      |mean r x - t| = |median r x - t| := by
+  rcases le_total t anchor with hleft | hright
+  · obtain ⟨r, hr⟩ := hmin
+    obtain ⟨x, hlowx, hxoriginal, hx⟩ :=
+      hinterpolate r low original t (le_refl low) hlow hhigh
+        (by rw [hr]; exact hlt)
+        (by rw [hanchor r]; exact hleft)
+    refine ⟨r, x, hlowx, le_trans hxoriginal hhigh, ?_⟩
+    apply midpoint_tie (mean r x) (median r x) t
+    linarith
+  · obtain ⟨r, hr⟩ := hmax
+    obtain ⟨x, horiginalx, hxhigh, hx⟩ :=
+      hinterpolate r original high t hlow hhigh (le_refl high)
+        (by rw [hanchor r]; exact hright)
+        (by rw [hr]; exact htu)
+    refine ⟨r, x, le_trans hlow horiginalx, hxhigh, ?_⟩
+    apply midpoint_tie (mean r x) (median r x) t
+    linarith
+
 /-- Strictly below the midpoint target, the lower estimate strictly wins. -/
 theorem lower_strict_below_midpoint (m d t : ℝ)
     (hmd : m < d) (ht : 2 * t < m + d) : |m - t| < |d - t| := by
