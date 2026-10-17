@@ -8,6 +8,7 @@
   const FORMAT = "inward-odd-target-box-v1";
   const EVEN_FORMAT = "inward-even-target-box-v2";
   const GAP_FORMAT = "inward-target-box-gap-v3";
+  const STABILITY_FORMAT = "inward-target-box-stability-v4";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -193,6 +194,58 @@
     record.format = GAP_FORMAT;
     return record;
   }
+  function stabilityCertificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh) {
+    const record = certificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh);
+    const fromString = value => {
+      const [n, d = "1"] = value.split("/");
+      return q(BigInt(n), BigInt(d));
+    };
+    const readings = record.inputs.readings.map(fromString);
+    const low = fromString(record.inputs.movement.low);
+    const high = fromString(record.inputs.movement.high);
+    const targetLow = fromString(record.inputs.target.low);
+    const targetHigh = fromString(record.inputs.target.high);
+    const failures = [];
+    let baseline = null;
+    for (const route of record.claim.routes) {
+      const start = readings[route.index];
+      const fixed = readings.filter((_, index) => index !== route.index);
+      const leftOutcome = winner(fixed, start, targetLow);
+      const rightOutcome = winner(fixed, start, targetHigh);
+      const current = leftOutcome === rightOutcome && leftOutcome !== "Tie" ? leftOutcome : null;
+      if (route.index === 0) baseline = current;
+      const tieTarget = moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return cmp(mean, median) === 0 ? targetLow : div(add(mean, median), TWO);
+      };
+      const knots = route.knots.map(fromString);
+      const sides = {};
+      for (const [side, edge] of [["left", low], ["right", high]]) {
+        const candidates = [start, ...knots.filter(x => side === "left" ?
+          cmp(x, start) < 0 : cmp(x, start) > 0)].sort((a, b) =>
+          side === "left" ? -cmp(a, b) : cmp(a, b));
+        const failure = candidates.find(x => !current ||
+          winner(fixed, x, targetLow) !== current || winner(fixed, x, targetHigh) !== current);
+        if (failure) {
+          const target = tieTarget(failure);
+          sides[side] = {limit: string(failure), included: false,
+            witness: {reading: string(failure), target: string(target)}};
+          failures.push({distance: sub(side === "left" ? start : failure,
+            side === "left" ? failure : start), index: route.index, side,
+          reading: failure, target});
+        } else sides[side] = {limit: string(edge), included: true, witness: null};
+      }
+      route.stability = {baseline: current, ...sides};
+    }
+    failures.sort((a, b) => cmp(a.distance, b.distance) || a.index - b.index ||
+      (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
+    const nearest = failures[0];
+    record.claim.stability = {baseline, nearestFailure: nearest ? {
+      distance: string(nearest.distance), index: nearest.index, side: nearest.side,
+      reading: string(nearest.reading), target: string(nearest.target)} : null};
+    record.format = STABILITY_FORMAT;
+    return record;
+  }
   function position(raw, rawLow, rawHigh) {
     const canonical = value => {
       const [numerator, denominator = "1"] = value.split("/");
@@ -202,5 +255,5 @@
     const ratio = div(sub(x, low), sub(high, low));
     return Number(ratio.n * 1000000000000n / ratio.d) / 1e12;
   }
-  return {certificate, gapCertificate, position};
+  return {certificate, gapCertificate, stabilityCertificate, position};
 });

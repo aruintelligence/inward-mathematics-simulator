@@ -9,8 +9,9 @@ const crypto = require('node:crypto');
 const core = require('../odd-target-box-core.js');
 const verifier = require('../odd-target-box-verifier.js');
 
-function python(values, low, high, targetLow, targetHigh, quantify = false) {
-  const run = spawnSync('python3', ['tools/odd_target_box.py', ...(quantify ? ['--gap-envelope'] : []),
+function python(values, low, high, targetLow, targetHigh, mode = '') {
+  const run = spawnSync('python3', ['tools/odd_target_box.py', ...(mode ? [mode === 'gap' || mode === true ?
+    '--gap-envelope' : '--stability-radius'] : []),
     `--readings=${values.join(',')}`, `--low=${low}`, `--high=${high}`,
     `--target-low=${targetLow}`, `--target-high=${targetHigh}`], {encoding: 'utf8'});
   assert.equal(run.status, 0, run.stderr);
@@ -30,6 +31,49 @@ test('browser and Python construct identical exact records', () => {
     assert.equal(check.status, 0, check.stderr);
     assert.match(check.stdout, /Verified 5 exhaustive routes/);
   } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('v4 first-failure certificate agrees with Python for odd, even, and boundary cases', () => {
+  const caseValues = ['48', '49', '50', '51', '85'];
+  const record = core.stabilityCertificate(caseValues, '0', '100', '48', '52');
+  assert.deepEqual(record, JSON.parse(readFileSync('examples/target-box-stability-v4.json')));
+  assert.deepEqual(record, python(caseValues, '0', '100', '48', '52', 'stability'));
+  assert.deepEqual(record.claim.stability, {baseline: 'Median', nearestFailure:
+    {distance: '8', index: 2, side: 'left', reading: '42', target: '52'}});
+  assert.deepEqual(record.claim.routes[2].stability.right,
+    {limit: '100', included: true, witness: null});
+  assert.equal(core.stabilityCertificate(caseValues, '0', '100', '49', '51')
+    .claim.stability.nearestFailure.distance, '18');
+  assert.equal(core.stabilityCertificate(caseValues, '0', '100', '50', '50')
+    .claim.stability.nearestFailure.distance, '28');
+  assert.equal(verifier.verify(record).stability.nearestFailure.distance, '8');
+  const protectedCase = core.stabilityCertificate(['8', '6', '8', '7', '0', '8'],
+    '0', '10', '30', '40');
+  assert.deepEqual(protectedCase,
+    python(['8', '6', '8', '7', '0', '8'], '0', '10', '30', '40', 'stability'));
+  assert.equal(protectedCase.claim.stability.baseline, 'Median');
+  assert.equal(protectedCase.claim.stability.nearestFailure, null);
+  assert.equal(verifier.verify(protectedCase).routes, 6);
+  const startingTie = core.stabilityCertificate(['40', '45', '50', '80'],
+    '0', '100', '48', '52');
+  assert.deepEqual(startingTie,
+    python(['40', '45', '50', '80'], '0', '100', '48', '52', 'stability'));
+  assert.equal(startingTie.claim.stability.nearestFailure.distance, '0');
+  assert.equal(startingTie.claim.stability.nearestFailure.target, '405/8');
+  assert.equal(verifier.verify(startingTie).routes, 4);
+  let seed = 0x4e7379a2;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (let i = 0; i < 24; i++) {
+    const n = 3 + i % 19;
+    const values = Array.from({length: n}, (_, j) => j % 3 === 0 ?
+      `${2 * (next() % 41) - 39}/2` : String(next() % 41 - 20));
+    const [a, b] = [next() % 41 - 20, next() % 41 - 20].sort((x, y) => x - y);
+    const high = i % 5 === 0 ? a : b;
+    const actual = core.stabilityCertificate(values, '-25', '25', String(a), String(high));
+    assert.deepEqual(actual, python(values, '-25', '25', String(a), String(high), 'stability'),
+      `case ${i}`);
+    assert.equal(verifier.verify(actual).routes, n);
+  }
 });
 
 test('v3 exact gap envelope agrees with Python and includes interior quadratic vertices', () => {
@@ -136,7 +180,8 @@ test('workbench renders every route and clears stale results on an invalid edit'
   }
   const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
     'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
-    'summary-copy', 'gap-summary', 'facts', 'routes', 'download', 'print', 'quantify', 'locked-example',
+    'summary-copy', 'gap-summary', 'stability-summary', 'facts', 'routes', 'download', 'print', 'quantify',
+    'first-failure', 'locked-example',
     'signed-example', 'even-example', 'results'].map(id => [id, element(id)]));
   Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
   Object.assign(fields['move-low'], {value: '0'});
@@ -157,11 +202,15 @@ test('workbench renders every route and clears stale results on an invalid edit'
   fields.quantify.handlers.click();
   assert.match(fields['gap-summary'].textContent, /spans \[/);
   assert.match(fields.routes.children[0].children.at(-1).textContent, /Exact D range/);
+  fields['first-failure'].handlers.click();
+  assert.match(fields['stability-summary'].textContent, /movement of 8/);
+  assert.match(fields.routes.children[2].children.at(-1).textContent, /safe region/);
   fields.readings.value = '41, 45, 50, 80';
   fields.readings.handlers.input();
   assert.equal(fields.download.disabled, true);
   assert.equal(fields.routes.children.length, 0);
   assert.equal(fields['gap-summary'].textContent, '');
+  assert.equal(fields['stability-summary'].textContent, '');
   fields['even-example'].handlers.click();
   assert.equal(fields.routes.children.length, 4);
   assert.equal(fields.download.disabled, false);

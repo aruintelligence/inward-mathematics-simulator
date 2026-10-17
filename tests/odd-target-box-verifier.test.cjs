@@ -105,6 +105,33 @@ test('v3 exact gap extrema and their attaining witnesses are independently check
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
+test('v4 exact first-failure thresholds reject forged distances, inclusions, and witnesses', () => {
+  const record = core.stabilityCertificate(['48', '49', '50', '51', '85'], '0', '100', '48', '52');
+  const dir = mkdtempSync(join(tmpdir(), 'target-box-stability-verify-'));
+  try {
+    assert.equal(checkPython(record, dir).status, 0);
+    assert.equal(verifier.verify(record).stability.nearestFailure.distance, '8');
+    const edits = [
+      x => { x.claim.routes[2].stability.left.limit = '41'; },
+      x => { x.claim.routes[2].stability.left.included = true; },
+      x => { x.claim.routes[2].stability.left.witness.target = '48'; },
+      x => { x.claim.routes[2].stability.left.witness.reading = '43'; },
+      x => { x.claim.routes[2].stability.right.limit = '95'; },
+      x => { x.claim.routes[2].stability.baseline = 'Mean'; },
+      x => { x.claim.stability.nearestFailure.distance = '7'; },
+      x => { x.claim.stability.nearestFailure.index = 1; },
+      x => { x.claim.stability.nearestFailure.side = 'right'; },
+      x => { x.claim.stability.nearestFailure.target = '48'; },
+      x => { x.format = 'inward-odd-target-box-v1'; }
+    ];
+    for (const edit of edits) {
+      const changed = clone(record); edit(changed);
+      assert.throws(() => verifier.verify(changed));
+      assert.notEqual(checkPython(changed, dir).status, 0);
+    }
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -193,6 +220,11 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   assert.equal(elements.report.hidden, false);
   assert.match(elements['report-intro'].textContent, /\[-1435\/16, 3885\/16\]/);
   assert.match(elements.routes.children[0].children[3].textContent, /Exact D range/);
+  elements['receipt-json'].value = readFileSync('examples/target-box-stability-v4.json', 'utf8');
+  elements['receipt-json'].handlers.input();
+  await elements['verify-button'].handlers.click();
+  assert.match(elements['report-intro'].textContent, /movement of 8/);
+  assert.match(elements.routes.children[2].children[3].textContent, /Left threshold/);
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);

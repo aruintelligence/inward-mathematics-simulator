@@ -10,6 +10,7 @@ import sys
 FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
+STABILITY_FORMAT = "inward-target-box-stability-v4"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
@@ -131,9 +132,41 @@ def check_gap(gap, expected, fixed, low, high, target_low, target_high, label):
             raise ValueError(f"Incorrect {label} {extreme} or unattained witness")
 
 
+def check_stability(stability, fixed, start, roots, low, high, target_low, target_high, index):
+    fields(stability, {"baseline", "left", "right"}, "route stability")
+    endpoints = (outcome(fixed, start, target_low), outcome(fixed, start, target_high))
+    baseline = endpoints[0] if endpoints[0] == endpoints[1] and endpoints[0] != "Tie" else None
+    if stability["baseline"] != baseline:
+        raise ValueError(f"Incorrect baseline on route {index + 1}")
+    failures = []
+    for side, edge in (("left", low), ("right", high)):
+        detail = stability[side]
+        fields(detail, {"limit", "included", "witness"}, "stability boundary")
+        candidates = ([start] + sorted((x for x in roots if x < start), reverse=True)
+                      if side == "left" else [start] + sorted(x for x in roots if x > start))
+        first = next((x for x in candidates if baseline is None or
+                      outcome(fixed, x, target_low) != baseline or
+                      outcome(fixed, x, target_high) != baseline), None)
+        limit = rational(detail["limit"], "stability limit", low, high)
+        if first is None:
+            if limit != edge or detail["included"] is not True or detail["witness"] is not None:
+                raise ValueError(f"Incorrect safe {side} boundary on route {index + 1}")
+            continue
+        if limit != first or detail["included"] is not False:
+            raise ValueError(f"Incorrect first {side} failure on route {index + 1}")
+        witness = detail["witness"]
+        fields(witness, {"reading", "target"}, "failure witness")
+        moved = rational(witness["reading"], "failure reading", low, high)
+        target = rational(witness["target"], "failure target", target_low, target_high)
+        if moved != first or outcome(fixed, moved, target) != "Tie":
+            raise ValueError(f"False {side} tie witness on route {index + 1}")
+        failures.append((abs(first - start), index, 0 if side == "left" else 1, side, first))
+    return baseline, failures
+
+
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT):
+    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
     fields(inputs, {"readings", "movement", "target"}, "inputs")
@@ -147,21 +180,25 @@ def verify(record):
         raise ValueError("Invalid interval order")
     raw = inputs["readings"]
     if type(raw) is not list or not 3 <= len(raw) <= 21 or \
-            record["format"] != GAP_FORMAT and (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
+            record["format"] not in (GAP_FORMAT, STABILITY_FORMAT) and \
+            (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
         raise ValueError("Reading count must match certificate format, between 3 and 21")
     readings = [rational(value, "reading", low, high) for value in raw]
     claim = record["claim"]
     quantified = record["format"] == GAP_FORMAT
-    fields(claim, {"routes", "reachable", "guarantee", "gap"} if quantified else
-           {"routes", "reachable", "guarantee"}, "claim")
+    stable = record["format"] == STABILITY_FORMAT
+    fields(claim, {"routes", "reachable", "guarantee"} |
+           ({"gap"} if quantified else {"stability"} if stable else set()), "claim")
     routes = claim["routes"]
     if type(routes) is not list or len(routes) != len(readings):
         raise ValueError("Missing one-reading routes")
     overall = set()
     route_extrema = []
+    failures = []
+    baseline = None
     for index, route in enumerate(routes):
-        fields(route, {"index", "knots", "reachable", "guarantee", "witnesses", "gap"} if quantified else
-               {"index", "knots", "reachable", "guarantee", "witnesses"}, "route")
+        fields(route, {"index", "knots", "reachable", "guarantee", "witnesses"} |
+               ({"gap"} if quantified else {"stability"} if stable else set()), "route")
         if type(route["index"]) is not int or route["index"] != index:
             raise ValueError("Incorrect route index")
         fixed = readings[:index] + readings[index + 1:]
@@ -193,6 +230,14 @@ def verify(record):
                     route["guarantee"] == "Median" and expected_gap["min"] <= 0:
                 raise ValueError(f"Gap contradicts route {index + 1} guarantee")
             route_extrema.append(expected_gap)
+        if stable:
+            checked, route_failures = check_stability(route["stability"], fixed, readings[index],
+                                                      expected, low, high, target_low, target_high, index)
+            if index == 0:
+                baseline = checked
+            elif checked != baseline:
+                raise ValueError("Baseline differs across routes")
+            failures.extend(route_failures)
         overall.update(reachable)
     expected = [name for name in ORDER if name in overall]
     guarantee = expected[0] if len(expected) == 1 and expected[0] != "Tie" else None
@@ -214,9 +259,32 @@ def verify(record):
             fixed = readings[:index] + readings[index + 1:]
             if value != expected_value or gap_at(fixed, moved, target) != value:
                 raise ValueError(f"Incorrect global {extreme} or unattained witness")
+    if stable:
+        summary = claim["stability"]
+        fields(summary, {"baseline", "nearestFailure"}, "global stability")
+        if summary["baseline"] != baseline:
+            raise ValueError("Incorrect global baseline")
+        nearest = min(failures) if failures else None
+        reported = summary["nearestFailure"]
+        if nearest is None:
+            if reported is not None:
+                raise ValueError("False global failure")
+        else:
+            fields(reported, {"distance", "index", "side", "reading", "target"}, "nearest failure")
+            distance = rational(reported["distance"], "failure distance", Fraction(0))
+            moved = rational(reported["reading"], "failure reading", low, high)
+            target = rational(reported["target"], "failure target", target_low, target_high)
+            _, index, _, side, reading = nearest
+            fixed = readings[:index] + readings[index + 1:]
+            if distance != nearest[0] or type(reported["index"]) is not int or \
+                    reported["index"] != index or reported["side"] != side or \
+                    moved != reading or outcome(fixed, moved, target) != "Tie":
+                raise ValueError("Incorrect global nearest failure or witness")
     result = {"routes": len(readings), "reachable": expected, "guarantee": guarantee}
     if quantified:
         result["gap"] = claim["gap"]
+    if stable:
+        result["stability"] = claim["stability"]
     return result
 
 
@@ -238,6 +306,13 @@ def main():
             print(f"Exact attained squared-error gap D: [{lower['value']}, {upper['value']}]; "
                   f"min route {lower['index'] + 1} at x={lower['reading']}, t={lower['target']}; "
                   f"max route {upper['index'] + 1} at x={upper['reading']}, t={upper['target']}")
+        if "stability" in result:
+            summary = result["stability"]
+            point = summary["nearestFailure"]
+            print(f"Baseline strict winner: {summary['baseline'] or 'none'}; " +
+                  (f"nearest tie after exact movement {point['distance']} on route {point['index'] + 1} "
+                   f"({point['side']}) at x={point['reading']}, t={point['target']}"
+                   if point else "no failure within the stipulated movement range"))
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

@@ -1,0 +1,280 @@
+{
+  "format": "inward-target-box-stability-v4",
+  "inputs": {
+    "readings": [
+      "48",
+      "49",
+      "50",
+      "51",
+      "85"
+    ],
+    "movement": {
+      "low": "0",
+      "high": "100"
+    },
+    "target": {
+      "low": "48",
+      "high": "52"
+    }
+  },
+  "claim": {
+    "routes": [
+      {
+        "index": 0,
+        "knots": [
+          "0",
+          "15",
+          "35",
+          "50",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "52"
+          },
+          "Tie": {
+            "reading": "0",
+            "target": "97/2"
+          }
+        },
+        "stability": {
+          "baseline": "Median",
+          "left": {
+            "limit": "35",
+            "included": false,
+            "witness": {
+              "reading": "35",
+              "target": "52"
+            }
+          },
+          "right": {
+            "limit": "100",
+            "included": true,
+            "witness": null
+          }
+        }
+      },
+      {
+        "index": 1,
+        "knots": [
+          "0",
+          "16",
+          "36",
+          "50",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "52"
+          },
+          "Tie": {
+            "reading": "0",
+            "target": "242/5"
+          }
+        },
+        "stability": {
+          "baseline": "Median",
+          "left": {
+            "limit": "36",
+            "included": false,
+            "witness": {
+              "reading": "36",
+              "target": "52"
+            }
+          },
+          "right": {
+            "limit": "100",
+            "included": true,
+            "witness": null
+          }
+        }
+      },
+      {
+        "index": 2,
+        "knots": [
+          "0",
+          "2",
+          "12",
+          "42",
+          "49",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "7",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "2",
+            "target": "48"
+          }
+        },
+        "stability": {
+          "baseline": "Median",
+          "left": {
+            "limit": "42",
+            "included": false,
+            "witness": {
+              "reading": "42",
+              "target": "52"
+            }
+          },
+          "right": {
+            "limit": "100",
+            "included": true,
+            "witness": null
+          }
+        }
+      },
+      {
+        "index": 3,
+        "knots": [
+          "0",
+          "3",
+          "13",
+          "43",
+          "49",
+          "50",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "8",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "3",
+            "target": "48"
+          }
+        },
+        "stability": {
+          "baseline": "Median",
+          "left": {
+            "limit": "43",
+            "included": false,
+            "witness": {
+              "reading": "43",
+              "target": "52"
+            }
+          },
+          "right": {
+            "limit": "100",
+            "included": true,
+            "witness": null
+          }
+        }
+      },
+      {
+        "index": 4,
+        "knots": [
+          "0",
+          "37",
+          "47",
+          "49",
+          "99/2",
+          "50",
+          "52",
+          "72",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "42",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "37",
+            "target": "48"
+          }
+        },
+        "stability": {
+          "baseline": "Median",
+          "left": {
+            "limit": "72",
+            "included": false,
+            "witness": {
+              "reading": "72",
+              "target": "52"
+            }
+          },
+          "right": {
+            "limit": "100",
+            "included": true,
+            "witness": null
+          }
+        }
+      }
+    ],
+    "reachable": [
+      "Mean",
+      "Median",
+      "Tie"
+    ],
+    "guarantee": null,
+    "stability": {
+      "baseline": "Median",
+      "nearestFailure": {
+        "distance": "8",
+        "index": 2,
+        "side": "left",
+        "reading": "42",
+        "target": "52"
+      }
+    }
+  }
+}
