@@ -1054,21 +1054,21 @@ verifiers separately check that its knots and route formulas match sorting
 the moved sample. The following Lean proof checks every real target in the
 reported inner interval, not just the receipt's one target-6 probe.
 -/
-def sixLowRouteMean (x : ℝ) : ℝ := (x + 29) / 6
+noncomputable def sixLowRouteMean (x : ℝ) : ℝ := (x + 29) / 6
 
-def sixLowRouteMedian (x : ℝ) : ℝ :=
+noncomputable def sixLowRouteMedian (x : ℝ) : ℝ :=
   if x ≤ 6 then 13 / 2 else if x ≤ 8 then (x + 7) / 2 else 15 / 2
 
-def sixHighRouteMean (x : ℝ) : ℝ := (x + 37) / 6
+noncomputable def sixHighRouteMean (x : ℝ) : ℝ := (x + 37) / 6
 
-def sixHighRouteMedian (x : ℝ) : ℝ :=
+noncomputable def sixHighRouteMedian (x : ℝ) : ℝ :=
   if x ≤ 7 then 15 / 2 else if x ≤ 8 then (x + 8) / 2 else 8
 
 /-- The route mean formulas come directly from replacing the indicated
 reading in the original six-element sample. -/
 theorem six_low_route_mean_from_sample (x : ℝ) :
     sampleMean [x, 6, 8, 7, 0, 8] = sixLowRouteMean x := by
-  norm_num [sampleMean, sixLowRouteMean] <;> ring
+  norm_num [sampleMean, sixLowRouteMean]
 
 theorem six_high_route_mean_from_sample (x : ℝ) :
     sampleMean [8, 6, 8, 7, x, 8] = sixHighRouteMean x := by
