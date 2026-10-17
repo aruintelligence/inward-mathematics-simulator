@@ -14,6 +14,7 @@ STABILITY_FORMAT = "inward-target-box-stability-v4"
 ATLAS_FORMAT = "inward-target-box-atlas-v5"
 HORIZON_FORMAT = "inward-target-horizon-v6"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
+DECIMAL_TARGET = re.compile(r"-?(?:0|[1-9][0-9]{0,256})\.[0-9]{1,6}\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -30,6 +31,20 @@ def rational(raw, label, low=None, high=None):
     if str(value) != raw or low is not None and value < low or high is not None and value > high:
         raise ValueError(f"Noncanonical or out-of-range {label}")
     return value
+
+
+def query_target(raw):
+    if type(raw) is not str:
+        raise ValueError("Enter an exact target as an integer, fraction, or decimal")
+    value = raw.strip()
+    if RATIONAL.fullmatch(value):
+        try:
+            return rational(value, "query target")
+        except ZeroDivisionError as error:
+            raise ValueError("Query target has a zero denominator") from error
+    if DECIMAL_TARGET.fullmatch(value):
+        return Fraction(value)
+    raise ValueError("Enter an exact target as an integer, reduced fraction, or decimal with up to six places")
 
 
 def no_duplicates(pairs):
@@ -415,10 +430,58 @@ def verify(record):
     return result
 
 
+def query_target_horizon(record, raw_target):
+    """Recheck a v6 receipt, then solve a fresh exact target without its constructor."""
+    if type(record) is not dict or record.get("format") != HORIZON_FORMAT:
+        raise ValueError("A verified target-horizon certificate is required")
+    horizon = verify(record)["targetHorizon"]
+    target = query_target(raw_target)
+
+    def answer(verdict, witness=None):
+        return {"target": str(target), "verdict": verdict, "witness": witness}
+
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    if horizon["allTargetTie"] is not None:
+        witness = horizon["allTargetTie"]
+        index, moved = witness["index"], Fraction(witness["reading"])
+        fixed = readings[:index] + readings[index + 1:]
+        if outcome(fixed, moved, target) != "Tie":
+            raise ArithmeticError("All-target tie contradicted by exact errors")
+        return answer("Tie", {"index": index, "reading": str(moved)})
+    if target < Fraction(horizon["low"]):
+        return answer(horizon["below"])
+    if target > Fraction(horizon["high"]):
+        return answer(horizon["above"])
+
+    low = Fraction(record["inputs"]["movement"]["low"])
+    high = Fraction(record["inputs"]["movement"]["high"])
+    target_low = Fraction(record["inputs"]["target"]["low"])
+    target_high = Fraction(record["inputs"]["target"]["high"])
+    for route in record["claim"]["routes"]:
+        index = route["index"]
+        fixed = readings[:index] + readings[index + 1:]
+        knots = all_roots(fixed, low, high, target_low, target_high)
+
+        def crossing(moved):
+            mean, median = estimators(fixed, moved)
+            return (mean + median) / 2
+
+        for left, right in zip(knots, knots[1:]):
+            first, last = crossing(left), crossing(right)
+            if first <= target <= last:
+                if first >= last:
+                    raise ArithmeticError("Target-horizon cell is not increasing")
+                moved = left + (right - left) * (target - first) / (last - first)
+                if not left <= moved <= right or outcome(fixed, moved, target) != "Tie":
+                    raise ArithmeticError("Exact query witness is not a tie")
+                return answer("Tie", {"index": index, "reading": str(moved)})
+    raise ArithmeticError("No exact tie witness in the checked target horizon")
+
+
 def main():
     try:
-        if len(sys.argv) != 2:
-            raise ValueError("Usage: python3 tools/verify_odd_target_box.py certificate.json")
+        if len(sys.argv) not in (2, 4) or len(sys.argv) == 4 and sys.argv[2] != "--query-target":
+            raise ValueError("Usage: python3 tools/verify_odd_target_box.py certificate.json [--query-target VALUE]")
         path = Path(sys.argv[1])
         if path.stat().st_size > 2_000_000:
             raise ValueError("Certificate too large")
@@ -449,6 +512,13 @@ def main():
                    f"x={h['allTargetTie']['reading']}" if h["allTargetTie"] else
                    f"strict {h['below']} below, strict {h['above']} above; "
                    f"probe t={h['probe']['target']}: {h['probe']['verdict']}"))
+        if len(sys.argv) == 4:
+            query = query_target_horizon(record, sys.argv[3])
+            witness = query["witness"]
+            print(f"Exact target query t={query['target']}: " +
+                  (f"Tie; move reading {witness['index'] + 1} to {witness['reading']}"
+                   if witness is not None else
+                   f"strict {query['verdict']} across every permitted one-reading move"))
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

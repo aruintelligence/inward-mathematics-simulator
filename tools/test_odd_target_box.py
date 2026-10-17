@@ -8,7 +8,7 @@ import unittest
 
 from odd_target_box import (certificate, gap_certificate, stability_certificate,
                             atlas_certificate, horizon_certificate, winner)
-from verify_odd_target_box import verify
+from verify_odd_target_box import verify, query_target_horizon
 
 
 class TargetBoxTests(unittest.TestCase):
@@ -216,6 +216,38 @@ class TargetBoxTests(unittest.TestCase):
             edit(forged)
             with self.assertRaises(ValueError):
                 verify(forged)
+
+    def test_checked_horizon_answers_fresh_exact_targets(self):
+        receipt = json.loads(Path("examples/target-horizon-v6.json").read_text())
+        for raw, expected in (("5", {"target": "5", "verdict": "Mean", "witness": None}),
+                              ("17/3", {"target": "17/3", "verdict": "Tie",
+                                        "witness": {"index": 0, "reading": "0"}}),
+                              ("5.75", {"target": "23/4", "verdict": "Tie",
+                                        "witness": {"index": 0, "reading": "1"}}),
+                              ("6", {"target": "6", "verdict": "Tie",
+                                     "witness": {"index": 0, "reading": "4"}}),
+                              ("95/12", {"target": "95/12", "verdict": "Tie",
+                                         "witness": {"index": 4, "reading": "10"}}),
+                              ("1000000000", {"target": "1000000000", "verdict": "Median",
+                                              "witness": None})):
+            self.assertEqual(query_target_horizon(receipt, raw), expected)
+        blocked = horizon_certificate(["48", "49", "50", "51", "85"],
+                                      "0", "100", "48", "52")
+        self.assertEqual(query_target_horizon(blocked, "-2000000"),
+                         {"target": "-2000000", "verdict": "Tie",
+                          "witness": {"index": 0, "reading": "15"}})
+        even = horizon_certificate(["40", "45", "50", "80"],
+                                   "0", "100", "48", "52")
+        self.assertEqual(query_target_horizon(even, "50")["verdict"], "Tie")
+        for raw in ("2/4", "1.1234567", "1e6", "-0", "3/0"):
+            with self.assertRaises(ValueError, msg=raw):
+                query_target_horizon(receipt, raw)
+        forged = copy.deepcopy(receipt)
+        forged["claim"]["targetHorizon"]["high"] = "8"
+        with self.assertRaises(ValueError):
+            query_target_horizon(forged, "6")
+        with self.assertRaises(ValueError):
+            query_target_horizon(certificate(["0", "1", "2"], "0", "2", "1", "1"), "1")
 
     def test_rejected_inputs_and_noncanonical_values(self):
         with self.assertRaises(ValueError):
