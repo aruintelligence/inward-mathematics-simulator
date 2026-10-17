@@ -125,13 +125,17 @@ route, `MidpointPath.append` glues adjacent cells, and
 `midpoint_path_covers` proves interpolation across any finite chain.
 `cell_paths_horizon_tie` derives a global tie from such paths on each side of
 the original reading, including when the endpoint routes differ. A separate
-theorem gives strict winners outside
-supplied global midpoint bounds for an arbitrary collection of routes whose
+theorem gives strict winners outside supplied global midpoint bounds for an arbitrary collection of routes whose
 estimates have the same strict ordering. Equality of the estimates on even
 one route blocks either universal strict winner for every target. The module
 also checks the mean, median, and target-6 tie for the six-reading v6 example,
 both exhibited endpoint midpoint values `17/3` and `95/12`, and the
-five-reading all-target equality example.
+five-reading all-target equality example. It now builds explicit affine-cell
+paths for the two six-reading routes attaining those endpoint values.
+`six_reading_inner_horizon_tie` proves that **every real target** in
+`[17/3,95/12]` has an exact equal-error reading on one of those two routes,
+even though the lower and upper endpoint routes differ. This extends the
+example beyond the single target-6 probe in its JSON receipt.
 
 These proofs take agreement between each route and its affine cell formula,
 adjacent cell boundaries, endpoint attainment, common anchor, global bounds,
@@ -140,8 +144,11 @@ the supplied cells compose without a target gap; it does not construct the
 paths from a concrete receipt. They do not prove that a JSON record enumerates
 every median cell, that its endpoint values are global extrema, or that a
 supplied list was obtained by moving one input reading and sorting it. The
-independently implemented browser and Python receipt verifiers check those
-concrete claims. No v6 JSON file is parsed or checked by Lean.
+two explicit example route formulas are modeled directly in Lean; there is
+no machine-checked bridge from a JSON route to those Lean definitions. The
+independently implemented browser and Python receipt verifiers check their
+own concrete calculations from the supplied readings. No v6 JSON file is
+parsed or checked by Lean.
 
 `InwardFormal.AffineEquivariance` proves that changing units by
 `v ↦ scale * v + shift` multiplies the squared-error difference and its
