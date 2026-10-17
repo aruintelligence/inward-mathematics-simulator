@@ -11,7 +11,7 @@ const verifier = require('../odd-target-box-verifier.js');
 
 function python(values, low, high, targetLow, targetHigh, mode = '') {
   const run = spawnSync('python3', ['tools/odd_target_box.py', ...(mode ? [mode === 'gap' || mode === true ?
-    '--gap-envelope' : '--stability-radius'] : []),
+    '--gap-envelope' : mode === 'atlas' ? '--region-atlas' : '--stability-radius'] : []),
     `--readings=${values.join(',')}`, `--low=${low}`, `--high=${high}`,
     `--target-low=${targetLow}`, `--target-high=${targetHigh}`], {encoding: 'utf8'});
   assert.equal(run.status, 0, run.stderr);
@@ -31,6 +31,33 @@ test('browser and Python construct identical exact records', () => {
     assert.equal(check.status, 0, check.stderr);
     assert.match(check.stdout, /Verified 5 exhaustive routes/);
   } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('v5 decision-region atlas has exact cross-language strips for odd, even, and singleton targets', () => {
+  const values = ['48', '49', '50', '51', '85'];
+  const record = core.atlasCertificate(values, '0', '100', '48', '52');
+  assert.deepEqual(record, JSON.parse(readFileSync('examples/target-box-atlas-v5.json')));
+  assert.deepEqual(record, python(values, '0', '100', '48', '52', 'atlas'));
+  assert.equal(verifier.verify(record).atlas, true);
+  assert.ok(record.claim.routes.some(route => route.region.verticalTies.length));
+  const singleton = core.atlasCertificate(['0', '1', '2'], '0', '2', '1', '1');
+  assert.deepEqual(singleton, python(['0', '1', '2'], '0', '2', '1', '1', 'atlas'));
+  assert.equal(verifier.verify(singleton).atlas, true);
+  const even = core.atlasCertificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+  assert.deepEqual(even, python(['40', '45', '50', '80'], '0', '100', '48', '52', 'atlas'));
+  assert.equal(verifier.verify(even).routes, 4);
+  let seed = 0x8143ab76;
+  const next = () => {seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0;};
+  for (let i = 0; i < 18; i++) {
+    const n = 3 + i;
+    const readings = Array.from({length: n}, (_, j) => j % 3 === 0 ?
+      `${2 * (next() % 21) - 19}/2` : String(next() % 21 - 10));
+    const [a, b] = [next() % 31 - 15, next() % 31 - 15].sort((x, y) => x - y);
+    const tHigh = i % 4 === 0 ? a : b;
+    const atlas = core.atlasCertificate(readings, '-12', '12', String(a), String(tHigh));
+    assert.deepEqual(atlas, python(readings, '-12', '12', String(a), String(tHigh), 'atlas'), `case ${i}`);
+    assert.equal(verifier.verify(atlas).atlas, true);
+  }
 });
 
 test('v4 first-failure certificate agrees with Python for odd, even, and boundary cases', () => {
@@ -171,17 +198,17 @@ test('published scripts use their exact content fingerprints', () => {
 
 test('workbench renders every route and clears stale results on an invalid edit', () => {
   function element(tag) {
-    return {tag, children: [], handlers: {}, textContent: '', disabled: false,
+    return {tag, children: [], handlers: {}, attrs: {}, textContent: '', disabled: false,
       append(...nodes) { this.children.push(...nodes); },
       replaceChildren(...nodes) { this.children = [...nodes]; },
-      setAttribute() {},
+      setAttribute(name, value) { this.attrs[name] = value; },
       addEventListener(name, handler) { this.handlers[name] = handler; },
       scrollIntoView() {}, remove() {}, click() { this.handlers.click?.(); }};
   }
   const fields = Object.fromEntries(['box-form', 'readings', 'move-low', 'move-high',
     'target-low', 'target-high', 'input-error', 'headline', 'headline-detail',
     'summary-copy', 'gap-summary', 'stability-summary', 'facts', 'routes', 'download', 'print', 'quantify',
-    'first-failure', 'locked-example',
+    'first-failure', 'region-atlas', 'locked-example',
     'signed-example', 'even-example', 'results'].map(id => [id, element(id)]));
   Object.assign(fields.readings, {value: '48, 49, 50, 51, 85'});
   Object.assign(fields['move-low'], {value: '0'});
@@ -205,6 +232,25 @@ test('workbench renders every route and clears stale results on an invalid edit'
   fields['first-failure'].handlers.click();
   assert.match(fields['stability-summary'].textContent, /movement of 8/);
   assert.match(fields.routes.children[2].children.at(-1).textContent, /safe region/);
+  fields['region-atlas'].handlers.click();
+  assert.equal(fields.routes.children[0].children[3].children[0].textContent,
+    'Read exact region rules');
+  assert.ok(fields.routes.children[0].children[2].children[0].children.some(node =>
+    node.tag === 'polygon'));
+  const drawn = fields.routes.children[0].children[2].children[0].children;
+  const patches = drawn.filter(node => node.tag === 'polygon');
+  assert.equal(patches[0].attrs.fill, 'var(--map-mean)');
+  assert.equal(patches[1].attrs.fill, 'var(--map-median)');
+  assert.match(patches[0].attrs.points, /^45,164 123,164 /);
+  assert.ok(drawn.some(node => node.tag === 'line' && node.attrs.stroke === 'var(--map-tie)'));
+  assert.ok(drawn.some(node => node.tag === 'circle' && node.attrs.fill === 'var(--map-tie)'));
+  fields.readings.value = '0, 1, 2';
+  fields['move-low'].value = '0'; fields['move-high'].value = '2';
+  fields['target-low'].value = '1'; fields['target-high'].value = '1';
+  fields['region-atlas'].handlers.click();
+  const fixedTarget = fields.routes.children[0].children[2].children[0].children;
+  assert.ok(fixedTarget.some(node => node.tag === 'line' && node.attrs['stroke-width'] === 78));
+  assert.ok(!fixedTarget.some(node => node.tag === 'polygon'));
   fields.readings.value = '41, 45, 50, 80';
   fields.readings.handlers.input();
   assert.equal(fields.download.disabled, true);

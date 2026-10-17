@@ -11,6 +11,7 @@ FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
 STABILITY_FORMAT = "inward-target-box-stability-v4"
+ATLAS_FORMAT = "inward-target-box-atlas-v5"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
@@ -164,9 +165,42 @@ def check_stability(stability, fixed, start, roots, low, high, target_low, targe
     return baseline, failures
 
 
+def check_region(region, fixed, roots, target_low, target_high, index):
+    fields(region, {"stripes", "verticalTies"}, "region")
+    stripes = region["stripes"]
+    if type(stripes) is not list or len(stripes) != len(roots) - 1:
+        raise ValueError(f"Incomplete region stripes on route {index + 1}")
+
+    def crossing(moved):
+        mean, median = estimators(fixed, moved)
+        return (mean + median) / 2
+
+    for i, stripe in enumerate(stripes):
+        left, right = roots[i:i + 2]
+        fields(stripe, {"from", "to", "tieFrom", "tieTo", "below", "above",
+                        "atTargetLow", "atTargetHigh"}, "region stripe")
+        if rational(stripe["from"], "stripe start") != left or \
+                rational(stripe["to"], "stripe end") != right or \
+                rational(stripe["tieFrom"], "first tie target", -LIMIT, LIMIT) != crossing(left) or \
+                rational(stripe["tieTo"], "last tie target", -LIMIT, LIMIT) != crossing(right):
+            raise ValueError(f"Incorrect region geometry on route {index + 1}")
+        midpoint = (left + right) / 2
+        tie = crossing(midpoint)
+        below = outcome(fixed, midpoint, tie - 1)
+        above = outcome(fixed, midpoint, tie + 1)
+        if stripe["below"] != below or stripe["above"] != above or below == above or \
+                stripe["atTargetLow"] != outcome(fixed, midpoint, target_low) or \
+                stripe["atTargetHigh"] != outcome(fixed, midpoint, target_high):
+            raise ValueError(f"Incorrect region winner on route {index + 1}")
+    vertical_ties = [str(moved) for moved in roots if
+                     estimators(fixed, moved)[0] == estimators(fixed, moved)[1]]
+    if type(region["verticalTies"]) is not list or region["verticalTies"] != vertical_ties:
+        raise ValueError(f"Incorrect all-target tie columns on route {index + 1}")
+
+
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT):
+    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
     fields(inputs, {"readings", "movement", "target"}, "inputs")
@@ -180,13 +214,14 @@ def verify(record):
         raise ValueError("Invalid interval order")
     raw = inputs["readings"]
     if type(raw) is not list or not 3 <= len(raw) <= 21 or \
-            record["format"] not in (GAP_FORMAT, STABILITY_FORMAT) and \
+            record["format"] not in (GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT) and \
             (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
         raise ValueError("Reading count must match certificate format, between 3 and 21")
     readings = [rational(value, "reading", low, high) for value in raw]
     claim = record["claim"]
     quantified = record["format"] == GAP_FORMAT
     stable = record["format"] == STABILITY_FORMAT
+    atlas = record["format"] == ATLAS_FORMAT
     fields(claim, {"routes", "reachable", "guarantee"} |
            ({"gap"} if quantified else {"stability"} if stable else set()), "claim")
     routes = claim["routes"]
@@ -198,7 +233,8 @@ def verify(record):
     baseline = None
     for index, route in enumerate(routes):
         fields(route, {"index", "knots", "reachable", "guarantee", "witnesses"} |
-               ({"gap"} if quantified else {"stability"} if stable else set()), "route")
+               ({"gap"} if quantified else {"stability"} if stable else
+                {"region"} if atlas else set()), "route")
         if type(route["index"]) is not int or route["index"] != index:
             raise ValueError("Incorrect route index")
         fixed = readings[:index] + readings[index + 1:]
@@ -238,6 +274,8 @@ def verify(record):
             elif checked != baseline:
                 raise ValueError("Baseline differs across routes")
             failures.extend(route_failures)
+        if atlas:
+            check_region(route["region"], fixed, expected, target_low, target_high, index)
         overall.update(reachable)
     expected = [name for name in ORDER if name in overall]
     guarantee = expected[0] if len(expected) == 1 and expected[0] != "Tie" else None
@@ -285,6 +323,8 @@ def verify(record):
         result["gap"] = claim["gap"]
     if stable:
         result["stability"] = claim["stability"]
+    if atlas:
+        result["atlas"] = True
     return result
 
 
@@ -313,6 +353,8 @@ def main():
                   (f"nearest tie after exact movement {point['distance']} on route {point['index'] + 1} "
                    f"({point['side']}) at x={point['reading']}, t={point['target']}"
                    if point else "no failure within the stipulated movement range"))
+        if result.get("atlas"):
+            print("Exact Mean/Median region stripes and all-target tie columns checked")
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

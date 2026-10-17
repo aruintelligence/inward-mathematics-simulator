@@ -16,11 +16,45 @@
   }
   function chart(route, inputs) {
     const figure = element("figure");
-    const plot = svg("svg", {viewBox: "0 0 600 190", role: "img",
-      "aria-label": `Reading ${route.index + 1}: exact witness positions within the movement and target ranges`});
+    const plot = svg("svg", {viewBox: "0 0 600 198", role: "img",
+      "aria-label": route.region ? `Reading ${route.index + 1}: Mean and Median decision regions, exact tie boundaries, original reading, and certified witnesses` :
+        `Reading ${route.index + 1}: exact witness positions within the movement and target ranges`});
     const x = value => 45 + 520 * InwardTargetBox.position(value, inputs.movement.low, inputs.movement.high);
     const y = value => inputs.target.low === inputs.target.high ? 94 :
       164 - 140 * InwardTargetBox.position(value, inputs.target.low, inputs.target.high);
+    if (route.region) {
+      const color = name => name === "Mean" ? "var(--map-mean)" : "var(--map-median)";
+      if (inputs.target.low === inputs.target.high) {
+        for (const stripe of route.region.stripes) {
+          plot.append(svg("line", {x1: x(stripe.from), x2: x(stripe.to), y1: 94, y2: 94,
+            stroke: color(stripe.atTargetLow), "stroke-width": 78}));
+        }
+        const ties = new Set(route.region.verticalTies);
+        for (const stripe of route.region.stripes) {
+          if (stripe.tieFrom === inputs.target.low) ties.add(stripe.from);
+          if (stripe.tieTo === inputs.target.low) ties.add(stripe.to);
+        }
+        for (const tied of ties) plot.append(svg("circle", {cx: x(tied), cy: 94, r: 5,
+          fill: "var(--map-tie)", stroke: "#10283a", "stroke-width": 1}));
+      } else {
+        for (const stripe of route.region.stripes) {
+          const left = x(stripe.from), right = x(stripe.to);
+          const first = Math.max(24, Math.min(164, y(stripe.tieFrom)));
+          const last = Math.max(24, Math.min(164, y(stripe.tieTo)));
+          const below = `${left},164 ${right},164 ${right},${last} ${left},${first}`;
+          const above = `${left},${first} ${right},${last} ${right},24 ${left},24`;
+          plot.append(svg("polygon", {points: below, fill: color(stripe.below)}));
+          plot.append(svg("polygon", {points: above, fill: color(stripe.above)}));
+          if (stripe.atTargetLow !== stripe.atTargetHigh) {
+            plot.append(svg("line", {x1: left, y1: first, x2: right, y2: last,
+              stroke: "var(--map-tie)", "stroke-width": 2.8}));
+          }
+        }
+        for (const tied of route.region.verticalTies) plot.append(svg("line", {
+          x1: x(tied), x2: x(tied), y1: 24, y2: 164,
+          stroke: "var(--map-tie)", "stroke-width": 2.8}));
+      }
+    }
     if (route.stability?.baseline) {
       const left = x(route.stability.left.limit), right = x(route.stability.right.limit);
       plot.append(svg("rect", {x: left, y: 24, width: Math.max(0, right - left),
@@ -32,6 +66,28 @@
         stroke: "currentColor", opacity: ".23", "stroke-width": 1});
       plot.append(line);
     }
+    if (route.region && inputs.target.low !== inputs.target.high) {
+      const boundaryTies = new Map();
+      for (const stripe of route.region.stripes) {
+        for (const [reading, target] of [[stripe.from, stripe.tieFrom], [stripe.to, stripe.tieTo]]) {
+          if (target === inputs.target.low || target === inputs.target.high) {
+            boundaryTies.set(`${reading}|${target}`, {reading, target});
+          }
+        }
+      }
+      for (const {reading, target} of boundaryTies.values()) {
+        const marker = svg("circle", {cx: x(reading), cy: y(target), r: 4,
+          fill: "var(--map-tie)", stroke: "#10283a", "stroke-width": 1});
+        const title = svg("title", {});
+        title.textContent = `Exact tie at reading ${reading}, target ${target}`;
+        marker.append(title);
+        plot.append(marker);
+      }
+    }
+    const starting = x(inputs.readings[route.index]);
+    plot.append(svg("line", {x1: starting, x2: starting, y1: 24, y2: 164,
+      stroke: "var(--ink)", opacity: ".85", "stroke-width": 1.6,
+      "stroke-dasharray": "4 4"}));
     for (const name of route.reachable) {
       const witness = route.witnesses[name];
       const color = {Mean: "#40cfa7", Median: "#8abffd", Tie: "#f2b85c"}[name];
@@ -42,8 +98,17 @@
       marker.append(tooltip);
       plot.append(marker);
     }
+    for (const [value, px, py, anchor] of [["A", 32, 164, "end"], ["B", 32, 28, "end"],
+      ["L", 45, 187, "start"], ["U", 565, 187, "end"]]) {
+      const label = svg("text", {x: px, y: py, fill: "currentColor", "font-size": 12,
+        "text-anchor": anchor});
+      label.textContent = value;
+      plot.append(label);
+    }
     figure.append(plot);
-    figure.append(element("figcaption", "Horizontal: moved reading. Vertical: target. Lines mark exact partition knots; dots are certified witnesses. A shaded band, when present, is the strict baseline region; its exact boundary status is given below."));
+    figure.append(element("figcaption", route.region ?
+      `L=${inputs.movement.low}, U=${inputs.movement.high}; A=${inputs.target.low}, B=${inputs.target.high}. Green: Mean; blue: Median; gold: tie boundaries. Dashed line: original reading; dots: exact witnesses. Colors show outcomes, not probabilities or area-based frequencies.` :
+      "Horizontal: moved reading L–U. Vertical: target A–B. Lines mark exact partition knots; dots are certified witnesses. Dashed line: original reading. A shaded band, when present, is the strict baseline region; its exact boundary status is given below."));
     return figure;
   }
   function show(record) {
@@ -84,6 +149,17 @@
       const pills = element("div", undefined, "pills");
       for (const outcome of route.reachable) pills.append(element("span", outcome, `pill ${outcome.toLowerCase()}`));
       card.append(pills, chart(route, inputs));
+      if (route.region) {
+        const details = element("details");
+        details.append(element("summary", "Read exact region rules"));
+        const rules = element("ol");
+        for (const stripe of route.region.stripes) rules.append(element("li",
+          `Reading (${stripe.from}, ${stripe.to}): tie target follows a straight line from ${stripe.tieFrom} to ${stripe.tieTo}; below it ${stripe.below} wins, above it ${stripe.above} wins. At target ${inputs.target.low}: ${stripe.atTargetLow}; at ${inputs.target.high}: ${stripe.atTargetHigh}.`));
+        details.append(rules);
+        if (route.region.verticalTies.length) details.append(element("p",
+          `Every target ties at reading ${route.region.verticalTies.join(", ")}.`, "meta"));
+        card.append(details);
+      }
       const list = element("ul");
       for (const outcome of route.reachable) {
         const witness = route.witnesses[outcome];
@@ -116,7 +192,8 @@
     try {
       const readings = $("readings").value.split(",").map(part => part.trim());
       const constructor = mode === "gap" ? InwardTargetBox.gapCertificate :
-        mode === "stability" ? InwardTargetBox.stabilityCertificate : InwardTargetBox.certificate;
+        mode === "stability" ? InwardTargetBox.stabilityCertificate :
+          mode === "atlas" ? InwardTargetBox.atlasCertificate : InwardTargetBox.certificate;
       const result = constructor(
         readings, $("move-low").value.trim(),
         $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
@@ -142,6 +219,7 @@
   $("box-form").addEventListener("submit", analyze);
   $("quantify").addEventListener("click", () => analyze(null, "gap"));
   $("first-failure").addEventListener("click", () => analyze(null, "stability"));
+  $("region-atlas").addEventListener("click", () => analyze(null, "atlas"));
   for (const id of ["readings", "move-low", "move-high", "target-low", "target-high"]) {
     $(id).addEventListener("input", () => {
       latest = null;

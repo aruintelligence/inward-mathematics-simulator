@@ -9,6 +9,7 @@
   const EVEN_FORMAT = "inward-even-target-box-v2";
   const GAP_FORMAT = "inward-target-box-gap-v3";
   const STABILITY_FORMAT = "inward-target-box-stability-v4";
+  const ATLAS_FORMAT = "inward-target-box-atlas-v5";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
@@ -245,9 +246,43 @@
     }
     return {baseline, failures};
   }
+  function checkRegion(region, fixed, roots, targetLow, targetHigh, index) {
+    fields(region, ["stripes", "verticalTies"], `route ${index + 1} region`);
+    if (!Array.isArray(region.stripes) || region.stripes.length !== roots.length - 1) {
+      fail(`Incomplete region stripes on route ${index + 1}`);
+    }
+    const crossing = moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return divide(add(mean, median), TWO);
+    };
+    for (let i = 0; i < region.stripes.length; i++) {
+      const stripe = region.stripes[i], left = roots[i], right = roots[i + 1];
+      fields(stripe, ["from", "to", "tieFrom", "tieTo", "below", "above",
+        "atTargetLow", "atTargetHigh"], `route ${index + 1} stripe ${i + 1}`);
+      if (compare(rational(stripe.from, "stripe start"), left) !== 0 ||
+          compare(rational(stripe.to, "stripe end"), right) !== 0 ||
+          compare(rational(stripe.tieFrom, "first tie target", NEGATIVE_LIMIT, LIMIT), crossing(left)) !== 0 ||
+          compare(rational(stripe.tieTo, "last tie target", NEGATIVE_LIMIT, LIMIT), crossing(right)) !== 0) {
+        fail(`Incorrect region geometry on route ${index + 1}`);
+      }
+      const midpoint = divide(add(left, right), TWO), tie = crossing(midpoint);
+      const below = outcome(fixed, midpoint, subtract(tie, fraction(1n)));
+      const above = outcome(fixed, midpoint, add(tie, fraction(1n)));
+      if (stripe.below !== below || stripe.above !== above || below === above ||
+          stripe.atTargetLow !== outcome(fixed, midpoint, targetLow) ||
+          stripe.atTargetHigh !== outcome(fixed, midpoint, targetHigh)) {
+        fail(`Incorrect region winner on route ${index + 1}`);
+      }
+    }
+    const ties = roots.filter(moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return compare(mean, median) === 0;
+    }).map(notation);
+    sameList(region.verticalTies, ties, `all-target tie columns on route ${index + 1}`);
+  }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT].includes(record.format)) fail("Unknown certificate format");
+    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT].includes(record.format)) fail("Unknown certificate format");
     fields(record.inputs, ["readings", "movement", "target"], "inputs");
     fields(record.inputs.movement, ["low", "high"], "movement");
     fields(record.inputs.target, ["low", "high"], "target");
@@ -258,7 +293,7 @@
     const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
     if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
     if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
-        inputs.readings.length > 21 || ![GAP_FORMAT, STABILITY_FORMAT].includes(record.format) &&
+        inputs.readings.length > 21 || ![GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT].includes(record.format) &&
         (inputs.readings.length % 2 === 0) !== (record.format === EVEN_FORMAT)) {
       fail("Reading count must match certificate format and be between 3 and 21");
     }
@@ -266,6 +301,7 @@
       rational(item, `reading ${index + 1}`, low, high));
     const quantified = record.format === GAP_FORMAT;
     const stable = record.format === STABILITY_FORMAT;
+    const atlas = record.format === ATLAS_FORMAT;
     fields(claim, ["routes", "reachable", "guarantee",
       ...(quantified ? ["gap"] : stable ? ["stability"] : [])], "claim");
     if (!Array.isArray(claim.routes) || claim.routes.length !== readings.length) {
@@ -277,7 +313,7 @@
     let baseline = null;
     claim.routes.forEach((route, index) => {
       fields(route, ["index", "knots", "reachable", "guarantee", "witnesses",
-        ...(quantified ? ["gap"] : stable ? ["stability"] : [])], `route ${index + 1}`);
+        ...(quantified ? ["gap"] : stable ? ["stability"] : atlas ? ["region"] : [])], `route ${index + 1}`);
       if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
       const fixed = readings.filter((_, i) => i !== index);
       const roots = allRoots(fixed, low, high, targetLow, targetHigh);
@@ -314,6 +350,7 @@
         else if (baseline !== checked.baseline) fail("Baseline differs across routes");
         failures.push(...checked.failures);
       }
+      if (atlas) checkRegion(route.region, fixed, roots, targetLow, targetHigh, index);
       reachable.forEach(name => overall.add(name));
     });
     const reachable = ORDER.filter(name => overall.has(name));
@@ -362,7 +399,7 @@
       }
     }
     return {routes: readings.length, reachable, guarantee,
-      ...(quantified ? {gap: claim.gap} : stable ? {stability: claim.stability} : {})};
+      ...(quantified ? {gap: claim.gap} : stable ? {stability: claim.stability} : atlas ? {atlas: true} : {})};
   }
   return {parseReceipt, verify};
 });

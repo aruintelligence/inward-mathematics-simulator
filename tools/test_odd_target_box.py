@@ -6,7 +6,7 @@ from pathlib import Path
 import random
 import unittest
 
-from odd_target_box import certificate, gap_certificate, stability_certificate, winner
+from odd_target_box import certificate, gap_certificate, stability_certificate, atlas_certificate, winner
 from verify_odd_target_box import verify
 
 
@@ -136,6 +136,37 @@ class TargetBoxTests(unittest.TestCase):
                      lambda c: c["claim"]["routes"][2]["stability"]["left"].update(included=True),
                      lambda c: c["claim"]["routes"][2]["stability"]["left"]["witness"].update(target="48"),
                      lambda c: c["claim"]["stability"]["nearestFailure"].update(distance="7")):
+            forged = copy.deepcopy(record)
+            edit(forged)
+            with self.assertRaises(ValueError):
+                verify(forged)
+
+    def test_region_atlas_agrees_with_direct_errors_on_exact_points(self):
+        readings = ["48", "49", "50", "51", "85"]
+        record = atlas_certificate(readings, "0", "100", "48", "52")
+        self.assertEqual(record, json.loads(Path("examples/target-box-atlas-v5.json").read_text()))
+        self.assertTrue(verify(record)["atlas"])
+        for route in record["claim"]["routes"]:
+            fixed = list(map(Fraction, readings))
+            fixed.pop(route["index"])
+            for stripe in route["region"]["stripes"]:
+                left, right = Fraction(stripe["from"]), Fraction(stripe["to"])
+                x = (left + right) / 2
+                tie = (Fraction(stripe["tieFrom"]) + Fraction(stripe["tieTo"])) / 2
+                for target in (Fraction(48), Fraction(50), Fraction(52), tie - 1, tie, tie + 1):
+                    expected = (stripe["below"] if target < tie else
+                                stripe["above"] if target > tie else "Tie")
+                    self.assertEqual(winner(fixed, x, target), expected)
+            for raw in route["region"]["verticalTies"]:
+                for target in (Fraction(48), Fraction(52), Fraction(-17)):
+                    self.assertEqual(winner(fixed, Fraction(raw), target), "Tie")
+        even = atlas_certificate(["40", "45", "50", "80"], "0", "100", "48", "52")
+        singleton = atlas_certificate(["0", "1", "2"], "0", "2", "1", "1")
+        verify(even)
+        verify(singleton)
+        for edit in (lambda c: c["claim"]["routes"][0]["region"]["stripes"].pop(),
+                     lambda c: c["claim"]["routes"][0]["region"]["stripes"][0].update(below="Median"),
+                     lambda c: c["claim"]["routes"][0]["region"]["verticalTies"].clear()):
             forged = copy.deepcopy(record)
             edit(forged)
             with self.assertRaises(ValueError):

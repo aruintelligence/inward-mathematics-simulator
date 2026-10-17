@@ -132,6 +132,31 @@ test('v4 exact first-failure thresholds reject forged distances, inclusions, and
   } finally {rmSync(dir, {recursive: true, force: true});}
 });
 
+test('v5 region atlas rejects missing strips, false crossover lines and forged winner sides', () => {
+  const record = core.atlasCertificate(['48', '49', '50', '51', '85'], '0', '100', '48', '52');
+  const dir = mkdtempSync(join(tmpdir(), 'target-box-atlas-verify-'));
+  try {
+    assert.equal(checkPython(record, dir).status, 0);
+    assert.equal(verifier.verify(record).atlas, true);
+    const edits = [
+      x => { x.claim.routes[0].region.stripes.pop(); },
+      x => { x.claim.routes[0].region.stripes[0].from = '1'; },
+      x => { x.claim.routes[0].region.stripes[0].tieFrom = '49'; },
+      x => { x.claim.routes[0].region.stripes[0].tieTo = '49'; },
+      x => { x.claim.routes[0].region.stripes[0].below = 'Median'; },
+      x => { x.claim.routes[0].region.stripes[0].atTargetLow = 'Tie'; },
+      x => { x.claim.routes[0].region.verticalTies.pop(); },
+      x => { x.claim.routes[0].region.extra = true; },
+      x => { x.format = 'inward-odd-target-box-v1'; }
+    ];
+    for (const edit of edits) {
+      const forged = clone(record); edit(forged);
+      assert.throws(() => verifier.verify(forged));
+      assert.notEqual(checkPython(forged, dir).status, 0);
+    }
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -225,6 +250,12 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   await elements['verify-button'].handlers.click();
   assert.match(elements['report-intro'].textContent, /movement of 8/);
   assert.match(elements.routes.children[2].children[3].textContent, /Left threshold/);
+  elements['receipt-json'].value = readFileSync('examples/target-box-atlas-v5.json', 'utf8');
+  elements['receipt-json'].handlers.input();
+  await elements['verify-button'].handlers.click();
+  assert.match(elements['report-intro'].textContent, /region strips/);
+  assert.equal(elements.routes.children[0].children[3].children[0].textContent,
+    'Exact region rules');
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);
