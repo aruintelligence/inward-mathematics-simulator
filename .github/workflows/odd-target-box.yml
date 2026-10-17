@@ -22,3 +22,5 @@ jobs:
       - run: python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --target-low 48 --target-high 52 | diff - examples/odd-target-box-v1.json
       - run: python3 tools/verify_odd_target_box.py examples/target-box-stability-v4.json
       - run: python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --target-low 48 --target-high 52 --stability-radius | diff - examples/target-box-stability-v4.json
+      - run: python3 tools/verify_odd_target_box.py examples/target-box-atlas-v5.json
+      - run: python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --target-low 48 --target-high 52 --region-atlas | diff - examples/target-box-atlas-v5.json

@@ -11,6 +11,7 @@ FORMAT = "inward-odd-target-box-v1"
 EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
 STABILITY_FORMAT = "inward-target-box-stability-v4"
+ATLAS_FORMAT = "inward-target-box-atlas-v5"
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -205,6 +206,43 @@ def stability_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_t
     return record
 
 
+def atlas_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high):
+    record = certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high)
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    target_low = Fraction(record["inputs"]["target"]["low"])
+    target_high = Fraction(record["inputs"]["target"]["high"])
+    for route in record["claim"]["routes"]:
+        fixed = readings[:route["index"]] + readings[route["index"] + 1:]
+        knots = list(map(Fraction, route["knots"]))
+
+        def estimates(moved):
+            values = sorted([*fixed, moved])
+            return (sum(values) / len(values),
+                    (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2)
+
+        def crossing(moved):
+            mean, median = estimates(moved)
+            return (mean + median) / 2
+
+        stripes = []
+        for left, right in zip(knots, knots[1:]):
+            middle = (left + right) / 2
+            mean, median = estimates(middle)
+            if mean == median:
+                raise ArithmeticError("Unexpected flat tie stripe")
+            below = "Median" if mean > median else "Mean"
+            stripes.append({"from": str(left), "to": str(right),
+                            "tieFrom": str(crossing(left)), "tieTo": str(crossing(right)),
+                            "below": below, "above": "Mean" if below == "Median" else "Median",
+                            "atTargetLow": winner(fixed, middle, target_low),
+                            "atTargetHigh": winner(fixed, middle, target_high)})
+        vertical_ties = [str(moved) for moved in knots if
+                         estimates(moved)[0] == estimates(moved)[1]]
+        route["region"] = {"stripes": stripes, "verticalTies": vertical_ties}
+    record["format"] = ATLAS_FORMAT
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--readings", required=True, help="comma-separated rational readings")
@@ -217,11 +255,14 @@ def main():
                         help="include exact global and per-route squared-error gap extrema (v3)")
     parser.add_argument("--stability-radius", action="store_true",
                         help="include exact first-failure thresholds from each original reading (v4)")
+    parser.add_argument("--region-atlas", action="store_true",
+                        help="include exact Mean/Median region strip rules (v5)")
     args = parser.parse_args()
     try:
-        if args.gap_envelope and args.stability_radius:
+        if sum((args.gap_envelope, args.stability_radius, args.region_atlas)) > 1:
             raise ValueError("Choose one certificate mode at a time")
-        constructor = (stability_certificate if args.stability_radius else
+        constructor = (atlas_certificate if args.region_atlas else
+                       stability_certificate if args.stability_radius else
                        gap_certificate if args.gap_envelope else certificate)
         result = constructor([part.strip() for part in args.readings.split(",")],
                              args.low, args.high, args.target_low, args.target_high)

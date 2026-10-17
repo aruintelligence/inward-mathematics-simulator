@@ -9,6 +9,7 @@
   const EVEN_FORMAT = "inward-even-target-box-v2";
   const GAP_FORMAT = "inward-target-box-gap-v3";
   const STABILITY_FORMAT = "inward-target-box-stability-v4";
+  const ATLAS_FORMAT = "inward-target-box-atlas-v5";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -246,6 +247,44 @@
     record.format = STABILITY_FORMAT;
     return record;
   }
+  function atlasCertificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh) {
+    const record = certificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh);
+    const fromString = value => {
+      const [n, d = "1"] = value.split("/");
+      return q(BigInt(n), BigInt(d));
+    };
+    const readings = record.inputs.readings.map(fromString);
+    const targetLow = fromString(record.inputs.target.low);
+    const targetHigh = fromString(record.inputs.target.high);
+    for (const route of record.claim.routes) {
+      const fixed = readings.filter((_, index) => index !== route.index);
+      const knots = route.knots.map(fromString);
+      const crossing = moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return div(add(mean, median), TWO);
+      };
+      const stripes = [];
+      for (let i = 0; i < knots.length - 1; i++) {
+        const left = knots[i], right = knots[i + 1];
+        const middle = div(add(left, right), TWO);
+        const [mean, median] = estimators(fixed, middle);
+        if (cmp(mean, median) === 0) throw new Error("Unexpected flat tie stripe");
+        const below = cmp(mean, median) > 0 ? "Median" : "Mean";
+        stripes.push({from: string(left), to: string(right),
+          tieFrom: string(crossing(left)), tieTo: string(crossing(right)),
+          below, above: below === "Mean" ? "Median" : "Mean",
+          atTargetLow: winner(fixed, middle, targetLow),
+          atTargetHigh: winner(fixed, middle, targetHigh)});
+      }
+      const verticalTies = knots.filter(moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return cmp(mean, median) === 0;
+      }).map(string);
+      route.region = {stripes, verticalTies};
+    }
+    record.format = ATLAS_FORMAT;
+    return record;
+  }
   function position(raw, rawLow, rawHigh) {
     const canonical = value => {
       const [numerator, denominator = "1"] = value.split("/");
@@ -255,5 +294,5 @@
     const ratio = div(sub(x, low), sub(high, low));
     return Number(ratio.n * 1000000000000n / ratio.d) / 1e12;
   }
-  return {certificate, gapCertificate, stabilityCertificate, position};
+  return {certificate, gapCertificate, stabilityCertificate, atlasCertificate, position};
 });

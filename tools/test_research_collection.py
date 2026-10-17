@@ -12,6 +12,7 @@ EVEN = Path(__file__).resolve().parents[1] / "examples/even-sample-flip-v3.json"
 EVEN_BOX = Path(__file__).resolve().parents[1] / "examples/even-target-box-v2.json"
 GAP = Path(__file__).resolve().parents[1] / "examples/target-box-gap-v3.json"
 STABILITY = Path(__file__).resolve().parents[1] / "examples/target-box-stability-v4.json"
+ATLAS = Path(__file__).resolve().parents[1] / "examples/target-box-atlas-v5.json"
 
 
 def fixture():
@@ -56,6 +57,19 @@ class ResearchCollectionTests(unittest.TestCase):
         self.assertEqual(collection.verify(json.dumps(bundle).encode())[0][3], 5)
         changed = json.loads(source)
         changed["claim"]["stability"]["nearestFailure"]["distance"] = "7"
+        item["source"] = json.dumps(changed)
+        item["digest"] = hashlib.sha256(item["source"].encode()).hexdigest()
+        with self.assertRaises(ValueError):
+            collection.verify(json.dumps(bundle).encode())
+
+    def test_exact_region_atlas_in_v1_collection(self):
+        source = ATLAS.read_text(encoding="utf-8")
+        item = {"digest": hashlib.sha256(source.encode()).hexdigest(),
+                "kind": "target-box", "label": "Decision atlas", "source": source}
+        bundle = {"format": collection.FORMAT, "records": [item]}
+        self.assertEqual(collection.verify(json.dumps(bundle).encode())[0][3], 5)
+        changed = json.loads(source)
+        changed["claim"]["routes"][0]["region"]["stripes"][0]["tieFrom"] = "49"
         item["source"] = json.dumps(changed)
         item["digest"] = hashlib.sha256(item["source"].encode()).hexdigest()
         with self.assertRaises(ValueError):

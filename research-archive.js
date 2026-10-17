@@ -54,7 +54,10 @@
       result.stability?.nearestFailure?.reading,
       result.stability?.nearestFailure?.target,
       ...record.claim.routes.flatMap(route => route.stability ?
-        [route.stability.left.limit, route.stability.right.limit] : [])]
+        [route.stability.left.limit, route.stability.right.limit] : []),
+      ...record.claim.routes.flatMap(route => route.region ? [
+        ...route.region.verticalTies, ...route.region.stripes.flatMap(stripe =>
+          [stripe.from, stripe.to, stripe.tieFrom, stripe.tieTo, stripe.below, stripe.above])] : [])]
       .join(" ").toLocaleLowerCase();
     const qualifies = filter === "all" || filter === "target-box" || filter === "strict" &&
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
@@ -139,6 +142,8 @@
             `Starting verdict across the target interval: ${result.stability.baseline || "no strict winner"}. First tie after movement ${point.distance} on reading ${point.index + 1} (${point.side}), at x=${point.reading}, t=${point.target}. The tie boundary is excluded from the strict safe region.` :
             `Starting verdict: ${result.stability.baseline}. Every permitted one-reading movement remains strictly ${result.stability.baseline} across the target interval.`));
         }
+        if (result.atlas) body.append(node("p",
+          "Exact decision-region atlas: every open reading strip has a linear tie target and verified Mean/Median sides. An all-target vertical tie is listed where the two estimators coincide. Colored chart areas are outcomes, not probabilities."));
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;
@@ -147,11 +152,18 @@
         record.claim.routes.forEach(route => {
           const witnesses = route.reachable.map(name =>
             `${name} at x=${route.witnesses[name].reading}, t=${route.witnesses[name].target}`).join("; ");
-          routes.append(node("li",
+          const item = node("li",
             `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.` +
             (route.stability ? route.stability.baseline ?
               ` Baseline safe region: ${route.stability.left.limit} (${route.stability.left.included ? "included" : "tie boundary"}) to ${route.stability.right.limit} (${route.stability.right.included ? "included" : "tie boundary"}).` :
-              ` No strict baseline across targets; tie at original reading with target ${route.stability.left.witness.target}.` : "")));
+              ` No strict baseline across targets; tie at original reading with target ${route.stability.left.witness.target}.` : ""));
+          if (route.region) {
+            const rules = node("ol", "", "route-list");
+            for (const stripe of route.region.stripes) rules.append(node("li",
+              `Reading (${stripe.from}, ${stripe.to}): tie target ${stripe.tieFrom} to ${stripe.tieTo}; below ${stripe.below}, above ${stripe.above}.`));
+            item.append(rules);
+          }
+          routes.append(item);
         });
         body.append(routes);
       }

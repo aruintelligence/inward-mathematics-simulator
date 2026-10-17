@@ -41,6 +41,23 @@ python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --t
 python3 tools/verify_odd_target_box.py stability.json
 ```
 
+## Map the exact decision regions
+
+Choose **Map exact regions** in the lab or run the Python generator with `--region-atlas` to produce `inward-target-box-atlas-v5`. The [checked example](../examples/target-box-atlas-v5.json) records every open strip between consecutive exact reading knots. Each strip stores its endpoints, the tie target $h(x)=(\mu(x)+m(x))/2$ at both endpoints, the strict winner below and above that line, and the outcomes at the chosen target endpoints. In its first route, the open reading strip $(0,15)$ has a tie line rising from $97/2$ to $50$: Mean wins below that line and Median above it. Reading $15$ is an all-target tie column on that route. The record lists every such column where $\mu=m$. Even-sample medians use the central-pair average. Existing v1–v4 receipts retain their schemas and bytes.
+
+The complete coverage argument is algebraic. On each open strip the mean and median are affine functions of the moved reading; the median transitions are already knots. Every root of $\mu-m$ is also a knot, so this factor has one strict sign throughout each open strip. The tie target $h(x)$ is a straight line there. By
+
+$$D(x,t)=2(\mu(x)-m(x))(h(x)-t),$$
+
+the outcome for **every real** $(x,t)$ inside a strip follows from which side of the tie line contains $t$. At a vertical root $\mu=m$, all targets tie. Exact line endpoints and the vertical tie columns cover the boundaries. The browser and Python verifiers recompute each strip from the readings and compare squared errors directly on both sides of the tie line; neither imports the atlas constructor. The chart clips those exact lines to the chosen target interval and draws them at finite pixel resolution. The collapsible rules retain the exact fractions for keyboard and screen-reader use. Colored area is not a probability, a frequency estimate, or scientific validation of the inputs.
+
+For a singleton target `[A,A]`, the chart shows a one-dimensional winner band with exact tie points rather than suggesting a rectangle of possible targets. The underlying certificate uses the same strip rules. A region receipt can be saved in the Local Research Archive or checked in a portable collection.
+
+```sh
+python3 tools/odd_target_box.py --readings 48,49,50,51,85 --low 0 --high 100 --target-low 48 --target-high 52 --region-atlas --output atlas.json
+python3 tools/verify_odd_target_box.py atlas.json
+```
+
 Why this is exhaustive: on each median cell write $\mu(x)=\alpha x+\beta$ and $m(x)=\gamma x+\delta$. For a fixed target, $D$ is a quadratic in $x$ with coefficient $\alpha^2-\gamma^2$ and linear coefficient $2[(\beta-t)\alpha-(\delta-t)\gamma]$. Its extrema on a closed cell occur at its endpoints or at the in-cell vertex $x=-b/(2a)$ when $a\ne0$. For fixed $x$, $D$ is affine in $t$, so its extrema over `[A,B]` occur at $A$ or $B$. The existing exact knot partition includes the median transitions and covers `[L,U]`; evaluating the two target endpoints, each cell's endpoints, and any interior vertex finds the attained global extrema. The browser generator reconstructs each quadratic from three exact values; the independent browser and Python verifiers derive slopes and check the claimed values and witness coordinates against direct squared-error arithmetic. A forged bound fails even if its JSON fingerprint is recomputed. The related Lean source proves factor identities and root formulas; it does not verify each v3 JSON receipt.
 
 ## Why every real outcome is covered

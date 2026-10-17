@@ -79,6 +79,8 @@
           ` Starting verdict across the target interval: ${baseline || "no strict winner"}. Nearest tie after a one-reading movement of ${nearestFailure.distance}, route ${nearestFailure.index + 1} (${nearestFailure.side}) at x=${nearestFailure.reading}, t=${nearestFailure.target}. This boundary itself is not a strict win.` :
           ` Starting verdict: ${baseline}. Every permitted one-reading movement remains a strict ${baseline} win throughout the target interval.`;
       }
+      if (result.atlas) $("report-intro").textContent +=
+        " Exact region strips were rederived from mean and median squared errors. Below and above each linear tie target, the listed winners hold throughout the open reading strip. Vertical tie columns apply to every target.";
       $("fingerprint").textContent = hash;
       const cards = record.claim.routes.map(route => {
         const card = node("article", "", "route");
@@ -91,6 +93,17 @@
         if (route.stability) card.append(node("p", route.stability.baseline ?
           `Starting verdict: ${route.stability.baseline}. Left threshold ${route.stability.left.limit} (${route.stability.left.included ? "strict through the bound" : `tie at t=${route.stability.left.witness.target}`}); right threshold ${route.stability.right.limit} (${route.stability.right.included ? "strict through the bound" : `tie at t=${route.stability.right.witness.target}`}).` :
           `No strict winner across all targets at this original reading; tie at t=${route.stability.left.witness.target}. Stability distance is zero.`));
+        if (route.region) {
+          const detail = node("details", "");
+          detail.append(node("summary", "Exact region rules"));
+          const strips = node("ol", "");
+          for (const stripe of route.region.stripes) strips.append(node("li",
+            `Reading (${stripe.from}, ${stripe.to}): tie target ${stripe.tieFrom} to ${stripe.tieTo}; below: ${stripe.below}, above: ${stripe.above}. At target ${record.inputs.target.low}: ${stripe.atTargetLow}; at ${record.inputs.target.high}: ${stripe.atTargetHigh}.`));
+          detail.append(strips);
+          if (route.region.verticalTies.length) detail.append(node("p",
+            `Every target ties at reading ${route.region.verticalTies.join(", ")}.`));
+          card.append(detail);
+        }
         const list = node("ul", "");
         route.reachable.forEach(name => {
           const witness = route.witnesses[name];
