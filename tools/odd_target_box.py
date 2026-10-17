@@ -12,6 +12,7 @@ EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
 STABILITY_FORMAT = "inward-target-box-stability-v4"
 ATLAS_FORMAT = "inward-target-box-atlas-v5"
+HORIZON_FORMAT = "inward-target-horizon-v6"
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
 
@@ -243,6 +244,73 @@ def atlas_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_targe
     return record
 
 
+def horizon_certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high):
+    record = certificate(raw_readings, raw_low, raw_high, raw_target_low, raw_target_high)
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    low = Fraction(record["inputs"]["movement"]["low"])
+    high = Fraction(record["inputs"]["movement"]["high"])
+    target_low = Fraction(record["inputs"]["target"]["low"])
+    target_high = Fraction(record["inputs"]["target"]["high"])
+    probe_target = (target_low + target_high) / 2
+
+    def estimates(fixed, moved):
+        values = sorted([*fixed, moved])
+        return (sum(values) / len(values),
+                (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2)
+
+    def crossing(fixed, moved):
+        mean, median = estimates(fixed, moved)
+        return (mean + median) / 2
+
+    lower, upper, all_target_tie = None, None, None
+    for route in record["claim"]["routes"]:
+        index = route["index"]
+        fixed = readings[:index] + readings[index + 1:]
+        first, last = crossing(fixed, low), crossing(fixed, high)
+        lower = first if lower is None else min(lower, first)
+        upper = last if upper is None else max(upper, last)
+        equality = next((x for x in map(Fraction, route["knots"])
+                         if estimates(fixed, x)[0] == estimates(fixed, x)[1]), None)
+        route["targetHorizon"] = {"atMovementLow": str(first), "atMovementHigh": str(last),
+                                  "allTargetTie": str(equality) if equality is not None else None}
+        if all_target_tie is None and equality is not None:
+            all_target_tie = {"index": index, "reading": str(equality)}
+
+    below, above = None, None
+    if all_target_tie is None:
+        mean, median = estimates(readings[1:], readings[0])
+        below = "Mean" if mean < median else "Median"
+        above = "Median" if below == "Mean" else "Mean"
+    witness = None
+    if all_target_tie is not None:
+        verdict, witness = "Tie", all_target_tie
+    elif probe_target < lower:
+        verdict = below
+    elif probe_target > upper:
+        verdict = above
+    else:
+        verdict = "Tie"
+        for route in record["claim"]["routes"]:
+            fixed = readings[:route["index"]] + readings[route["index"] + 1:]
+            knots = list(map(Fraction, route["knots"]))
+            for left, right in zip(knots, knots[1:]):
+                first, last = crossing(fixed, left), crossing(fixed, right)
+                if first <= probe_target <= last:
+                    moved = left + (probe_target - first) * (right - left) / (last - first)
+                    witness = {"index": route["index"], "reading": str(moved)}
+                    break
+            if witness is not None:
+                break
+        if witness is None:
+            raise ArithmeticError("No tie witness in target horizon")
+    record["claim"]["targetHorizon"] = {
+        "low": str(lower), "high": str(upper), "allTargetTie": all_target_tie,
+        "below": below, "above": above,
+        "probe": {"target": str(probe_target), "verdict": verdict, "witness": witness}}
+    record["format"] = HORIZON_FORMAT
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--readings", required=True, help="comma-separated rational readings")
@@ -257,11 +325,15 @@ def main():
                         help="include exact first-failure thresholds from each original reading (v4)")
     parser.add_argument("--region-atlas", action="store_true",
                         help="include exact Mean/Median region strip rules (v5)")
+    parser.add_argument("--target-horizon", action="store_true",
+                        help="solve exact target ranges with global strict guarantees (v6)")
     args = parser.parse_args()
     try:
-        if sum((args.gap_envelope, args.stability_radius, args.region_atlas)) > 1:
+        if sum((args.gap_envelope, args.stability_radius, args.region_atlas,
+                args.target_horizon)) > 1:
             raise ValueError("Choose one certificate mode at a time")
-        constructor = (atlas_certificate if args.region_atlas else
+        constructor = (horizon_certificate if args.target_horizon else
+                       atlas_certificate if args.region_atlas else
                        stability_certificate if args.stability_radius else
                        gap_certificate if args.gap_envelope else certificate)
         result = constructor([part.strip() for part in args.readings.split(",")],

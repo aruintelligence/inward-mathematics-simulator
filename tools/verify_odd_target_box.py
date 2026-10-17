@@ -12,6 +12,7 @@ EVEN_FORMAT = "inward-even-target-box-v2"
 GAP_FORMAT = "inward-target-box-gap-v3"
 STABILITY_FORMAT = "inward-target-box-stability-v4"
 ATLAS_FORMAT = "inward-target-box-atlas-v5"
+HORIZON_FORMAT = "inward-target-horizon-v6"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 ORDER = ("Mean", "Median", "Tie")
@@ -198,9 +199,83 @@ def check_region(region, fixed, roots, target_low, target_high, index):
         raise ValueError(f"Incorrect all-target tie columns on route {index + 1}")
 
 
+def check_route_horizon(horizon, fixed, roots, low, high, index):
+    fields(horizon, {"atMovementLow", "atMovementHigh", "allTargetTie"}, "route target horizon")
+
+    def midpoint(moved):
+        mean, median = estimators(fixed, moved)
+        return (mean + median) / 2
+
+    first, last = midpoint(low), midpoint(high)
+    if first >= last or rational(horizon["atMovementLow"], "first tie target", -LIMIT, LIMIT) != first or \
+            rational(horizon["atMovementHigh"], "last tie target", -LIMIT, LIMIT) != last:
+        raise ValueError(f"Incorrect tie target bounds on route {index + 1}")
+    equality = next((moved for moved in roots if
+                     estimators(fixed, moved)[0] == estimators(fixed, moved)[1]), None)
+    if horizon["allTargetTie"] != (str(equality) if equality is not None else None):
+        raise ValueError(f"Incorrect all-target tie on route {index + 1}")
+    return first, last, equality
+
+
+def check_target_horizon(horizon, route_bounds, readings, low, high, target_low, target_high):
+    fields(horizon, {"low", "high", "allTargetTie", "below", "above", "probe"},
+           "global target horizon")
+    first = min(item[0] for item in route_bounds)
+    last = max(item[1] for item in route_bounds)
+    if rational(horizon["low"], "horizon lower", -LIMIT, LIMIT) != first or \
+            rational(horizon["high"], "horizon upper", -LIMIT, LIMIT) != last:
+        raise ValueError("Incorrect global target horizon bounds")
+    equality_index = next((i for i, item in enumerate(route_bounds) if item[2] is not None), None)
+    if equality_index is not None:
+        fields(horizon["allTargetTie"], {"index", "reading"}, "global all-target tie")
+        equality = route_bounds[equality_index][2]
+        if type(horizon["allTargetTie"]["index"]) is not int or \
+                horizon["allTargetTie"]["index"] != equality_index or \
+                horizon["allTargetTie"]["reading"] != str(equality) or \
+                horizon["below"] is not None or horizon["above"] is not None:
+            raise ValueError("Incorrect global all-target tie")
+        below, above = None, None
+    else:
+        if horizon["allTargetTie"] is not None:
+            raise ValueError("False global all-target tie")
+        below = outcome(readings[1:], readings[0], first - 1)
+        above = outcome(readings[1:], readings[0], last + 1)
+        if below not in ("Mean", "Median") or horizon["below"] != below or \
+                horizon["above"] != above or below == above:
+            raise ValueError("Incorrect guaranteed target sides")
+        for index in range(len(readings)):
+            fixed = readings[:index] + readings[index + 1:]
+            for moved in (low, high):
+                if outcome(fixed, moved, first - 1) != below or \
+                        outcome(fixed, moved, last + 1) != above:
+                    raise ValueError("Target side guarantee contradicted by a movement endpoint")
+    probe = horizon["probe"]
+    fields(probe, {"target", "verdict", "witness"}, "target probe")
+    target = (target_low + target_high) / 2
+    if rational(probe["target"], "probe target", target_low, target_high) != target:
+        raise ValueError("Incorrect target probe")
+    expected = ("Tie" if equality_index is not None else below if target < first else
+                above if target > last else "Tie")
+    if probe["verdict"] != expected:
+        raise ValueError("Incorrect target probe verdict")
+    if expected == "Tie":
+        witness = probe["witness"]
+        fields(witness, {"index", "reading"}, "target probe tie witness")
+        index = witness["index"]
+        if type(index) is not int or not 0 <= index < len(readings):
+            raise ValueError("Invalid target probe route")
+        moved = rational(witness["reading"], "target probe reading", low, high)
+        fixed = readings[:index] + readings[index + 1:]
+        if outcome(fixed, moved, target) != "Tie":
+            raise ValueError("False target probe tie witness")
+    elif probe["witness"] is not None:
+        raise ValueError("Unexpected target probe witness")
+
+
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
-    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT):
+    if record["format"] not in (FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT,
+                                ATLAS_FORMAT, HORIZON_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
     fields(inputs, {"readings", "movement", "target"}, "inputs")
@@ -214,7 +289,8 @@ def verify(record):
         raise ValueError("Invalid interval order")
     raw = inputs["readings"]
     if type(raw) is not list or not 3 <= len(raw) <= 21 or \
-            record["format"] not in (GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT) and \
+            record["format"] not in (GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT,
+                                     HORIZON_FORMAT) and \
             (len(raw) % 2 == 0) != (record["format"] == EVEN_FORMAT):
         raise ValueError("Reading count must match certificate format, between 3 and 21")
     readings = [rational(value, "reading", low, high) for value in raw]
@@ -222,19 +298,22 @@ def verify(record):
     quantified = record["format"] == GAP_FORMAT
     stable = record["format"] == STABILITY_FORMAT
     atlas = record["format"] == ATLAS_FORMAT
+    horizon = record["format"] == HORIZON_FORMAT
     fields(claim, {"routes", "reachable", "guarantee"} |
-           ({"gap"} if quantified else {"stability"} if stable else set()), "claim")
+           ({"gap"} if quantified else {"stability"} if stable else
+            {"targetHorizon"} if horizon else set()), "claim")
     routes = claim["routes"]
     if type(routes) is not list or len(routes) != len(readings):
         raise ValueError("Missing one-reading routes")
     overall = set()
     route_extrema = []
     failures = []
+    route_bounds = []
     baseline = None
     for index, route in enumerate(routes):
         fields(route, {"index", "knots", "reachable", "guarantee", "witnesses"} |
                ({"gap"} if quantified else {"stability"} if stable else
-                {"region"} if atlas else set()), "route")
+                {"region"} if atlas else {"targetHorizon"} if horizon else set()), "route")
         if type(route["index"]) is not int or route["index"] != index:
             raise ValueError("Incorrect route index")
         fixed = readings[:index] + readings[index + 1:]
@@ -276,11 +355,17 @@ def verify(record):
             failures.extend(route_failures)
         if atlas:
             check_region(route["region"], fixed, expected, target_low, target_high, index)
+        if horizon:
+            route_bounds.append(check_route_horizon(route["targetHorizon"], fixed, expected,
+                                                    low, high, index))
         overall.update(reachable)
     expected = [name for name in ORDER if name in overall]
     guarantee = expected[0] if len(expected) == 1 and expected[0] != "Tie" else None
     if claim["reachable"] != expected or claim["guarantee"] != guarantee:
         raise ValueError("Incorrect global outcomes or strict guarantee")
+    if horizon:
+        check_target_horizon(claim["targetHorizon"], route_bounds, readings,
+                             low, high, target_low, target_high)
     if quantified:
         fields(claim["gap"], {"min", "max"}, "global gap")
         for extreme in ("min", "max"):
@@ -325,6 +410,8 @@ def verify(record):
         result["stability"] = claim["stability"]
     if atlas:
         result["atlas"] = True
+    if horizon:
+        result["targetHorizon"] = claim["targetHorizon"]
     return result
 
 
@@ -355,6 +442,13 @@ def main():
                    if point else "no failure within the stipulated movement range"))
         if result.get("atlas"):
             print("Exact Mean/Median region stripes and all-target tie columns checked")
+        if "targetHorizon" in result:
+            h = result["targetHorizon"]
+            print(f"Target horizon [{h['low']}, {h['high']}]; " +
+                  (f"all targets tie at route {h['allTargetTie']['index'] + 1}, "
+                   f"x={h['allTargetTie']['reading']}" if h["allTargetTie"] else
+                   f"strict {h['below']} below, strict {h['above']} above; "
+                   f"probe t={h['probe']['target']}: {h['probe']['verdict']}"))
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

@@ -360,6 +360,31 @@ test('exact region atlas receipts survive portable archive replay and reject for
     checkers, crypto.webcrypto));
 });
 
+test('target horizon receipts survive portable archive replay and reject forged tie probes', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-horizon-v6.json', 'utf8');
+  await archive.add(db, receipt, 'Inverse target horizon', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.targetHorizon.low, '17/3');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-horizon-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.targetHorizon.probe.witness.reading = '5';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
 test('v2 collection preserves and independently rechecks odd, signed, and even reversal receipts', async () => {
   const db = memoryDB();
   await archive.add(db, source, 'Target Box', checkers, crypto.webcrypto);

@@ -10,6 +10,7 @@
   const GAP_FORMAT = "inward-target-box-gap-v3";
   const STABILITY_FORMAT = "inward-target-box-stability-v4";
   const ATLAS_FORMAT = "inward-target-box-atlas-v5";
+  const HORIZON_FORMAT = "inward-target-horizon-v6";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) {
@@ -285,6 +286,74 @@
     record.format = ATLAS_FORMAT;
     return record;
   }
+  function horizonCertificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh) {
+    const record = certificate(rawReadings, rawLow, rawHigh, rawTargetLow, rawTargetHigh);
+    const fromString = value => {
+      const [n, d = "1"] = value.split("/");
+      return q(BigInt(n), BigInt(d));
+    };
+    const readings = record.inputs.readings.map(fromString);
+    const low = fromString(record.inputs.movement.low), high = fromString(record.inputs.movement.high);
+    const targetLow = fromString(record.inputs.target.low);
+    const targetHigh = fromString(record.inputs.target.high);
+    const probe = div(add(targetLow, targetHigh), TWO);
+    const crossing = (fixed, moved) => {
+      const [mean, median] = estimators(fixed, moved);
+      return div(add(mean, median), TWO);
+    };
+    let minimum = null, maximum = null, allTargetTie = null;
+    for (const route of record.claim.routes) {
+      const fixed = readings.filter((_, index) => index !== route.index);
+      const start = crossing(fixed, low), end = crossing(fixed, high);
+      if (minimum === null || cmp(start, minimum) < 0) minimum = start;
+      if (maximum === null || cmp(end, maximum) > 0) maximum = end;
+      const equality = route.knots.map(fromString).find(moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return cmp(mean, median) === 0;
+      });
+      route.targetHorizon = {atMovementLow: string(start), atMovementHigh: string(end),
+        allTargetTie: equality === undefined ? null : string(equality)};
+      if (allTargetTie === null && equality !== undefined) {
+        allTargetTie = {index: route.index, reading: string(equality)};
+      }
+    }
+    let below = null, above = null;
+    if (allTargetTie === null) {
+      const fixed = readings.slice(1);
+      const [mean, median] = estimators(fixed, readings[0]);
+      below = cmp(mean, median) < 0 ? "Mean" : "Median";
+      above = below === "Mean" ? "Median" : "Mean";
+    }
+    let verdict, witness = null;
+    if (allTargetTie !== null) {
+      verdict = "Tie";
+      witness = allTargetTie;
+    } else if (cmp(probe, minimum) < 0) verdict = below;
+    else if (cmp(probe, maximum) > 0) verdict = above;
+    else {
+      verdict = "Tie";
+      for (const route of record.claim.routes) {
+        const fixed = readings.filter((_, index) => index !== route.index);
+        const knots = route.knots.map(fromString);
+        for (let i = 0; i < knots.length - 1; i++) {
+          const left = knots[i], right = knots[i + 1];
+          const first = crossing(fixed, left), last = crossing(fixed, right);
+          if (cmp(first, probe) <= 0 && cmp(probe, last) <= 0) {
+            const moved = add(left, div(mul(sub(probe, first), sub(right, left)),
+              sub(last, first)));
+            witness = {index: route.index, reading: string(moved)};
+            break;
+          }
+        }
+        if (witness) break;
+      }
+      if (!witness) throw new Error("No tie witness in target horizon");
+    }
+    record.claim.targetHorizon = {low: string(minimum), high: string(maximum),
+      allTargetTie, below, above, probe: {target: string(probe), verdict, witness}};
+    record.format = HORIZON_FORMAT;
+    return record;
+  }
   function position(raw, rawLow, rawHigh) {
     const canonical = value => {
       const [numerator, denominator = "1"] = value.split("/");
@@ -294,5 +363,6 @@
     const ratio = div(sub(x, low), sub(high, low));
     return Number(ratio.n * 1000000000000n / ratio.d) / 1e12;
   }
-  return {certificate, gapCertificate, stabilityCertificate, atlasCertificate, position};
+  return {certificate, gapCertificate, stabilityCertificate, atlasCertificate,
+    horizonCertificate, position};
 });
