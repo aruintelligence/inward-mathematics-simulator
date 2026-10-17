@@ -74,6 +74,18 @@ $$x=p+(q-p)\frac{t-h_r(p)}{h_r(q)-h_r(p)},$$
 
 where $p,q$ are consecutive knots and $h_r(p)\le t\le h_r(q)$. The denominator is positive. The independent JavaScript and Python verifiers recompute endpoint midpoints, every possible all-target equality using their own factor roots, side winners from direct squared errors, and the probe's exact witness. This is a conditional algebraic result for one reading moving at a time, with independently checked executable receipts; the v6 JSON is not itself checked by Lean and does not authenticate a target.
 
+The checked Lean module now proves strict increase and the exact in-cell
+interpolation for arbitrary real affine mean and median functions with the
+required slopes. It proves that the interpolated reading ties in absolute
+error, that supplied global bounds and strict ordering imply the stated
+outside winners for every route, and that one equal-estimate route prevents
+either strict global winner. Lean also evaluates the exhibited endpoint
+midpoints and example ties. The independent receipt verifiers remain
+responsible for sorting arbitrary samples, enumerating cells, establishing
+the global minimum and maximum, and matching these premises to each JSON
+record. These formal statements do not turn a computational certificate into
+an automatically checked Lean proof of its data.
+
 For readings `[8,6,8,7,0,8]`, movement `[0,10]`, and probe target `[6,6]`, the [checked v6 example](../examples/target-horizon-v6.json) has $h_-=17/3$ and $h_+=95/12$. Every target below $17/3$ strictly favors Mean under every permitted move; every target above $95/12$ strictly favors Median. At target $6$, moving reading 1 to $4$ gives an exact tie. By contrast, the five-reading `[48,49,50,51,85]` case with movement `[0,100]` has an all-target tie after moving reading 1 to $15$, so no target can provide a strict global guarantee across every route. These conclusions concern the stated hypothetical movement model and do not establish which estimator is appropriate for real measurements.
 
 ```sh

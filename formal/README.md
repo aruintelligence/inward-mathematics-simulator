@@ -106,6 +106,26 @@ sorts arbitrary input, and selects the global closest route is still checked
 by the independent certificate verifier rather than proved equivalent to
 this Lean model.
 
+`InwardFormal.TargetHorizon` formalizes the v6 midpoint-target calculation
+on a cell where both estimates are affine in the moved reading. A positive
+mean slope and nonnegative median slope make the midpoint target strictly
+increasing. Its interpolation theorem constructs an in-cell reading for
+**every real target** between the endpoint midpoints and proves the two
+absolute errors tie there. A separate theorem gives strict winners outside
+supplied global midpoint bounds for an arbitrary collection of routes whose
+estimates have the same strict ordering. Equality of the estimates on even
+one route blocks either universal strict winner for every target. The module
+also checks the mean, median, and target-6 tie for the six-reading v6 example,
+both exhibited endpoint midpoint values `17/3` and `95/12`, and the
+five-reading all-target equality example.
+
+These proofs take the affine cell, endpoint bounds, and route ordering as
+hypotheses. They do not prove that a JSON record enumerates every median
+cell, that its endpoint values are global extrema, or that a supplied list
+was obtained by moving one input reading and sorting it. The independently
+implemented browser and Python receipt verifiers check those concrete
+claims. No v6 JSON file is parsed or checked by Lean.
+
 `InwardFormal.AffineEquivariance` proves that changing units by
 `v ↦ scale * v + shift` multiplies the squared-error difference and its
 factored form by `scale²`. For positive `scale`, a strict mean win and an
