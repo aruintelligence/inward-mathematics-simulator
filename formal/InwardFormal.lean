@@ -936,7 +936,6 @@ theorem cell_paths_horizon_tie (Route : Type*)
         (by rw [hanchor r]; exact hleft)
     refine ⟨r, x, hlowx, le_trans hxoriginal hhigh, ?_⟩
     apply midpoint_tie (mean r x) (median r x) t
-    dsimp at hx
     linarith
   · obtain ⟨r, hr⟩ := hmax
     obtain ⟨_, _, hcover⟩ := midpoint_path_covers (hpaths r).2
@@ -945,7 +944,6 @@ theorem cell_paths_horizon_tie (Route : Type*)
         (by rw [hr]; exact htu)
     refine ⟨r, x, le_trans hlow horiginalx, hxhigh, ?_⟩
     apply midpoint_tie (mean r x) (median r x) t
-    dsimp at hx
     linarith
 
 /-- Strictly below the midpoint target, the lower estimate strictly wins. -/
