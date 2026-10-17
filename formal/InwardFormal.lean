@@ -1046,6 +1046,142 @@ theorem six_reading_high_endpoint_midpoint :
       95 / 12 := by
   norm_num [sampleMean, orderedMedian, sixReadingHighEndpoint]
 
+/-!
+The v6 example's lower endpoint is reached by moving the first `8` in
+`[8,6,8,7,0,8]`; the upper endpoint is reached by moving the fifth `0`.
+These two explicit piecewise formulas model those routes. The receipt
+verifiers separately check that its knots and route formulas match sorting
+the moved sample. The following Lean proof checks every real target in the
+reported inner interval, not just the receipt's one target-6 probe.
+-/
+def sixLowRouteMean (x : ℝ) : ℝ := (x + 29) / 6
+
+def sixLowRouteMedian (x : ℝ) : ℝ :=
+  if x ≤ 6 then 13 / 2 else if x ≤ 8 then (x + 7) / 2 else 15 / 2
+
+def sixHighRouteMean (x : ℝ) : ℝ := (x + 37) / 6
+
+def sixHighRouteMedian (x : ℝ) : ℝ :=
+  if x ≤ 7 then 15 / 2 else if x ≤ 8 then (x + 8) / 2 else 8
+
+/-- The route mean formulas come directly from replacing the indicated
+reading in the original six-element sample. -/
+theorem six_low_route_mean_from_sample (x : ℝ) :
+    sampleMean [x, 6, 8, 7, 0, 8] = sixLowRouteMean x := by
+  norm_num [sampleMean, sixLowRouteMean] <;> ring
+
+theorem six_high_route_mean_from_sample (x : ℝ) :
+    sampleMean [8, 6, 8, 7, x, 8] = sixHighRouteMean x := by
+  norm_num [sampleMean, sixHighRouteMean] <;> ring
+
+private theorem six_low_route_path :
+    MidpointPath (fun x => (sixLowRouteMean x + sixLowRouteMedian x) / 2)
+      0 8 := by
+  have first : MidpointPath
+      (fun x => (sixLowRouteMean x + sixLowRouteMedian x) / 2) 0 6 := by
+    apply affine_cell_path _ (1 / 6) (29 / 6) 0 (13 / 2) 0 6
+      (by norm_num) (by norm_num) (by norm_num)
+    intro x _ hx6
+    simp only [sixLowRouteMean, sixLowRouteMedian, if_pos hx6,
+      midpointTarget, affineMean, affineMedian]
+    ring
+  have second : MidpointPath
+      (fun x => (sixLowRouteMean x + sixLowRouteMedian x) / 2) 6 8 := by
+    apply affine_cell_path _ (1 / 6) (29 / 6) (1 / 2) (7 / 2) 6 8
+      (by norm_num) (by norm_num) (by norm_num)
+    intro x hx6 hx8
+    by_cases hfirst : x ≤ 6
+    · have heq : x = 6 := le_antisymm hfirst hx6
+      subst x
+      norm_num [sixLowRouteMean, sixLowRouteMedian, midpointTarget,
+        affineMean, affineMedian]
+    · simp only [sixLowRouteMean, sixLowRouteMedian, if_neg hfirst,
+        if_pos hx8, midpointTarget, affineMean, affineMedian]
+      ring
+  exact MidpointPath.append first second
+
+private theorem six_high_route_path :
+    MidpointPath (fun x => (sixHighRouteMean x + sixHighRouteMedian x) / 2)
+      0 10 := by
+  have first : MidpointPath
+      (fun x => (sixHighRouteMean x + sixHighRouteMedian x) / 2) 0 7 := by
+    apply affine_cell_path _ (1 / 6) (37 / 6) 0 (15 / 2) 0 7
+      (by norm_num) (by norm_num) (by norm_num)
+    intro x _ hx7
+    simp only [sixHighRouteMean, sixHighRouteMedian, if_pos hx7,
+      midpointTarget, affineMean, affineMedian]
+    ring
+  have second : MidpointPath
+      (fun x => (sixHighRouteMean x + sixHighRouteMedian x) / 2) 7 8 := by
+    apply affine_cell_path _ (1 / 6) (37 / 6) (1 / 2) 4 7 8
+      (by norm_num) (by norm_num) (by norm_num)
+    intro x hx7 hx8
+    by_cases hfirst : x ≤ 7
+    · have heq : x = 7 := le_antisymm hfirst hx7
+      subst x
+      norm_num [sixHighRouteMean, sixHighRouteMedian, midpointTarget,
+        affineMean, affineMedian]
+    · simp only [sixHighRouteMean, sixHighRouteMedian, if_neg hfirst,
+        if_pos hx8, midpointTarget, affineMean, affineMedian]
+      ring
+  have third : MidpointPath
+      (fun x => (sixHighRouteMean x + sixHighRouteMedian x) / 2) 8 10 := by
+    apply affine_cell_path _ (1 / 6) (37 / 6) 0 8 8 10
+      (by norm_num) (by norm_num) (by norm_num)
+    intro x hx8 _
+    by_cases hlast : x ≤ 8
+    · have heq : x = 8 := le_antisymm hlast hx8
+      subst x
+      norm_num [sixHighRouteMean, sixHighRouteMedian, midpointTarget,
+        affineMean, affineMedian]
+    · have hfirst : ¬ x ≤ 7 := by
+        intro h
+        linarith
+      simp only [sixHighRouteMean, sixHighRouteMedian, if_neg hfirst,
+        if_neg hlast, midpointTarget, affineMean, affineMedian]
+      ring
+  exact MidpointPath.append (MidpointPath.append first second) third
+
+/-- For every real target in the example's reported horizon, one of two
+explicit permitted reading routes yields an exact equal-error tie. This
+checks the full inner interval; it does not certify the six-route global
+extrema or the JSON parser. -/
+theorem six_reading_inner_horizon_tie (t : ℝ)
+    (hlt : 17 / 3 ≤ t) (htu : t ≤ 95 / 12) :
+    (∃ x, 0 ≤ x ∧ x ≤ 8 ∧
+      |sixLowRouteMean x - t| = |sixLowRouteMedian x - t|) ∨
+    (∃ x, 0 ≤ x ∧ x ≤ 10 ∧
+      |sixHighRouteMean x - t| = |sixHighRouteMedian x - t|) := by
+  have hlow :
+      (sixLowRouteMean 0 + sixLowRouteMedian 0) / 2 = 17 / 3 := by
+    norm_num [sixLowRouteMean, sixLowRouteMedian]
+  have hanchorLow :
+      (sixLowRouteMean 8 + sixLowRouteMedian 8) / 2 = 41 / 6 := by
+    norm_num [sixLowRouteMean, sixLowRouteMedian]
+  have hanchorHigh :
+      (sixHighRouteMean 0 + sixHighRouteMedian 0) / 2 = 41 / 6 := by
+    norm_num [sixHighRouteMean, sixHighRouteMedian]
+  have hhigh :
+      (sixHighRouteMean 10 + sixHighRouteMedian 10) / 2 = 95 / 12 := by
+    norm_num [sixHighRouteMean, sixHighRouteMedian]
+  rcases le_total t (41 / 6 : ℝ) with hleft | hright
+  · left
+    obtain ⟨_, _, hcover⟩ := midpoint_path_covers six_low_route_path
+    obtain ⟨x, hx0, hx8, hx⟩ :=
+      hcover t (by rw [hlow]; exact hlt)
+        (by rw [hanchorLow]; exact hleft)
+    refine ⟨x, hx0, hx8, ?_⟩
+    apply midpoint_tie (sixLowRouteMean x) (sixLowRouteMedian x) t
+    linarith
+  · right
+    obtain ⟨_, _, hcover⟩ := midpoint_path_covers six_high_route_path
+    obtain ⟨x, hx0, hx10, hx⟩ :=
+      hcover t (by rw [hanchorHigh]; exact hright)
+        (by rw [hhigh]; exact htu)
+    refine ⟨x, hx0, hx10, ?_⟩
+    apply midpoint_tie (sixHighRouteMean x) (sixHighRouteMedian x) t
+    linarith
+
 /-- The five-reading v6 obstruction after replacing the first `48` by `15`. -/
 def fiveReadingEqualSample : List ℝ := [15, 49, 50, 51, 85]
 
