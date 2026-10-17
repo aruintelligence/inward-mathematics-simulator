@@ -21,6 +21,10 @@
     $("save-status").classList.remove("error");
     $("routes").replaceChildren();
     $("fingerprint").textContent = "";
+    $("target-query-panel").hidden = true;
+    $("query-target").value = "";
+    $("query-result").textContent = "Choose a target to solve against every permitted one-reading route.";
+    $("query-result").classList.remove("error");
     $("seal-status").textContent = "Awaiting certificate";
     $("seal-note").textContent = "Choose a certificate or paste its complete JSON below.";
     $("status").textContent = message;
@@ -59,7 +63,7 @@
       const digest = await crypto.subtle.digest("SHA-256", bytes);
       if (started !== revision) return; // A newer edit or file replaced this result.
       const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
-      lastValid = {source, hash};
+      lastValid = {source, hash, record};
       $("save-to-archive").disabled = false;
       $("seal-status").textContent = "Mathematics verified";
       $("seal-note").textContent = `${result.routes} exhaustive routes checked with exact rational arithmetic.`;
@@ -83,6 +87,8 @@
         " Exact region strips were rederived from mean and median squared errors. Below and above each linear tie target, the listed winners hold throughout the open reading strip. Vertical tie columns apply to every target.";
       if (result.targetHorizon) {
         const h = result.targetHorizon;
+        $("target-query-panel").hidden = false;
+        $("query-target").value = h.probe.target;
         $("report-intro").textContent += h.allTargetTie ?
           ` Every real target ties when reading ${h.allTargetTie.index + 1} moves to ${h.allTargetTie.reading}; there is no strict global target guarantee. The computed finite midpoint span is [${h.low}, ${h.high}].` :
           ` Exact global target horizon [${h.low}, ${h.high}]: strict ${h.below} below it, strict ${h.above} above it, and a tie is attainable at every target inside it, including the endpoints.`;
@@ -135,6 +141,23 @@
     }
   }
   $("verify-button").addEventListener("click", inspect);
+  $("query-target").addEventListener("input", () => {
+    $("query-result").textContent = "Choose Find exact result to solve this target.";
+    $("query-result").classList.remove("error");
+  });
+  $("query-button").addEventListener("click", () => {
+    if (!lastValid || lastValid.record.format !== "inward-target-horizon-v6") return;
+    try {
+      const answer = checker.queryTargetHorizon(lastValid.record, $("query-target").value);
+      $("query-result").textContent = answer.witness ?
+        `Exact target ${answer.target}: a tie is reachable. Move reading ${answer.witness.index + 1} to ${answer.witness.reading}.` :
+        `Exact target ${answer.target}: ${answer.verdict} is strictly closer for every permitted one-reading move.`;
+      $("query-result").classList.remove("error");
+    } catch (error) {
+      $("query-result").textContent = error.message;
+      $("query-result").classList.add("error");
+    }
+  });
   $("save-to-archive").addEventListener("click", async () => {
     if (!lastValid) return;
     const started = revision, {source, hash} = lastValid;

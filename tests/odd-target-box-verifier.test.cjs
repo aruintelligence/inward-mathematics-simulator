@@ -17,6 +17,12 @@ function checkPython(record, directory) {
   writeFileSync(path, JSON.stringify(record));
   return spawnSync('python3', ['tools/verify_odd_target_box.py', path], {encoding: 'utf8'});
 }
+function queryPython(record, directory, target) {
+  const path = join(directory, 'certificate.json');
+  writeFileSync(path, JSON.stringify(record));
+  return spawnSync('python3', ['tools/verify_odd_target_box.py', path,
+    '--query-target', target], {encoding: 'utf8'});
+}
 
 test('independent JavaScript and Python verifiers accept exact examples and alternate valid witnesses', () => {
   assert.deepEqual(verifier.verify(original), {routes: 5,
@@ -200,6 +206,44 @@ test('v6 target horizon rejects false bounds, strict sides, and unattained tie p
   } finally {rmSync(dir, {recursive: true, force: true});}
 });
 
+test('a checked v6 receipt solves fresh exact targets beyond its original interval', () => {
+  const record = verifier.parseReceipt(readFileSync('examples/target-horizon-v6.json', 'utf8'));
+  const dir = mkdtempSync(join(tmpdir(), 'target-horizon-query-'));
+  try {
+    for (const [target, expected] of [
+      ['5', {target: '5', verdict: 'Mean', witness: null}],
+      ['17/3', {target: '17/3', verdict: 'Tie', witness: {index: 0, reading: '0'}}],
+      ['5.75', {target: '23/4', verdict: 'Tie', witness: {index: 0, reading: '1'}}],
+      ['6', {target: '6', verdict: 'Tie', witness: {index: 0, reading: '4'}}],
+      ['95/12', {target: '95/12', verdict: 'Tie', witness: {index: 4, reading: '10'}}],
+      ['1000000000', {target: '1000000000', verdict: 'Median', witness: null}]
+    ]) {
+      assert.deepEqual(verifier.queryTargetHorizon(record, target), expected);
+      const python = queryPython(record, dir, target);
+      assert.equal(python.status, 0, `${target}: ${python.stderr}`);
+      assert.match(python.stdout, new RegExp(`Exact target query t=${expected.target.replace('/', '\\/')}:`));
+      if (expected.witness) assert.match(python.stdout,
+        new RegExp(`Tie; move reading ${expected.witness.index + 1} to ${expected.witness.reading}`));
+      else assert.match(python.stdout, new RegExp(`strict ${expected.verdict} across every`));
+    }
+    const blocked = core.horizonCertificate(['48', '49', '50', '51', '85'],
+      '0', '100', '48', '52');
+    assert.deepEqual(verifier.queryTargetHorizon(blocked, '-2000000'),
+      {target: '-2000000', verdict: 'Tie', witness: {index: 0, reading: '15'}});
+    assert.equal(queryPython(blocked, dir, '-2000000').status, 0);
+    const even = core.horizonCertificate(['40', '45', '50', '80'], '0', '100', '48', '52');
+    assert.equal(verifier.queryTargetHorizon(even, '50').verdict, 'Tie');
+    for (const invalid of ['2/4', '1.1234567', '1e6', '-0', '3/0']) {
+      assert.throws(() => verifier.queryTargetHorizon(record, invalid), invalid);
+      assert.notEqual(queryPython(record, dir, invalid).status, 0, invalid);
+    }
+    const forged = clone(record); forged.claim.targetHorizon.high = '8';
+    assert.throws(() => verifier.queryTargetHorizon(forged, '6'));
+    assert.notEqual(queryPython(forged, dir, '6').status, 0);
+    assert.throws(() => verifier.queryTargetHorizon(original, '50'), /target-horizon certificate/);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -261,7 +305,7 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   const ids = ['receipt-file', 'receipt-json', 'file-name', 'report', 'routes', 'fingerprint',
     'seal-status', 'seal-note', 'status', 'verify-button', 'reachable', 'overall-note',
     'guarantee', 'guarantee-note', 'report-intro', 'print', 'save-to-archive',
-    'save-status', 'archive-label'];
+    'save-status', 'archive-label', 'target-query-panel', 'query-target', 'query-button', 'query-result'];
   const elements = Object.fromEntries(ids.map(id => [id, element(id)]));
   const document = {getElementById: id => elements[id], createElement: element};
   const saved = [];
@@ -280,6 +324,7 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
     crypto.createHash('sha256').update(exampleText).digest('hex'));
   assert.equal(elements['seal-status'].textContent, 'Mathematics verified');
   assert.equal(elements['save-to-archive'].disabled, false);
+  assert.equal(elements['target-query-panel'].hidden, true);
   await elements['save-to-archive'].handlers.click();
   assert.deepEqual(saved, [exampleText]);
   elements['receipt-json'].value = readFileSync('examples/target-box-gap-v3.json', 'utf8');
@@ -305,9 +350,26 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   assert.match(elements['report-intro'].textContent, /target horizon \[17\/3, 95\/12\]/i);
   assert.match(elements['report-intro'].textContent, /move reading 1 to 4/);
   assert.match(elements.routes.children[0].children.at(-2).textContent, /Tie-target endpoints/);
+  assert.equal(elements['target-query-panel'].hidden, false);
+  assert.equal(elements['query-target'].value, '6');
+  elements['query-button'].handlers.click();
+  assert.match(elements['query-result'].textContent, /move reading 1 to 4/i);
+  elements['query-target'].value = '5.75';
+  elements['query-target'].handlers.input();
+  assert.doesNotMatch(elements['query-result'].textContent, /move reading/i);
+  elements['query-button'].handlers.click();
+  assert.match(elements['query-result'].textContent, /Exact target 23\/4.*move reading 1 to 1/i);
+  elements['query-target'].value = '8';
+  elements['query-button'].handlers.click();
+  assert.match(elements['query-result'].textContent, /Median is strictly closer for every/);
+  elements['query-target'].value = '2/4';
+  elements['query-button'].handlers.click();
+  assert.equal(elements['query-result'].classList.contains('error'), true);
   elements['receipt-json'].value = '{"bad":true}';
   elements['receipt-json'].handlers.input();
   assert.equal(elements.report.hidden, true);
+  assert.equal(elements['target-query-panel'].hidden, true);
+  assert.equal(elements['query-target'].value, '');
   assert.equal(elements.routes.children.length, 0);
   assert.equal(elements.fingerprint.textContent, '');
   assert.equal(elements['save-to-archive'].disabled, true);

@@ -12,6 +12,7 @@
   const ATLAS_FORMAT = "inward-target-box-atlas-v5";
   const HORIZON_FORMAT = "inward-target-horizon-v6";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
+  const DECIMAL_TARGET = /^(-?)(0|[1-9][0-9]{0,256})\.([0-9]{1,6})$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
   const abs = n => n < 0n ? -n : n;
@@ -41,6 +42,15 @@
     if (notation(value) !== raw || low && compare(value, low) < 0 ||
         high && compare(value, high) > 0) fail(`Noncanonical or out-of-range ${label}`);
     return value;
+  }
+  function queryTarget(raw) {
+    if (typeof raw !== "string") fail("Enter an exact target as an integer, fraction, or decimal");
+    const value = raw.trim();
+    if (RATIONAL.test(value)) return rational(value, "query target");
+    const match = DECIMAL_TARGET.exec(value);
+    if (!match) fail("Enter an exact target as an integer, reduced fraction, or decimal with up to six places");
+    const numerator = BigInt(match[2] + match[3]) * (match[1] === "-" ? -1n : 1n);
+    return fraction(numerator, 10n ** BigInt(match[3].length));
   }
   function fields(object, names, label) {
     if (object === null || typeof object !== "object" || Array.isArray(object) ||
@@ -488,5 +498,44 @@
       ...(quantified ? {gap: claim.gap} : stable ? {stability: claim.stability} :
         atlas ? {atlas: true} : horizon ? {targetHorizon: claim.targetHorizon} : {})};
   }
-  return {parseReceipt, verify};
+  // Query a portable receipt without trusting its claimed witness or importing
+  // the constructor. The receipt is checked again before its knots are used.
+  function queryTargetHorizon(record, rawTarget) {
+    if (record?.format !== HORIZON_FORMAT) fail("A verified target-horizon certificate is required");
+    const checked = verify(record);
+    const target = queryTarget(rawTarget), horizon = checked.targetHorizon;
+    const answer = (verdict, witness = null) => ({target: notation(target), verdict, witness});
+    const readings = record.inputs.readings.map(value => rational(value, "reading"));
+    if (horizon.allTargetTie) {
+      const {index, reading} = horizon.allTargetTie;
+      const fixed = readings.filter((_, i) => i !== index);
+      const moved = rational(reading, "all-target tie reading");
+      if (outcome(fixed, moved, target) !== "Tie") fail("All-target tie contradicted by exact errors");
+      return answer("Tie", {index, reading});
+    }
+    if (compare(target, rational(horizon.low, "horizon lower")) < 0) return answer(horizon.below);
+    if (compare(target, rational(horizon.high, "horizon upper")) > 0) return answer(horizon.above);
+    for (const route of record.claim.routes) {
+      const fixed = readings.filter((_, i) => i !== route.index);
+      const knots = route.knots.map(value => rational(value, "checked knot"));
+      const crossing = moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return divide(add(mean, median), TWO);
+      };
+      for (let i = 1; i < knots.length; i++) {
+        const left = knots[i - 1], right = knots[i];
+        const first = crossing(left), last = crossing(right);
+        if (compare(first, target) <= 0 && compare(target, last) <= 0) {
+          if (compare(first, last) >= 0) fail("Target-horizon cell is not increasing");
+          const moved = add(left, divide(multiply(subtract(right, left),
+            subtract(target, first)), subtract(last, first)));
+          if (compare(moved, left) < 0 || compare(moved, right) > 0 ||
+              outcome(fixed, moved, target) !== "Tie") fail("Exact query witness is not a tie");
+          return answer("Tie", {index: route.index, reading: notation(moved)});
+        }
+      }
+    }
+    fail("No exact tie witness in the checked target horizon");
+  }
+  return {parseReceipt, verify, queryTargetHorizon};
 });

@@ -93,6 +93,33 @@ python3 tools/odd_target_box.py --readings 8,6,8,7,0,8 --low 0 --high 10 --targe
 python3 tools/verify_odd_target_box.py horizon.json
 ```
 
+### Ask a fresh exact target
+
+The [independent browser inspector](../verify-odd-target-box.html) now accepts
+another target after it verifies a v6 receipt. Enter an integer, a reduced
+fraction such as `23/4`, or a decimal with up to six places such as `5.75`.
+The new target may lie outside the receipt's original `[A,B]` and outside
+±1,000,000. The inspector rechecks the entire receipt, then solves for an
+exact moved-reading tie witness or reports the strict winner across every
+permitted one-reading move. It checks a returned witness against the two
+exact squared errors. The input accepts at most 257 digits in a rational
+component; this is an implementation limit on a query, not a restriction on
+the mathematical horizon. Changing the query does not alter or re-fingerprint
+the original certificate.
+
+The Python verifier performs the same independent query:
+
+```sh
+python3 tools/verify_odd_target_box.py horizon.json --query-target 5.75
+```
+
+For the checked six-reading receipt above, this reports target `23/4` and an
+exact tie by moving reading 1 to `1`. Querying `17/3` or `95/12` yields an
+attained boundary tie; querying `5` or `8` gives a strict global winner. A
+receipt with an all-target equal-estimate route returns that tie for every
+queried target. Each answer remains conditional on the stated readings and
+one-reading movement range.
+
 ## Why every real outcome is covered
 
 For $n=2k+1$ readings, let $s_1\le\cdots\le s_{2k}$ be the fixed ones, $S$ their sum, $x$ the moved reading, and $t$ the target. Then
