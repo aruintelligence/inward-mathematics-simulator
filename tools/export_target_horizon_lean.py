@@ -50,8 +50,8 @@ namespace InwardFormal.TargetHorizon
 def receiptReadings : List ℝ := [{', '.join(readings)}]
 def receiptMovementLow : ℝ := {inputs['movement']['low']}
 def receiptMovementHigh : ℝ := {inputs['movement']['high']}
-def receiptHorizonLow : ℝ := {horizon['low']}
-def receiptHorizonHigh : ℝ := {horizon['high']}
+noncomputable def receiptHorizonLow : ℝ := {horizon['low']}
+noncomputable def receiptHorizonHigh : ℝ := {horizon['high']}
 
 /-- All six choices of which original reading to move, extracted as literals. -/
 def receiptMove : SixReadingMove → ℝ → List ℝ

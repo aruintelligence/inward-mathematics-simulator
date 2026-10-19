@@ -12,8 +12,8 @@ namespace InwardFormal.TargetHorizon
 def receiptReadings : List ℝ := [8, 6, 8, 7, 0, 8]
 def receiptMovementLow : ℝ := 0
 def receiptMovementHigh : ℝ := 10
-def receiptHorizonLow : ℝ := 17/3
-def receiptHorizonHigh : ℝ := 95/12
+noncomputable def receiptHorizonLow : ℝ := 17/3
+noncomputable def receiptHorizonHigh : ℝ := 95/12
 
 /-- All six choices of which original reading to move, extracted as literals. -/
 def receiptMove : SixReadingMove → ℝ → List ℝ
