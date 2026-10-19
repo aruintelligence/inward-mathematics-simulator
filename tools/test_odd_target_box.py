@@ -13,9 +13,34 @@ from odd_target_box import (certificate, gap_certificate, stability_certificate,
                             atlas_certificate, horizon_certificate, winner)
 from verify_odd_target_box import verify, query_target_horizon
 from render_target_horizon_report import render
+from export_target_horizon_lean import render as lean_export
 
 
 class TargetBoxTests(unittest.TestCase):
+    def test_v6_lean_specialization_is_reproducible_and_rejects_other_models(self):
+        raw = Path("examples/target-horizon-v6.json").read_bytes()
+        source = lean_export(raw)
+        self.assertEqual(source, Path("formal/TargetHorizonReceipt.lean").read_text())
+        self.assertIn(hashlib.sha256(raw).hexdigest(), source)
+        self.assertEqual(source.count("=> ["), 6)
+        self.assertIn("receipt_move_eq_model", source)
+        self.assertIn("receipt_full_horizon", source)
+        self.assertNotIn("sorry", source)
+
+        alternate_probe = horizon_certificate(["8", "6", "8", "7", "0", "8"],
+                                              "0", "10", "7", "7")
+        self.assertIn("receipt_full_horizon", lean_export(json.dumps(alternate_probe).encode()))
+        blocked = horizon_certificate(["48", "49", "50", "51", "85"],
+                                      "0", "100", "48", "52")
+        with self.assertRaisesRegex(ValueError, "Only the fixed six-reading"):
+            lean_export(json.dumps(blocked).encode())
+        altered = json.loads(raw)
+        altered["claim"]["targetHorizon"]["low"] = "6"
+        with self.assertRaises(ValueError):
+            lean_export(json.dumps(altered).encode())
+        with self.assertRaises(ValueError):
+            lean_export(raw.replace(b'"format":', b'"format":"fake","format":', 1))
+
     def test_portable_horizon_report_embeds_exact_checked_bytes_and_scopes_formal_claim(self):
         raw = Path("examples/target-horizon-v6.json").read_bytes()
         page = render(raw)

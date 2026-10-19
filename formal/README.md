@@ -160,11 +160,28 @@ the supplied cells compose without a target gap; it does not construct the
 paths from a concrete receipt. The six-reading example has an explicit
 global bound proof for all six moves; the general theorem still takes bounds
 as premises. These proofs do not establish that an arbitrary JSON record
-enumerates every route or cell. There is no machine-checked bridge from a
-JSON route to the Lean definitions. The
+enumerates every route or cell. There is no general machine-checked bridge
+from arbitrary JSON routes to the Lean definitions. The
 independently implemented browser and Python receipt verifiers check their
-own concrete calculations from the supplied readings. No v6 JSON file is
-parsed or checked by Lean.
+own concrete calculations from the supplied readings. Lean does not parse
+v6 JSON.
+
+For the **fixed six-reading example only**, [TargetHorizonReceipt.lean](TargetHorizonReceipt.lean)
+is generated from the exact JSON bytes *after* the independent Python verifier
+has checked the full receipt. It contains the six extracted route literals,
+original readings, movement bounds, and target-horizon endpoints. Lean proves
+that each route agrees with `sixMovedSample` for every real moved reading and
+that the literal bounds match `six_reading_full_horizon`; its specialization
+then states the full three-region result using the extracted route function.
+The formal CI job regenerates the file and typechecks it after building
+`InwardFormal`. A changed receipt or stale export fails the gate. This is a
+checked bridge for the worked model, not a Lean JSON parser or a proof that
+the verifier's general algorithm is sound for arbitrary receipts.
+
+```sh
+python3 tools/export_target_horizon_lean.py --check
+(cd formal && lake env lean TargetHorizonReceipt.lean)
+```
 
 `InwardFormal.AffineEquivariance` proves that changing units by
 `v ↦ scale * v + shift` multiplies the squared-error difference and its

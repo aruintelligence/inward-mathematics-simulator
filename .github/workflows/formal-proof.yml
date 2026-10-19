@@ -26,6 +26,10 @@ jobs:
           leanchecker-args: InwardFormal
           axiom-audit: true
           axiom-audit-root: InwardFormal
+      - name: Check receipt-derived Lean specialization
+        run: |
+          python3 tools/export_target_horizon_lean.py --check
+          (cd formal && lake env lean TargetHorizonReceipt.lean)
       - name: Check formal routes against browser and Python
         run: |
           (cd formal && lake env lean --run ExportRegisteredRoutes.lean) > "$RUNNER_TEMP/inward-routes.tsv"
