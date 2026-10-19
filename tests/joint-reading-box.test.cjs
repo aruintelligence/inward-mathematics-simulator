@@ -12,10 +12,11 @@ const targetLens = require('../target-lens.js');
 test('browser lab pins its exact computation assets to their SHA-256 versions', () => {
   const html = readFileSync('joint-reading-box.html', 'utf8');
   for (const path of ['joint-reading-box-core.js', 'joint-reading-box-verifier.js',
-    'joint-reading-threshold.js']) {
+    'joint-reading-threshold.js', 'joint-reading-portable-report.js']) {
     const hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12);
     assert.ok(html.includes(`<script src="${path}?v=${hash}"></script>`));
   }
+  assert.ok(html.includes(createHash('sha256').update(readFileSync('tools/joint-reading-portable-template.html')).digest('hex')));
 });
 
 function generate(intervals, target, targetHigh = null, sharp = false) {
@@ -519,8 +520,16 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
     node('low-' + (i + 1)).value = String(low);
     node('high-' + (i + 1)).value = String(high);
   });
-  const fetch = async path => ({ok: true, arrayBuffer: async () =>
-    Uint8Array.from(readFileSync(path)).buffer});
+  let alterReportAsset = false, holdReportTemplate = false, releaseReportTemplate;
+  const fetch = async path => {
+    const file = path.split('?')[0];
+    const bytes = readFileSync(file);
+    const content = alterReportAsset && file === 'tools/joint-reading-portable-template.html' ?
+      bytes.toString('utf8').replace('Portable exact research report', 'Changed report') : bytes.toString('utf8');
+    return {ok: true, arrayBuffer: async () => Uint8Array.from(bytes).buffer,
+      text: async () => holdReportTemplate && file === 'tools/joint-reading-portable-template.html' ?
+        new Promise(resolve => { releaseReportTemplate = () => resolve(content); }) : content};
+  };
   let exported = null, clicked = false, delayNextDigest = false, releaseDigest;
   const URL = {createObjectURL(blob) {exported = blob; return 'blob:receipt';}, revokeObjectURL() {}};
   const testCrypto = {subtle: {digest(...args) {
@@ -532,9 +541,10 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   }}};
   vm.runInNewContext(script[1], {document: {getElementById: node, createElement(tag) {
     assert.equal(tag, 'a'); return {click() {clicked = true;}};
-  }}, fetch, URL, Blob, setTimeout() {},
+  }}, fetch, URL, Blob, setTimeout() {}, btoa: raw => Buffer.from(raw, 'binary').toString('base64'),
     InwardJointBox: browserCore, InwardJointBoxVerifier: verifier,
     InwardJointThreshold: thresholdCore,
+    InwardJointPortableReport: require('../joint-reading-portable-report.js'),
     TextEncoder, TextDecoder, Uint8Array, crypto: testCrypto},
   {timeout: 1000});
   let submitted = false;
@@ -592,11 +602,36 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('margin-download').handlers.click();
   assert.deepEqual(JSON.parse(await exported.text()),
     JSON.parse(readFileSync('examples/joint-reading-box-margin-100-v1.json', 'utf8')));
+  assert.equal(node('report-download').disabled, false);
+  await node('report-download').handlers.click();
+  assert.equal(exported.type, 'text/html;charset=utf-8');
+  const downloadedReport = await exported.text();
+  assert.match(downloadedReport, /Self-contained, exact Mean and Median/);
+  assert.ok(downloadedReport.includes(Buffer.from(readFileSync('examples/joint-reading-box-sweep-v4.json')).toString('base64')));
+  assert.ok(downloadedReport.includes(createHash('sha256').update(readFileSync('examples/joint-reading-box-sweep-v4.json')).digest('hex')));
+  assert.match(node('report-status').textContent, /rechecks the original JSON/);
+  alterReportAsset = true;
+  await node('report-download').handlers.click();
+  assert.match(node('report-status').textContent, /Report source changed/);
+  alterReportAsset = false;
+  const priorExport = exported;
+  holdReportTemplate = true;
+  const staleReport = node('report-download').handlers.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(typeof releaseReportTemplate, 'function');
+  node('margin-threshold').value = '101';
+  node('margin-threshold').handlers.input();
+  releaseReportTemplate();
+  holdReportTemplate = false;
+  await staleReport;
+  assert.equal(exported, priorExport);
   node('margin-threshold').value = '0';
   node('margin-threshold').handlers.input();
   assert.equal(node('margin-download').disabled, true);
   node('margin-form').handlers.submit({preventDefault() {}});
   assert.match(node('margin-result').textContent, /Required lead must be positive/);
+  await node('report-download').handlers.click();
+  assert.match(node('report-status').textContent, /Required lead must be positive/);
   node('margin-threshold').value = '700';
   node('margin-threshold').handlers.input();
   node('margin-form').handlers.submit({preventDefault() {}});
@@ -609,6 +644,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8');
   node('receipt-json').handlers.input();
   assert.equal(node('margin-download').disabled, true);
+  assert.equal(node('report-download').disabled, true);
   await node('verify').handlers.click();
   assert.match(node('detail').textContent, /2407\/25.*conservative bound/);
   node('target-high').value = '45';
@@ -655,6 +691,10 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
     thresholdCore.regions(verifier.verify(oddReceipt), oddReceipt.inputs, '1').guaranteedRegions);
   assert.equal(oddAnswer.sourceReceiptSha256,
     createHash('sha256').update(node('receipt-json').value).digest('hex'));
+  await node('report-download').handlers.click();
+  const oddReport = await exported.text();
+  assert.match(oddReport, /value="1"/);
+  assert.ok(oddReport.includes(Buffer.from(node('receipt-json').value).toString('base64')));
   node('reading-count').value = '5';
   node('reading-count').handlers.change();
   defaults.forEach(([low, high], i) => {

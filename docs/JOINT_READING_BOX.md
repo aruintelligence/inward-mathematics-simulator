@@ -259,6 +259,15 @@ python3 tools/render_joint_reading_sweep_report.py receipt.json --output report.
 The checked-in example report has a CI regeneration gate. Its HTML is
 self-contained for offline inspection, although a link to the repository's
 proof notes requires an internet connection when the file is moved elsewhere.
+For your own v4 sweep, the browser lab's **Download self-checking HTML report**
+button creates a self-contained report directly on your device, with the
+current positive threshold as its initial query. Open the downloaded HTML in
+a modern browser to independently recheck the original JSON bytes and v4
+claim, inspect exact targets, calculate other threshold regions, print the
+report, or download the source JSON and derived answer. Its verifier and
+threshold code are embedded after a SHA-256 check of the assets used to build
+it. The report does not establish where the input bounds came from. Its
+embedded JSON reveals all those bounds to anyone who receives the file.
 
 ## Exact inverse margin regions
 

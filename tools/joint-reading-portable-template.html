@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Self-contained, exact Mean and Median target-sweep research report.">
+<title>Custom Joint Reading Report | INWARD Mathematics™</title>
+<style>
+:root{color-scheme:dark light;--bg:#071827;--panel:#102b3c;--ink:#f3f9f6;--muted:#c1d4d8;--line:#7896a3;--mint:#75e8c4;--gold:#ffd18a}
+*{box-sizing:border-box}body{margin:0;min-width:320px;background:radial-gradient(circle at 84% 0,#204c61,transparent 36%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
+.wrap{width:min(1000px,calc(100% - 36px));margin:auto}header,footer{padding:18px 0;border-bottom:1px solid var(--line)}footer{border:0;border-top:1px solid var(--line);font-size:.85rem;color:var(--muted)}
+.brand,.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:.74rem;font-weight:850;color:var(--mint)}
+.hero{padding:clamp(48px,8vw,85px) 0 45px}h1{font-size:clamp(2.6rem,7vw,5.8rem);line-height:1.03;letter-spacing:-.06em;max-width:850px;margin:12px 0 20px}h2{font-size:clamp(1.6rem,4vw,2.5rem);line-height:1.1;letter-spacing:-.04em}
+.lede{font-size:1.12rem;color:var(--muted);max-width:820px}.band{font-size:clamp(1.4rem,4vw,2.6rem);color:var(--gold);font-weight:800;letter-spacing:-.035em;margin:22px 0 0}
+.section{border-top:1px solid var(--line);padding:34px 0 44px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.panel{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}.panel p{overflow-wrap:anywhere}
+.pieces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.piece strong{color:var(--gold)}.piece p{margin:8px 0;overflow-wrap:anywhere}.muted{color:var(--muted)}code,.fingerprint{font-family:ui-monospace,monospace;overflow-wrap:anywhere}
+.actions,form{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:19px 0}.actions{align-items:center}label{font-weight:750}input{display:block;margin-top:5px;width:min(230px,100%);min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}
+button,.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:10px 15px;border:1px solid var(--mint);border-radius:9px;background:var(--mint);color:#082d2a;font:inherit;font-weight:800;text-decoration:none;cursor:pointer}.button.secondary{background:transparent;color:var(--mint)}a{color:var(--mint);text-underline-offset:3px}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+#probe-result,#threshold-result{white-space:pre-wrap;overflow-wrap:anywhere}.fingerprint{font-size:.84rem;color:var(--mint)}
+@media(max-width:700px){.grid,.pieces{grid-template-columns:1fr}.hero{padding:38px 0 28px}.section{padding:26px 0 34px}.panel{padding:18px}}
+@media(prefers-color-scheme:light){:root{--bg:#f4f8f6;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}body{background:radial-gradient(circle at 84% 0,#e0f0e9,transparent 36%),var(--bg)}button,.button{color:#fff}}
+@media print{:root{color-scheme:light;--bg:#fff;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}body{background:#fff}.hero{padding:20px 0}.section{padding:20px 0}form,.actions{display:none}.panel{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="wrap brand">ĀRU INTELLIGENCE / INWARD MATHEMATICS™</div></header>
+<p id="status" class="wrap" role="status">Rechecking the embedded receipt on this device…</p>
+<main id="report" class="wrap" hidden>
+<section class="hero"><p class="eyebrow">Portable exact research report</p><h1>What holds when every reading can move?</h1><p class="lede">This report covers every real reading and target inside the independently stipulated closed intervals below. It recalculates the certificate before showing any conclusion.</p><p id="tie-summary" class="band"></p></section>
+<section class="section"><p class="eyebrow">01 / Experiment</p><h2>The assumptions</h2><div class="grid"><div class="panel"><strong>Independent reading intervals</strong><p id="reading-bounds"></p></div><div class="panel"><strong>Target interval</strong><p id="target-bounds"></p><p class="muted">The target varies independently of the readings.</p></div></div></section>
+<section class="section"><p class="eyebrow">02 / Exact sweep</p><h2>Every strict piece</h2><p class="muted">The formula gives the smallest attainable squared-error lead. A boundary shared with a tie interval has lead zero. The readings listed on each piece attain its formula throughout that piece.</p><div id="pieces" class="pieces"></div><form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off"></label><button type="submit">Calculate</button></form><div id="probe-result" class="panel" aria-live="polite"></div></section>
+<section class="section"><p class="eyebrow">03 / Inverse guarantee</p><h2>Where is a required lead guaranteed?</h2><p class="muted">Choose a positive squared-error lead. Every target in a returned closed region guarantees at least that lead for all permitted readings; a cutoff witness attains the threshold.</p><form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="@@THRESHOLD_DEFAULT@@"></label><button type="submit">Find target regions</button></form><div id="threshold-result" class="panel" aria-live="polite"></div><div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download region answer</a></div></section>
+<section class="section"><p class="eyebrow">04 / Replay and limits</p><h2>Carry the evidence</h2><div class="grid"><div class="panel"><strong>Verified source bytes</strong><p class="fingerprint" id="fingerprint"></p><p class="muted">SHA-256 identifies matching JSON bytes. It does not authenticate who supplied them.</p></div><div class="panel"><strong>Scope</strong><p>The bounds are stipulated. This report does not validate measurements, assign probabilities, or determine which estimator a real application should use. The v4 envelope argument is algebraic and is not Lean formalized.</p></div></div><div class="actions"><a id="source-download" class="button" download="joint-reading-box-v4.json">Download original JSON</a><button id="print" class="button secondary" type="button">Print / save PDF</button></div><p class="muted">From the repository, replay the JSON with <code>node tools/verify-joint-reading-box.cjs joint-reading-box-v4.json</code>. The derived answer can be checked with <code>node tools/verify-joint-reading-threshold.cjs joint-reading-box-v4.json joint-reading-margin-regions-v1.json</code>.</p></section>
+</main>
+<footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
+<script id="receipt-bytes" type="application/octet-stream">@@SOURCE_BYTES@@</script>
+<script>@@VERIFIER_SOURCE@@</script>
+<script>@@THRESHOLD_SOURCE@@</script>
+<script>
+(async () => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const abs = n => n < 0n ? -n : n;
+  function q(n, d = 1n) {
+    if (!d) throw new Error('Zero denominator');
+    if (d < 0n) [n, d] = [-n, -d];
+    let a = abs(n), b = d;
+    while (b) [a, b] = [b, a % b];
+    return {n: n / a, d: d / a};
+  }
+  const add = (a, b) => q(a.n * b.d + b.n * a.d, a.d * b.d);
+  const mul = (a, b) => q(a.n * b.n, a.d * b.d);
+  const cmp = (a, b) => a.n * b.d < b.n * a.d ? -1 : a.n * b.d > b.n * a.d ? 1 : 0;
+  const show = value => value.d === 1n ? String(value.n) : String(value.n) + '/' + String(value.d);
+  function exact(raw) {
+    if (typeof raw !== 'string' || !/^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/.test(raw))
+      throw new Error('Expected a canonical rational');
+    const parts = raw.split('/');
+    return q(BigInt(parts[0]), BigInt(parts[1] || '1'));
+  }
+  function inputTarget(raw) {
+    if (/^-?(?:0|[1-9][0-9]{0,8})\.[0-9]{1,6}$/.test(raw)) {
+      const parts = raw.split('.');
+      return q(BigInt(parts[0] + parts[1]), 10n ** BigInt(parts[1].length));
+    }
+    return exact(raw);
+  }
+  try {
+    const encoded = $('receipt-bytes').textContent.trim();
+    const binary = atob(encoded);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    if (bytes.length > 2000000) throw new Error('Certificate exceeds 2 MB');
+    if (!globalThis.crypto?.subtle) throw new Error('SHA-256 requires a secure browser context.');
+    const hash = await crypto.subtle.digest('SHA-256', bytes);
+    const fingerprint = [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join('');
+    if (fingerprint !== '@@DIGEST@@') throw new Error('Embedded JSON does not match this report SHA-256.');
+    const source = new TextDecoder('utf-8', {fatal: true}).decode(bytes);
+    const receipt = InwardJointBoxVerifier.parseReceipt(source);
+    const checked = InwardJointBoxVerifier.verify(receipt);
+    if (!checked.isSweep) throw new Error('A v4 target sweep is required.');
+    const interval = receipt.inputs.targetInterval;
+    $('reading-bounds').textContent = receipt.inputs.intervals.map(pair => '[' + pair.join(', ') + ']').join(' · ');
+    $('target-bounds').textContent = '[' + interval.join(', ') + ']';
+    $('fingerprint').textContent = fingerprint;
+    $('source-download').href = 'data:application/json;base64,' + encoded;
+    $('tie-summary').textContent = checked.tieTargetInterval ?
+      'A tie is attainable for every target in [' + checked.tieTargetInterval.join(', ') + '].' :
+      'Every target in this interval has a strict winner.';
+    if (checked.strictPieces.length) {
+      for (const piece of checked.strictPieces) {
+        const card = document.createElement('article');
+        card.className = 'panel piece';
+        const title = document.createElement('strong');
+        title.textContent = piece.verdict + ' · [' + piece.from + ', ' + piece.to + ']';
+        const detail = document.createElement('p');
+        detail.textContent = 'Exact smallest lead: (' + piece.slope + ')t + (' + piece.intercept +
+          '). Attained at readings [' + piece.readings.join(', ') + '].';
+        card.appendChild(title); card.appendChild(detail); $('pieces').appendChild(card);
+      }
+    } else {
+      $('pieces').textContent = 'No strict piece. A tie can be attained for every target in this interval.';
+    }
+    $('target-input').value = interval[0];
+    function probe(raw) {
+      try {
+        const t = inputTarget(raw), low = exact(interval[0]), high = exact(interval[1]);
+        if (cmp(t, low) < 0 || cmp(t, high) > 0) throw new Error('Target is outside the supplied interval.');
+        const tie = checked.tieTargetInterval;
+        if (tie && cmp(t, exact(tie[0])) >= 0 && cmp(t, exact(tie[1])) <= 0) {
+          $('probe-result').textContent = 'At target ' + show(t) + ', an exact tie is attainable (minimum lead 0).';
+          return;
+        }
+        const piece = checked.strictPieces.find(item =>
+          cmp(t, exact(item.from)) >= 0 && cmp(t, exact(item.to)) <= 0);
+        if (!piece) throw new Error('Verified sweep has no piece for this target.');
+        const gap = add(mul(exact(piece.slope), t), exact(piece.intercept));
+        if (cmp(gap, q(0n)) <= 0) throw new Error('Strict piece has a nonpositive lead.');
+        $('probe-result').textContent = 'At target ' + show(t) + ', ' + piece.verdict +
+          ' wins for every permitted reading. Exact smallest squared-error lead: ' + show(gap) +
+          ', attained at readings [' + piece.readings.join(', ') + '].';
+      } catch (error) {
+        $('probe-result').textContent = 'Cannot inspect target: ' + error.message;
+      }
+    }
+    function threshold(raw) {
+      $('margin-download').hidden = true;
+      $('margin-download').removeAttribute('href');
+      try {
+        const calculation = InwardJointThreshold.regions(checked, receipt.inputs, raw);
+        const spans = calculation.guaranteedRegions;
+        $('threshold-result').textContent = spans.length ? spans.map(region =>
+          '[' + region.from + ', ' + region.to + ']: ' + region.verdict +
+          ' guarantees a lead at least ' + calculation.threshold + ' for every permitted reading. ' +
+          (region.thresholdBoundary ? 'At target ' + region.thresholdBoundary.target +
+            ', readings [' + region.thresholdBoundary.readings.join(', ') +
+            '] attain exactly ' + calculation.threshold + '.' :
+            'The threshold does not become tight within this target region.')).join('\n\n') :
+          'No target in the supplied range guarantees a lead of ' + calculation.threshold + '.';
+        const answer = {format: 'inward-joint-reading-margin-regions-v1',
+          sourceReceiptSha256: fingerprint, ...calculation};
+        $('margin-download').href = 'data:application/json;charset=utf-8,' +
+          encodeURIComponent(JSON.stringify(answer, null, 2) + '\n');
+        $('margin-download').hidden = false;
+      } catch (error) {
+        $('threshold-result').textContent = 'Cannot calculate regions: ' + error.message;
+      }
+    }
+    $('probe-form').addEventListener('submit', event => {event.preventDefault(); probe($('target-input').value.trim());});
+    $('threshold-form').addEventListener('submit', event => {event.preventDefault(); threshold($('threshold-input').value.trim());});
+    $('print').addEventListener('click', () => window.print());
+    probe($('target-input').value);
+    threshold($('threshold-input').value);
+    $('report').hidden = false;
+    $('status').textContent = 'Exact certificate independently rechecked on this device.';
+  } catch (error) {
+    $('report').hidden = true;
+    $('status').textContent = 'Certificate rejected: ' + error.message;
+  }
+})();
+</script>
+</body>
+</html>
