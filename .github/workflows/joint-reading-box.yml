@@ -15,7 +15,10 @@ jobs:
           node-version: '22'
       - run: node --test tests/joint-reading-box.test.cjs
       - run: node --test tests/joint-reading-sweep-report.test.cjs
+      - run: node --test tests/joint-reading-threshold.test.cjs
       - run: python3 tools/render_joint_reading_sweep_report.py --check
+      - run: node tools/verify-joint-reading-threshold.cjs examples/joint-reading-box-sweep-v4.json examples/joint-reading-box-margin-100-v1.json
+      - run: python3 tools/joint_reading_threshold.py examples/joint-reading-box-sweep-v4.json --threshold=100 | diff - examples/joint-reading-box-margin-100-v1.json
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v1.json
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v2.json

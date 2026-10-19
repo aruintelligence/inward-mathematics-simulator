@@ -9,22 +9,25 @@ const vm = require('node:vm');
 
 async function openReport(html) {
   const scripts = [...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)];
-  assert.equal(scripts.length, 3);
+  assert.equal(scripts.length, 4);
   const nodes = new Map();
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {textContent: '', value: '', hidden: true,
       className: '', attributes: {}, handlers: {},
       addEventListener(type, callback) {this.handlers[type] = callback;},
-      setAttribute(name, value) {this.attributes[name] = value;}});
+      setAttribute(name, value) {this.attributes[name] = value;},
+      removeAttribute(name) {delete this.attributes[name];}});
     return nodes.get(id);
   }
   node('receipt-bytes').textContent = scripts[0][1];
   node('target-input').value = html.match(/id="target-input"[^>]*value="([^"]+)"/)[1];
+  node('threshold-input').value = html.match(/id="threshold-input"[^>]*value="([^"]+)"/)[1];
   const context = {document: {getElementById: node, querySelectorAll() {return [];}},
     atob: raw => Buffer.from(raw, 'base64').toString('binary'),
     TextDecoder, TextEncoder, Uint8Array, BigInt, crypto: webcrypto, window: {print() {}}};
   vm.runInNewContext(scripts[1][1], context, {timeout: 2000});
-  await vm.runInNewContext(scripts[2][1], context, {timeout: 2000});
+  vm.runInNewContext(scripts[2][1], context, {timeout: 2000});
+  await vm.runInNewContext(scripts[3][1], context, {timeout: 2000});
   return {node, source: scripts[0][1], scripts, context};
 }
 
@@ -38,6 +41,10 @@ test('standalone report rechecks the exact JSON and probes strict and tie target
   assert.match(node('status').textContent, /independently rechecked/);
   assert.match(node('probe-result').textContent, /15631\/25/);
   assert.match(node('probe-result').textContent, /Median wins/);
+  assert.match(node('threshold-result').textContent, /13131\/290.*18131\/290/s);
+  assert.equal(node('margin-download').hidden, false);
+  const answer = JSON.parse(decodeURIComponent(node('margin-download').href.split(',')[1]));
+  assert.deepEqual(answer, JSON.parse(readFileSync('examples/joint-reading-box-margin-100-v1.json', 'utf8')));
   for (const [target, expected] of [
     ['45', /2581\/25.*48, 49, 51, 51, 85/],
     ['979/20', /Median wins.*2871\/50/],
@@ -57,6 +64,13 @@ test('standalone report rechecks the exact JSON and probes strict and tie target
   node('probe-form').handlers.submit({preventDefault() {}});
   assert.match(node('probe-result').textContent, /Use an exact integer/);
   assert.ok(Number(node('probe-marker').attributes.cx) >= 52);
+  node('threshold-input').value = '700';
+  node('threshold-form').handlers.submit({preventDefault() {}});
+  assert.match(node('threshold-result').textContent, /No target/);
+  node('threshold-input').value = '0';
+  node('threshold-form').handlers.submit({preventDefault() {}});
+  assert.match(node('threshold-result').textContent, /Required lead must be positive/);
+  assert.equal(node('margin-download').hidden, true);
 });
 
 test('report refuses changed bytes even if the replacement receipt is valid', async () => {
@@ -95,6 +109,7 @@ test('renderer rejects forged evidence and handles all-target ties and custom re
     const {node} = await openReport(readFileSync(outputPath, 'utf8'));
     assert.equal(node('report').hidden, false);
     assert.match(node('probe-result').textContent, /a tie is attainable/);
+    assert.match(node('threshold-result').textContent, /No target/);
     assert.match(readFileSync(outputPath, 'utf8'), /No strict region/);
   } finally {rmSync(dir, {recursive: true, force: true});}
 });

@@ -41,6 +41,8 @@ python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --t
 node tools/verify-joint-reading-box.cjs joint-sweep.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-sweep-v4.json
 python3 tools/render_joint_reading_sweep_report.py --check
+python3 tools/joint_reading_threshold.py examples/joint-reading-box-sweep-v4.json --threshold=100 > margin-regions.json
+node tools/verify-joint-reading-threshold.cjs examples/joint-reading-box-sweep-v4.json margin-regions.json
 ```
 
 The browser constructor and Python generator produce the same versioned
@@ -257,6 +259,39 @@ python3 tools/render_joint_reading_sweep_report.py receipt.json --output report.
 The checked-in example report has a CI regeneration gate. Its HTML is
 self-contained for offline inspection, although a link to the repository's
 proof notes requires an internet connection when the file is moved elsewhere.
+
+## Exact inverse margin regions
+
+Given a positive rational required lead $q$, ask for the exact set
+
+$$
+S_q=\{t\in T:\ \forall x\in B,\quad
+ |(\mu(x)-t)^2-(m(x)-t)^2|\ge q\}.
+$$
+
+This is exactly $\{t:G(t)\ge q\}$ for the verified v4 sweep. On each
+strict piece $G(t)=s t+b$, solve $s t+b\ge q$ with rational arithmetic,
+clip to that piece, and merge adjacent qualifying spans. Because the lines
+have negative slope below the tie band and positive slope above it,
+$S_q$ has at most two closed intervals, one on either side. It may be empty,
+span an entire exterior region, or include a single endpoint. The tie band
+never qualifies for positive $q$.
+
+An interior cutoff occurs where $s t+b=q$. The piece's recorded readings
+attain that equality, proving the threshold boundary is sharp. The
+[worked margin answer](../examples/joint-reading-box-margin-100-v1.json)
+requires a lead of $100$ and gives exactly $[0,13131/290]$ with Median
+strictly closer, and $[18131/290,80]$ with Mean strictly closer. Both
+cutoffs have attaining reading witnesses. The report can calculate another
+threshold and download its JSON answer. The Python command above first
+independently verifies the source v4 receipt; the separate Node checker
+replays the source and recomputes the threshold regions, source fingerprint,
+and boundary witnesses. A fingerprint identifies exact source bytes and
+does not authenticate their origin.
+
+This query classifies stipulated targets; it does not recommend choosing a
+target to make one estimator appear better, and does not validate whether
+the reading intervals model a real application.
 
 ## Why corners alone are insufficient
 

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE = ROOT / "examples/joint-reading-box-sweep-v4.json"
 REPORT = ROOT / "joint-reading-sweep-report.html"
 VERIFIER = ROOT / "joint-reading-box-verifier.js"
+THRESHOLD_CORE = ROOT / "joint-reading-threshold.js"
 PROOF_URL = ("https://github.com/aruintelligence/inward-mathematics-simulator/"
              "blob/feature/joint-reading-target-sweep-20261019/docs/JOINT_READING_BOX.md")
 NODE_CHECK = """const fs=require('node:fs');
@@ -119,8 +120,9 @@ def render(raw):
     # Source inclusion lets the standalone HTML recheck the embedded receipt
     # offline. The checked-in renderer gate also detects stale HTML or scripts.
     verifier_source = VERIFIER.read_text(encoding="utf-8")
-    if "</script" in verifier_source.lower():
-        raise ValueError("Verifier cannot be safely embedded")
+    threshold_source = THRESHOLD_CORE.read_text(encoding="utf-8")
+    if any("</script" in source.lower() for source in (verifier_source, threshold_source)):
+        raise ValueError("Exact scripts cannot be safely embedded")
     bounds = ", ".join(f'[{safe(a)}, {safe(b)}]' for a, b in inputs["intervals"])
     pieces = piece_cards(receipt)
     plot = chart(receipt)
@@ -135,7 +137,7 @@ def render(raw):
 header .wrap{{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}}.brand,.eyebrow{{text-transform:uppercase;letter-spacing:.15em;font-size:.74rem;font-weight:850;color:var(--mint)}}a{{color:var(--mint);text-underline-offset:3px}}a:focus-visible,button:focus-visible,input:focus-visible{{outline:3px solid var(--gold);outline-offset:3px}}
 .hero{{padding:clamp(45px,7vw,80px) 0 36px}}h1{{font-size:clamp(2.7rem,7vw,5.8rem);line-height:1.02;letter-spacing:-.065em;max-width:850px;margin:12px 0 20px}}h2{{font-size:clamp(1.7rem,4vw,2.7rem);line-height:1.1;letter-spacing:-.04em}}.lede{{color:var(--muted);font-size:1.14rem;max-width:810px}}.band{{font-size:clamp(1.45rem,3.6vw,2.8rem);font-weight:800;color:var(--gold);letter-spacing:-.04em;margin:25px 0 9px}}
 .section{{border-top:1px solid var(--line);padding:34px 0 44px}}.muted{{color:var(--muted)}}.panel,.piece{{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:21px;min-width:0}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:15px}}.piece-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}.piece-head{{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}}.piece-head strong{{color:var(--gold)}}.piece-range{{font-size:1.35rem;font-weight:800;margin:12px 0}}code{{font-family:ui-monospace,monospace;overflow-wrap:anywhere}}.piece p{{overflow-wrap:anywhere}}
-form{{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:20px 0}}label{{display:block;font-weight:750}}input{{display:block;margin-top:5px;padding:10px 12px;min-height:46px;max-width:220px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;font:inherit}}button,.button{{min-height:46px;background:var(--mint);color:#082d2a;border:1px solid var(--mint);border-radius:9px;padding:10px 15px;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}}button.small{{min-height:38px;padding:6px 10px;margin:3px 5px 0 0;background:transparent;color:var(--mint);font-size:.82rem}}.actions{{display:flex;flex-wrap:wrap;gap:11px;margin:20px 0}}.button.secondary{{background:transparent;color:var(--mint)}}#probe-result{{font-size:1.08rem;overflow-wrap:anywhere}}#status{{font-size:.9rem}}#status.error{{color:#ffc5be}}.fingerprint{{overflow-wrap:anywhere;color:var(--mint);font:13px/1.5 ui-monospace,monospace}}
+form{{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:20px 0}}label{{display:block;font-weight:750}}input{{display:block;margin-top:5px;padding:10px 12px;min-height:46px;max-width:220px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;font:inherit}}button,.button{{min-height:46px;background:var(--mint);color:#082d2a;border:1px solid var(--mint);border-radius:9px;padding:10px 15px;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}}button.small{{min-height:38px;padding:6px 10px;margin:3px 5px 0 0;background:transparent;color:var(--mint);font-size:.82rem}}.actions{{display:flex;flex-wrap:wrap;gap:11px;margin:20px 0}}.button.secondary{{background:transparent;color:var(--mint)}}#probe-result,#threshold-result{{font-size:1.08rem;overflow-wrap:anywhere;white-space:pre-wrap}}#margin-download[hidden]{{display:none}}#status{{font-size:.9rem}}#status.error{{color:#ffc5be}}.fingerprint{{overflow-wrap:anywhere;color:var(--mint);font:13px/1.5 ui-monospace,monospace}}
 svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var(--line);border-radius:13px}}.axis{{stroke:var(--line);stroke-width:2}}.tie-band{{fill:var(--gold);opacity:.15}}.curve{{fill:none;stroke:var(--mint);stroke-width:4;stroke-linejoin:round}}.point{{fill:var(--mint)}}.marker{{fill:var(--gold);stroke:var(--bg);stroke-width:2}}.svg-label{{fill:var(--ink);font:19px ui-monospace,monospace}}.plot-note{{color:var(--muted);font-size:.85rem;margin-top:7px}}
 @media(max-width:720px){{.pair,.piece-grid{{grid-template-columns:1fr}}.hero{{padding:37px 0 25px}}.section{{padding:25px 0 32px}}.panel,.piece{{padding:17px}}}}
 @media(prefers-color-scheme:light){{:root{{--bg:#f4f8f6;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}}body{{background:radial-gradient(circle at 80% 0%,#e0f0e9,transparent 36%),var(--bg)}}svg{{background:#eff5f3}}button,.button{{color:#fff}}}}
@@ -151,8 +153,13 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 {plot}<p class="plot-note">The connecting lines are exact between displayed rational breakpoints. Screen geometry is approximate; the receipt and fraction labels are exact.</p>
 <form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off" value="{safe(low)}"></label><button type="submit">Calculate</button></form>
 <div id="probe-result" class="panel" aria-live="polite"></div></section>
-<section class="section"><p class="eyebrow">02 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid">{pieces}</div></section>
-<section class="section"><p class="eyebrow">03 / Evidence and limits</p><h2>Replay the exact claim</h2>
+<section class="section"><p class="eyebrow">02 / Inverse guarantee</p><h2>Where is a required lead guaranteed?</h2>
+<p class="muted">Choose a positive minimum squared-error lead. The exact intervals include their endpoints, and a boundary witness shows when the guarantee is tight. The target and readings remain independent.</p>
+<form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
+<div id="threshold-result" class="panel" aria-live="polite"></div>
+<div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div></section>
+<section class="section"><p class="eyebrow">03 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid">{pieces}</div></section>
+<section class="section"><p class="eyebrow">04 / Evidence and limits</p><h2>Replay the exact claim</h2>
 <div class="pair"><div class="panel"><strong>Input assumptions</strong><p>Reading intervals: <code>{bounds}</code>.</p><p>Target interval: <code>[{safe(low)}, {safe(high)}]</code>. Each reading and the target vary independently. These bounds are stipulated; the report cannot establish how they were measured or which estimator is appropriate.</p></div>
 <div class="panel"><strong>Independent checker</strong><p>The report was rendered only after a separate BigInt verifier recomputed the v4 claim from the certificate. This file embeds the original JSON bytes and verifier and checks again when opened. Its SHA-256 fingerprint identifies matching bytes; it does not authenticate their author.</p><p class="fingerprint">{digest}</p></div></div>
 <div class="actions"><a class="button" href="data:application/json;base64,{encoded}" download="joint-reading-box-sweep-v4.json">Download checked JSON</a><button class="button secondary" type="button" id="print">Print / save PDF</button></div>
@@ -160,6 +167,7 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
 <script id="receipt-bytes" type="application/octet-stream">{encoded}</script>
 <script>{verifier_source}</script>
+<script>{threshold_source}</script>
 <script>
 (async () => {{
   'use strict';
@@ -233,13 +241,33 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
         $('probe-marker').setAttribute('cy', String(maximum ? 218 - 180 * gapValue / maximum : 218));
       }} catch (error) {{$('probe-result').textContent = `Cannot inspect target: ${{error.message}}`;}}
     }}
+    function updateThreshold(raw) {{
+      $('margin-download').hidden = true;
+      $('margin-download').removeAttribute('href');
+      try {{
+        const calculation = InwardJointThreshold.regions(result, receipt.inputs, raw);
+        const spans = calculation.guaranteedRegions;
+        $('threshold-result').textContent = spans.length ? spans.map(region =>
+          `[${{region.from}}, ${{region.to}}]: ${{region.verdict}} guarantees a lead ≥ ${{calculation.threshold}} for every permitted reading. ` +
+          (region.thresholdBoundary ? `At target ${{region.thresholdBoundary.target}}, readings [${{region.thresholdBoundary.readings.join(', ')}}] attain exactly ${{calculation.threshold}}.` :
+            'The threshold does not become tight within this target region.')).join('\n\n') :
+          `No target in the selected range guarantees a lead of ${{calculation.threshold}}.`;
+        const answer = {{format: 'inward-joint-reading-margin-regions-v1',
+          sourceReceiptSha256: '{digest}', ...calculation}};
+        $('margin-download').href = 'data:application/json;charset=utf-8,' +
+          encodeURIComponent(JSON.stringify(answer, null, 2) + '\n');
+        $('margin-download').hidden = false;
+      }} catch (error) {{$('threshold-result').textContent = `Cannot calculate regions: ${{error.message}}`;}}
+    }}
     $('probe-form').addEventListener('submit', event => {{event.preventDefault(); update($('target-input').value.trim());}});
+    $('threshold-form').addEventListener('submit', event => {{event.preventDefault(); updateThreshold($('threshold-input').value.trim());}});
     document.querySelectorAll('[data-target]').forEach(button => button.addEventListener('click', () => {{
       $('target-input').value = button.dataset.target;
       update(button.dataset.target);
     }}));
     $('print').addEventListener('click', () => window.print());
     update($('target-input').value);
+    updateThreshold($('threshold-input').value);
   }} catch (error) {{
     $('report').hidden = true;
     $('status').textContent = `Certificate rejected: ${{error.message}}`;
