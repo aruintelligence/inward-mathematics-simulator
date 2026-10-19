@@ -28,7 +28,7 @@ button,.button{display:inline-flex;align-items:center;justify-content:center;min
 <main id="report" class="wrap" hidden>
 <section class="hero"><p class="eyebrow">Portable exact research report</p><h1>What holds when every reading can move?</h1><p class="lede">This report covers every real reading and target inside the independently stipulated closed intervals below. It recalculates the certificate before showing any conclusion.</p><p id="tie-summary" class="band"></p></section>
 <section class="section"><p class="eyebrow">01 / Experiment</p><h2>The assumptions</h2><div class="grid"><div class="panel"><strong>Independent reading intervals</strong><p id="reading-bounds"></p></div><div class="panel"><strong>Target interval</strong><p id="target-bounds"></p><p class="muted">The target varies independently of the readings.</p></div></div></section>
-<section class="section"><p class="eyebrow">02 / Exact sweep</p><h2>Every strict piece</h2><p class="muted">The formula gives the smallest attainable squared-error lead. A boundary shared with a tie interval has lead zero. The readings listed on each piece attain its formula throughout that piece.</p><div id="pieces" class="pieces"></div><form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off"></label><button type="submit">Calculate</button></form><div id="probe-result" class="panel" aria-live="polite"></div></section>
+<section class="section"><p class="eyebrow">02 / Exact sweep</p><h2>Every strict piece</h2><p class="muted">The formula gives the smallest attainable squared-error lead. A boundary shared with a tie interval has lead zero. The readings listed on each piece attain its formula throughout that piece.</p><div id="pieces" class="pieces"></div><form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off"></label><button type="submit">Calculate</button></form><div id="probe-result" class="panel" aria-live="polite"></div><div class="actions"><a id="tie-download" class="button secondary" download="joint-reading-box-tie-target-v4.json" hidden>Download checked tie receipt</a></div></section>
 <section class="section"><p class="eyebrow">03 / Inverse guarantee</p><h2>Where is a required lead guaranteed?</h2><p class="muted">Choose a positive squared-error lead. Every target in a returned closed region guarantees at least that lead for all permitted readings; a cutoff witness attains the threshold.</p><form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="@@THRESHOLD_DEFAULT@@"></label><button type="submit">Find target regions</button></form><div id="threshold-result" class="panel" aria-live="polite"></div><div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download region answer</a></div></section>
 <section class="section"><p class="eyebrow">04 / Replay and limits</p><h2>Carry the evidence</h2><div class="grid"><div class="panel"><strong>Verified source bytes</strong><p class="fingerprint" id="fingerprint"></p><p class="muted">SHA-256 identifies matching JSON bytes. It does not authenticate who supplied them.</p></div><div class="panel"><strong>Scope</strong><p>The bounds are stipulated. This report does not validate measurements, assign probabilities, or determine which estimator a real application should use. The v4 envelope argument is algebraic and is not Lean formalized.</p></div></div><div class="actions"><a id="source-download" class="button" download="joint-reading-box-v4.json">Download original JSON</a><button id="print" class="button secondary" type="button">Print / save PDF</button></div><p class="muted">From the repository, replay the JSON with <code>node tools/verify-joint-reading-box.cjs joint-reading-box-v4.json</code> and independently audit each exact piece with <code>python3 tools/verify_joint_reading_sweep.py joint-reading-box-v4.json</code>. The derived answer can be checked with <code>node tools/verify-joint-reading-threshold.cjs joint-reading-box-v4.json joint-reading-margin-regions-v1.json</code>.</p></section>
 </main>
@@ -36,6 +36,7 @@ button,.button{display:inline-flex;align-items:center;justify-content:center;min
 <script id="receipt-bytes" type="application/octet-stream">@@SOURCE_BYTES@@</script>
 <script>@@VERIFIER_SOURCE@@</script>
 <script>@@THRESHOLD_SOURCE@@</script>
+<script>@@TIE_SOURCE@@</script>
 <script>
 (async () => {
   'use strict';
@@ -102,12 +103,20 @@ button,.button{display:inline-flex;align-items:center;justify-content:center;min
     }
     $('target-input').value = interval[0];
     function probe(raw) {
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
       try {
         const t = inputTarget(raw), low = exact(interval[0]), high = exact(interval[1]);
         if (cmp(t, low) < 0 || cmp(t, high) > 0) throw new Error('Target is outside the supplied interval.');
         const tie = checked.tieTargetInterval;
         if (tie && cmp(t, exact(tie[0])) >= 0 && cmp(t, exact(tie[1])) <= 0) {
-          $('probe-result').textContent = 'At target ' + show(t) + ', an exact tie is attainable (minimum lead 0).';
+          const witness = InwardJointTieWitness.witnessAt(receipt, show(t));
+          $('tie-download').href = 'data:application/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify(witness.receipt, null, 2) + '\n');
+          $('tie-download').hidden = false;
+          $('probe-result').textContent = 'At target ' + witness.target + ', an exact tie is attained at readings [' +
+            witness.readings.join(', ') + ']. Mean = ' + witness.mean + '; Median = ' + witness.median +
+            '. Minimum lead 0.';
           return;
         }
         const piece = checked.strictPieces.find(item =>
@@ -146,6 +155,10 @@ button,.button{display:inline-flex;align-items:center;justify-content:center;min
       }
     }
     $('probe-form').addEventListener('submit', event => {event.preventDefault(); probe($('target-input').value.trim());});
+    $('target-input').addEventListener('input', () => {
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
+    });
     $('threshold-form').addEventListener('submit', event => {event.preventDefault(); threshold($('threshold-input').value.trim());});
     $('print').addEventListener('click', () => window.print());
     probe($('target-input').value);

@@ -24,7 +24,7 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
 <section class="section"><p class="eyebrow">01 / The full curve</p><h2>Exact breakpoints. Attained margins.</h2>
 <svg id="curve" viewBox="0 0 960 270" role="img" aria-label="Exact piecewise worst-case gap across target interval [0, 80]; SVG positions approximate, rational labels exact."><line x1="52" y1="218" x2="908" y2="218" class="axis"/><rect x="622.310" y="29" width="10.700" height="189" class="tie-band"/><polyline points="52.000,38.000 575.765,201.469 575.765,201.469 622.310,218.000 622.310,218.000 633.010,218.000 633.010,218.000 664.040,206.980 664.040,206.980 908.000,130.839" class="curve"/><circle cx="52.000" cy="38.000" r="4" class="point"/><circle cx="575.765" cy="201.469" r="4" class="point"/><circle cx="575.765" cy="201.469" r="4" class="point"/><circle cx="622.310" cy="218.000" r="4" class="point"/><circle cx="622.310" cy="218.000" r="4" class="point"/><circle cx="633.010" cy="218.000" r="4" class="point"/><circle cx="633.010" cy="218.000" r="4" class="point"/><circle cx="664.040" cy="206.980" r="4" class="point"/><circle cx="664.040" cy="206.980" r="4" class="point"/><circle cx="908.000" cy="130.839" r="4" class="point"/><circle id="probe-marker" cx="52" cy="218" r="8" class="marker"/><text x="52" y="248" class="svg-label">0</text><text x="908" y="248" text-anchor="end" class="svg-label">80</text></svg><p class="plot-note">The connecting lines are exact between displayed rational breakpoints. Screen geometry is approximate; the receipt and fraction labels are exact.</p>
 <form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off" value="0"></label><button type="submit">Calculate</button></form>
-<div id="probe-result" class="panel" aria-live="polite"></div></section>
+<div id="probe-result" class="panel" aria-live="polite"></div><div class="actions"><a id="tie-download" class="button secondary" download="joint-reading-box-tie-target-v4.json" hidden>Download checked tie receipt</a></div></section>
 <section class="section"><p class="eyebrow">02 / Inverse guarantee</p><h2>Where is a required lead guaranteed?</h2>
 <p class="muted">Choose a positive minimum squared-error lead. The exact intervals include their endpoints, and a boundary witness shows when the guarantee is tight. The target and readings remain independent.</p>
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
@@ -62,7 +62,7 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
 <div class="pair"><div class="panel"><strong>Input assumptions</strong><p>Reading intervals: <code>[48, 49], [49, 50], [50, 51], [51, 52], [85, 86]</code>.</p><p>Target interval: <code>[0, 80]</code>. Each reading and the target vary independently. These bounds are stipulated; the report cannot establish how they were measured or which estimator is appropriate.</p></div>
 <div class="panel"><strong>Independent checker</strong><p>The report was rendered only after a separate BigInt verifier recomputed the v4 claim from the certificate. This file embeds the original JSON bytes and verifier and checks again when opened. Its SHA-256 fingerprint identifies matching bytes; it does not authenticate their author.</p><p class="fingerprint">d192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86</p></div></div>
 <div class="actions"><a class="button" href="data:application/json;base64,ewogICJmb3JtYXQiOiAiaW53YXJkLWpvaW50LXJlYWRpbmctYm94LXY0IiwKICAiaW5wdXRzIjogewogICAgImludGVydmFscyI6IFsKICAgICAgWwogICAgICAgICI0OCIsCiAgICAgICAgIjQ5IgogICAgICBdLAogICAgICBbCiAgICAgICAgIjQ5IiwKICAgICAgICAiNTAiCiAgICAgIF0sCiAgICAgIFsKICAgICAgICAiNTAiLAogICAgICAgICI1MSIKICAgICAgXSwKICAgICAgWwogICAgICAgICI1MSIsCiAgICAgICAgIjUyIgogICAgICBdLAogICAgICBbCiAgICAgICAgIjg1IiwKICAgICAgICAiODYiCiAgICAgIF0KICAgIF0sCiAgICAidGFyZ2V0SW50ZXJ2YWwiOiBbCiAgICAgICIwIiwKICAgICAgIjgwIgogICAgXQogIH0sCiAgImNsYWltIjogewogICAgImVzdGltYXRlUmFuZ2UiOiB7CiAgICAgICJtaW4iOiB7CiAgICAgICAgInZhbHVlIjogIjI5LzUiLAogICAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAgICI0OCIsCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI1MSIsCiAgICAgICAgICAiODUiCiAgICAgICAgXQogICAgICB9LAogICAgICAibWF4IjogewogICAgICAgICJ2YWx1ZSI6ICIzNy81IiwKICAgICAgICAicmVhZGluZ3MiOiBbCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUwIiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTIiLAogICAgICAgICAgIjg2IgogICAgICAgIF0KICAgICAgfQogICAgfSwKICAgICJtaWRwb2ludFJhbmdlIjogewogICAgICAibWluIjogIjUzMy8xMCIsCiAgICAgICJtYXgiOiAiNTQzLzEwIgogICAgfSwKICAgICJ0aWVUYXJnZXRJbnRlcnZhbCI6IFsKICAgICAgIjUzMy8xMCIsCiAgICAgICI1NDMvMTAiCiAgICBdLAogICAgInRpZVdpdG5lc3MiOiB7CiAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAiNDgiLAogICAgICAgICI0OSIsCiAgICAgICAgIjUwIiwKICAgICAgICAiNTEiLAogICAgICAgICI4NSIKICAgICAgXSwKICAgICAgInRhcmdldCI6ICI1MzMvMTAiCiAgICB9LAogICAgInN0cmljdFBpZWNlcyI6IFsKICAgICAgewogICAgICAgICJmcm9tIjogIjAiLAogICAgICAgICJ0byI6ICI5NzkvMjAiLAogICAgICAgICJzbG9wZSI6ICItNTgvNSIsCiAgICAgICAgImludGVyY2VwdCI6ICIxNTYzMS8yNSIsCiAgICAgICAgInJlYWRpbmdzIjogWwogICAgICAgICAgIjQ4IiwKICAgICAgICAgICI0OSIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI4NSIKICAgICAgICBdLAogICAgICAgICJ2ZXJkaWN0IjogIk1lZGlhbiIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcm9tIjogIjk3OS8yMCIsCiAgICAgICAgInRvIjogIjUzMy8xMCIsCiAgICAgICAgInNsb3BlIjogIi02Ni81IiwKICAgICAgICAiaW50ZXJjZXB0IjogIjE3NTg5LzI1IiwKICAgICAgICAicmVhZGluZ3MiOiBbCiAgICAgICAgICAiNDgiLAogICAgICAgICAgIjQ5IiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjg1IgogICAgICAgIF0sCiAgICAgICAgInZlcmRpY3QiOiAiTWVkaWFuIgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyb20iOiAiNTQzLzEwIiwKICAgICAgICAidG8iOiAiMjg2LzUiLAogICAgICAgICJzbG9wZSI6ICI2Ni81IiwKICAgICAgICAiaW50ZXJjZXB0IjogIi0xNzkxOS8yNSIsCiAgICAgICAgInJlYWRpbmdzIjogWwogICAgICAgICAgIjQ5IiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjUyIiwKICAgICAgICAgICI4NiIKICAgICAgICBdLAogICAgICAgICJ2ZXJkaWN0IjogIk1lYW4iCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJvbSI6ICIyODYvNSIsCiAgICAgICAgInRvIjogIjgwIiwKICAgICAgICAic2xvcGUiOiAiNTgvNSIsCiAgICAgICAgImludGVyY2VwdCI6ICItMTU2MzEvMjUiLAogICAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAgICI0OCIsCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI1MSIsCiAgICAgICAgICAiODUiCiAgICAgICAgXSwKICAgICAgICAidmVyZGljdCI6ICJNZWFuIgogICAgICB9CiAgICBdCiAgfQp9Cg==" download="joint-reading-box-sweep-v4.json">Download checked JSON</a><button class="button secondary" type="button" id="print">Print / save PDF</button></div>
-<p class="muted">Replay from the repository root: <code>node tools/verify-joint-reading-box.cjs joint-reading-box-sweep-v4.json</code>. The exact-envelope argument and its limits are in <a href="https://github.com/aruintelligence/inward-mathematics-simulator/blob/feature/joint-reading-target-sweep-20261019/docs/JOINT_READING_BOX.md">the proof notes</a>. The v4 argument is not Lean formalized.</p></section></main>
+<p class="muted">Replay from the repository root: <code>node tools/verify-joint-reading-box.cjs joint-reading-box-sweep-v4.json</code>. The exact-envelope argument and its limits are in <a href="https://github.com/aruintelligence/inward-mathematics-simulator/blob/main/docs/JOINT_READING_BOX.md">the proof notes</a>. The v4 argument is not Lean formalized.</p></section></main>
 <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
 <script id="receipt-bytes" type="application/octet-stream">ewogICJmb3JtYXQiOiAiaW53YXJkLWpvaW50LXJlYWRpbmctYm94LXY0IiwKICAiaW5wdXRzIjogewogICAgImludGVydmFscyI6IFsKICAgICAgWwogICAgICAgICI0OCIsCiAgICAgICAgIjQ5IgogICAgICBdLAogICAgICBbCiAgICAgICAgIjQ5IiwKICAgICAgICAiNTAiCiAgICAgIF0sCiAgICAgIFsKICAgICAgICAiNTAiLAogICAgICAgICI1MSIKICAgICAgXSwKICAgICAgWwogICAgICAgICI1MSIsCiAgICAgICAgIjUyIgogICAgICBdLAogICAgICBbCiAgICAgICAgIjg1IiwKICAgICAgICAiODYiCiAgICAgIF0KICAgIF0sCiAgICAidGFyZ2V0SW50ZXJ2YWwiOiBbCiAgICAgICIwIiwKICAgICAgIjgwIgogICAgXQogIH0sCiAgImNsYWltIjogewogICAgImVzdGltYXRlUmFuZ2UiOiB7CiAgICAgICJtaW4iOiB7CiAgICAgICAgInZhbHVlIjogIjI5LzUiLAogICAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAgICI0OCIsCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI1MSIsCiAgICAgICAgICAiODUiCiAgICAgICAgXQogICAgICB9LAogICAgICAibWF4IjogewogICAgICAgICJ2YWx1ZSI6ICIzNy81IiwKICAgICAgICAicmVhZGluZ3MiOiBbCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUwIiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTIiLAogICAgICAgICAgIjg2IgogICAgICAgIF0KICAgICAgfQogICAgfSwKICAgICJtaWRwb2ludFJhbmdlIjogewogICAgICAibWluIjogIjUzMy8xMCIsCiAgICAgICJtYXgiOiAiNTQzLzEwIgogICAgfSwKICAgICJ0aWVUYXJnZXRJbnRlcnZhbCI6IFsKICAgICAgIjUzMy8xMCIsCiAgICAgICI1NDMvMTAiCiAgICBdLAogICAgInRpZVdpdG5lc3MiOiB7CiAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAiNDgiLAogICAgICAgICI0OSIsCiAgICAgICAgIjUwIiwKICAgICAgICAiNTEiLAogICAgICAgICI4NSIKICAgICAgXSwKICAgICAgInRhcmdldCI6ICI1MzMvMTAiCiAgICB9LAogICAgInN0cmljdFBpZWNlcyI6IFsKICAgICAgewogICAgICAgICJmcm9tIjogIjAiLAogICAgICAgICJ0byI6ICI5NzkvMjAiLAogICAgICAgICJzbG9wZSI6ICItNTgvNSIsCiAgICAgICAgImludGVyY2VwdCI6ICIxNTYzMS8yNSIsCiAgICAgICAgInJlYWRpbmdzIjogWwogICAgICAgICAgIjQ4IiwKICAgICAgICAgICI0OSIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI4NSIKICAgICAgICBdLAogICAgICAgICJ2ZXJkaWN0IjogIk1lZGlhbiIKICAgICAgfSwKICAgICAgewogICAgICAgICJmcm9tIjogIjk3OS8yMCIsCiAgICAgICAgInRvIjogIjUzMy8xMCIsCiAgICAgICAgInNsb3BlIjogIi02Ni81IiwKICAgICAgICAiaW50ZXJjZXB0IjogIjE3NTg5LzI1IiwKICAgICAgICAicmVhZGluZ3MiOiBbCiAgICAgICAgICAiNDgiLAogICAgICAgICAgIjQ5IiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjg1IgogICAgICAgIF0sCiAgICAgICAgInZlcmRpY3QiOiAiTWVkaWFuIgogICAgICB9LAogICAgICB7CiAgICAgICAgImZyb20iOiAiNTQzLzEwIiwKICAgICAgICAidG8iOiAiMjg2LzUiLAogICAgICAgICJzbG9wZSI6ICI2Ni81IiwKICAgICAgICAiaW50ZXJjZXB0IjogIi0xNzkxOS8yNSIsCiAgICAgICAgInJlYWRpbmdzIjogWwogICAgICAgICAgIjQ5IiwKICAgICAgICAgICI1MCIsCiAgICAgICAgICAiNTEiLAogICAgICAgICAgIjUyIiwKICAgICAgICAgICI4NiIKICAgICAgICBdLAogICAgICAgICJ2ZXJkaWN0IjogIk1lYW4iCiAgICAgIH0sCiAgICAgIHsKICAgICAgICAiZnJvbSI6ICIyODYvNSIsCiAgICAgICAgInRvIjogIjgwIiwKICAgICAgICAic2xvcGUiOiAiNTgvNSIsCiAgICAgICAgImludGVyY2VwdCI6ICItMTU2MzEvMjUiLAogICAgICAgICJyZWFkaW5ncyI6IFsKICAgICAgICAgICI0OCIsCiAgICAgICAgICAiNDkiLAogICAgICAgICAgIjUxIiwKICAgICAgICAgICI1MSIsCiAgICAgICAgICAiODUiCiAgICAgICAgXSwKICAgICAgICAidmVyZGljdCI6ICJNZWFuIgogICAgICB9CiAgICBdCiAgfQp9Cg==</script>
 <script>/* Independent exact verifier for simultaneous reading-interval receipts. */
@@ -526,6 +526,105 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
   return {regions};
 });
 </script>
+<script>/* Construct exact readings attaining a tie at any target in a verified v4 tie band. */
+(function (root, factory) {
+  const verifier = typeof module === 'object' && module.exports ?
+    require('./joint-reading-box-verifier.js') : root.InwardJointBoxVerifier;
+  const api = factory(verifier);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.InwardJointTieWitness = api;
+})(globalThis, function (verifier) {
+  'use strict';
+  const abs = x => x < 0n ? -x : x;
+  function q(n, d = 1n) {
+    if (!d) throw new Error('Zero denominator');
+    if (d < 0n) [n, d] = [-n, -d];
+    let a = abs(n), b = d;
+    while (b) [a, b] = [b, a % b];
+    return {n: n / a, d: d / a};
+  }
+  const ZERO = q(0n), ONE = q(1n);
+  const add = (a, b) => q(a.n * b.d + b.n * a.d, a.d * b.d);
+  const sub = (a, b) => q(a.n * b.d - b.n * a.d, a.d * b.d);
+  const mul = (a, b) => q(a.n * b.n, a.d * b.d);
+  const div = (a, b) => q(a.n * b.d, a.d * b.n);
+  const cmp = (a, b) => a.n * b.d < b.n * a.d ? -1 : a.n * b.d > b.n * a.d ? 1 : 0;
+  const show = a => a.d === 1n ? String(a.n) : `${a.n}/${a.d}`;
+  function fraction(raw) {
+    if (typeof raw !== 'string' || raw.length > 520) throw new Error('Invalid exact target');
+    if (/^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/.test(raw)) {
+      const [top, bottom = '1'] = raw.split('/');
+      return q(BigInt(top), BigInt(bottom));
+    }
+    if (/^-?(?:0|[1-9][0-9]{0,8})\.[0-9]{1,6}$/.test(raw)) {
+      const [whole, digits] = raw.split('.');
+      return q(BigInt(whole + digits), 10n ** BigInt(digits.length));
+    }
+    throw new Error('Use an exact integer or fraction, or a decimal with up to six places.');
+  }
+  function estimators(readings) {
+    const ordered = [...readings].sort(cmp), n = readings.length;
+    const mean = div(readings.reduce(add, ZERO), q(BigInt(n)));
+    const median = div(add(ordered[(n - 1) >> 1], ordered[n >> 1]), q(2n));
+    return {mean, median, midpoint: div(add(mean, median), q(2n))};
+  }
+  function witnessAt(receipt, rawTarget) {
+    if (!verifier || typeof verifier.verify !== 'function') throw new Error('Independent verifier unavailable');
+    const checked = verifier.verify(receipt);
+    if (!checked.isSweep || !checked.tieTargetInterval) throw new Error('This v4 sweep has no tie target');
+    const target = fraction(rawTarget);
+    const [tieLow, tieHigh] = checked.tieTargetInterval.map(fraction);
+    if (cmp(target, tieLow) < 0 || cmp(target, tieHigh) > 0) {
+      throw new Error(`Target must be inside the tie interval [${show(tieLow)}, ${show(tieHigh)}].`);
+    }
+    const intervals = receipt.inputs.intervals.map(pair => pair.map(fraction));
+    const example = checked.tieWitness.readings.map(fraction);
+    let readings;
+    const exampleEstimates = estimators(example);
+    if (cmp(exampleEstimates.mean, exampleEstimates.median) === 0) {
+      // One equal-estimator reading vector ties for every possible target.
+      readings = example;
+    } else {
+      const low = intervals.map(pair => pair[0]), high = intervals.map(pair => pair[1]);
+      const delta = low.map((value, i) => sub(high[i], value));
+      const at = position => low.map((value, i) => add(value, mul(position, delta[i])));
+      // The median can change formula only when two moving readings cross.
+      const stops = [ZERO, ONE];
+      for (let i = 0; i < low.length; i++) for (let j = 0; j < i; j++) {
+        const speed = sub(delta[i], delta[j]);
+        if (speed.n === 0n) continue;
+        const cross = div(sub(low[j], low[i]), speed);
+        if (cmp(cross, ZERO) > 0 && cmp(cross, ONE) < 0) stops.push(cross);
+      }
+      stops.sort(cmp);
+      const distinct = stops.filter((value, i) => i === 0 || cmp(value, stops[i - 1]) !== 0);
+      for (let i = 1; i < distinct.length; i++) {
+        const from = distinct[i - 1], to = distinct[i];
+        const hFrom = estimators(at(from)).midpoint, hTo = estimators(at(to)).midpoint;
+        if (cmp(hFrom, target) > 0 || cmp(hTo, target) < 0) continue;
+        const position = cmp(hFrom, hTo) === 0 ? from :
+          add(from, mul(sub(to, from), div(sub(target, hFrom), sub(hTo, hFrom))));
+        readings = at(position);
+        break;
+      }
+      if (!readings) throw new Error('No exact interpolation reaches the target');
+    }
+    if (readings.some((value, i) => cmp(value, intervals[i][0]) < 0 ||
+        cmp(value, intervals[i][1]) > 0)) throw new Error('Constructed reading outside its interval');
+    const {mean, median, midpoint} = estimators(readings);
+    if (cmp(mul(sub(mean, median), sub(midpoint, target)), ZERO) !== 0) {
+      throw new Error('Constructed readings do not attain a tie');
+    }
+    // Replay the new witness through the independent receipt verifier as well.
+    const replay = {...receipt, claim: {...receipt.claim,
+      tieWitness: {target: show(target), readings: readings.map(show)}}};
+    verifier.verify(replay);
+    return {target: show(target), readings: readings.map(show),
+      mean: show(mean), median: show(median), receipt: replay};
+  }
+  return {witnessAt};
+});
+</script>
 <script>
 (async () => {
   'use strict';
@@ -557,8 +656,8 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     if (cmp(t, lo) < 0 || cmp(t, hi) > 0) throw new Error(`Target must be between ${show(lo)} and ${show(hi)}.`);
     const tie = result.tieTargetInterval;
     if (tie && cmp(t, canonical(tie[0])) >= 0 && cmp(t, canonical(tie[1])) <= 0) {
-      const example = result.tieWitness;
-      return {text: `At target ${show(t)}, a tie is attainable (exact lead 0). The receipt's checked example ties at target ${example.target} with readings [${example.readings.join(', ')}].`, gap: q(0n), t};
+      const witness = InwardJointTieWitness.witnessAt(receipt, show(t));
+      return {text: `At target ${witness.target}, an exact tie is attained at readings [${witness.readings.join(', ')}]. Mean = ${witness.mean}; Median = ${witness.median}. Exact lead 0.`, gap: q(0n), t, witness};
     }
     const piece = result.strictPieces.find(item =>
       cmp(t, canonical(item.from)) >= 0 && cmp(t, canonical(item.to)) <= 0);
@@ -582,9 +681,16 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     $('status').textContent = 'Exact certificate independently rechecked on this device.';
     $('status').className = 'wrap';
     function update(raw) {
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
       try {
         const probe = formatProbe(receipt, result, raw);
         $('probe-result').textContent = probe.text;
+        if (probe.witness) {
+          $('tie-download').href = 'data:application/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify(probe.witness.receipt, null, 2) + '\n');
+          $('tie-download').hidden = false;
+        }
         const [lo, hi] = receipt.inputs.targetInterval.map(canonical);
         const ratio = q((probe.t.n * lo.d - lo.n * probe.t.d) * hi.d,
           probe.t.d * (hi.n * lo.d - lo.n * hi.d));
@@ -618,6 +724,10 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
       } catch (error) {$('threshold-result').textContent = `Cannot calculate regions: ${error.message}`;}
     }
     $('probe-form').addEventListener('submit', event => {event.preventDefault(); update($('target-input').value.trim());});
+    $('target-input').addEventListener('input', () => {
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
+    });
     $('threshold-form').addEventListener('submit', event => {event.preventDefault(); updateThreshold($('threshold-input').value.trim());});
     document.querySelectorAll('[data-target]').forEach(button => button.addEventListener('click', () => {
       $('target-input').value = button.dataset.target;

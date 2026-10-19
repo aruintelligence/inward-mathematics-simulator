@@ -6,7 +6,7 @@
   <meta name="description" content="Certify the exact worst-case Mean versus Median gap when several readings and the target vary independently.">
   <title>Joint Reading Box / Exact Research Lab | INWARD Mathematics™</title>
   <style>
-    #margin-form{margin-top:22px}#margin-threshold{display:block;min-height:46px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;width:min(100%,230px);margin-top:6px}#margin-result{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace;margin-top:14px}
+    #margin-form,#tie-form{margin-top:22px}#margin-threshold,#tie-target{display:block;min-height:46px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;width:min(100%,230px);margin-top:6px}#margin-result,#tie-result{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace;margin-top:14px}
     :root{color-scheme:dark light;--bg:#071827;--panel:#102b3c;--ink:#f3f9f6;--muted:#c1d4d8;--line:#7896a3;--mint:#75e8c4;--gold:#ffd18a}
     *{box-sizing:border-box}body{margin:0;min-width:320px;background:radial-gradient(circle at 83% 0,#204c61 0,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
     main,header .wrap,footer .wrap{width:min(1020px,calc(100% - 36px));margin:auto}a{color:var(--mint);text-underline-offset:3px}a:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
@@ -51,6 +51,7 @@
         <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
     </section>
     <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div>
+      <form id="tie-form" class="card" hidden><h2>Show me the readings that tie</h2><p class="help">Choose any exact target inside the tie interval. The readings below are constructed for that target and checked again.</p><label for="tie-target">Tie target<input id="tie-target" type="text" inputmode="decimal" autocomplete="off"></label><div class="actions"><button type="submit">Construct exact tie</button><button id="tie-download" class="secondary" type="button" disabled>Download checked tie receipt</button></div><div id="tie-result" role="status" aria-live="polite"></div></form>
       <form id="margin-form" class="card"><h2>Where is a required lead guaranteed?</h2><p class="help">Enter a positive squared-error lead. The target regions below include their exact endpoints; the cutoff readings attain the threshold. This is a sensitivity question about your stipulated bounds.</p><label for="margin-threshold">Required lead<input id="margin-threshold" type="text" inputmode="decimal" value="100" autocomplete="off"></label><div class="actions"><button type="submit">Find exact target regions</button><button id="margin-download" type="button" class="secondary" disabled>Download checked region answer</button><button id="report-download" type="button" class="secondary" disabled>Download self-checking HTML report</button></div><p id="report-status" class="help" role="status">The offline report contains all reading and target bounds. Share it only when those values are okay to disclose.</p></form>
       <div id="margin-result" class="card" role="status" aria-live="polite">Verify a v4 sweep to calculate target regions.</div></section>
     <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
@@ -60,19 +61,23 @@
   <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
   <script src="joint-reading-box-core.js?v=4333d1ab1d37"></script>
   <script src="joint-reading-box-verifier.js?v=f2bfc6c05e94"></script>
+  <script src="joint-reading-tie-witness.js?v=bd0f99c5c355"></script>
   <script src="joint-reading-threshold.js?v=a976351e5ca5"></script>
-  <script src="joint-reading-portable-report.js?v=e5f61187440e"></script>
+  <script src="joint-reading-portable-report.js?v=7e8bf63bebf4"></script>
   <script>
     (() => {
       'use strict';
       const $ = id => document.getElementById(id);
       let rawBytes = null, generatedJSON = null, revision = 0;
-      let verifiedSweep = null, marginJSON = null, reportRevision = 0;
+      let verifiedSweep = null, marginJSON = null, tieJSON = null, reportRevision = 0;
       function clearMargin(message = 'Verify a v4 sweep to calculate target regions.') {
         reportRevision++;
         verifiedSweep = null; marginJSON = null;
         $('margin-download').disabled = true;
         $('report-download').disabled = true;
+        $('tie-form').hidden = true;
+        tieJSON = null; $('tie-download').disabled = true;
+        $('tie-result').textContent = '';
         $('margin-result').textContent = message;
         $('margin-result').className = 'card';
         $('report-status').textContent = 'The offline report contains all reading and target bounds. Share it only when those values are okay to disclose.';
@@ -186,6 +191,29 @@
         }
       }
       $('margin-form').addEventListener('submit', event => {event.preventDefault(); updateMargin();});
+      function updateTieWitness() {
+        if (!verifiedSweep || !verifiedSweep.result.tieTargetInterval) return;
+        tieJSON = null; $('tie-download').disabled = true;
+        try {
+          const witness = InwardJointTieWitness.witnessAt(verifiedSweep.receipt, $('tie-target').value.trim());
+          tieJSON = JSON.stringify(witness.receipt, null, 2) + '\n';
+          $('tie-download').disabled = false;
+          $('tie-result').textContent = `At target ${witness.target}, readings [${witness.readings.join(', ')}] attain an exact tie. Mean = ${witness.mean}; Median = ${witness.median}.`;
+          $('tie-result').className = 'good';
+        } catch (error) {
+          $('tie-result').textContent = `Cannot construct tie: ${error.message}`;
+          $('tie-result').className = 'error';
+        }
+      }
+      $('tie-form').addEventListener('submit', event => {event.preventDefault(); updateTieWitness();});
+      $('tie-target').addEventListener('input', () => {
+        tieJSON = null; $('tie-download').disabled = true;
+        $('tie-result').textContent = 'Target changed. Construct the exact tie again.';
+        $('tie-result').className = '';
+      });
+      $('tie-download').addEventListener('click', () => {
+        if (tieJSON && verifiedSweep) downloadFile(tieJSON, 'joint-reading-box-tie-target-v4.json');
+      });
       $('report-download').addEventListener('click', async () => {
         if (!verifiedSweep) return;
         const token = revision, reportToken = reportRevision, sweep = verifiedSweep;
@@ -195,9 +223,10 @@
           const currentThreshold = InwardJointThreshold.regions(sweep.result, sweep.inputs,
             $('margin-threshold').value.trim()).threshold;
           const sources = [
-            ['tools/joint-reading-portable-template.html', '855c78283660f45be50a70265fb5e25ad7868c6de1ad25987a1704c3f3daa1e7'],
+            ['tools/joint-reading-portable-template.html', '78129a0fd77f8f19530228a267fa79f844e62422c2e3623aaf00fa71a55a0385'],
             ['joint-reading-box-verifier.js', 'f2bfc6c05e945dc85c2d40c25acb2dc1e688a43c9aad3dc5198054d3294d89f3'],
-            ['joint-reading-threshold.js', 'a976351e5ca51566d6e4684da1817224f3bbe39beafcb1029c08a05551f65d66']
+            ['joint-reading-threshold.js', 'a976351e5ca51566d6e4684da1817224f3bbe39beafcb1029c08a05551f65d66'],
+            ['joint-reading-tie-witness.js', 'bd0f99c5c355cd8cb33fe896333e6532815b1bf53b5c2df0028ea50dabaf5588']
           ];
           const contents = await Promise.all(sources.map(async ([path, expected]) => {
             const response = await fetch(path + '?v=' + expected.slice(0, 12));
@@ -215,7 +244,7 @@
           }
           const html = InwardJointPortableReport.render(contents[0], {
             base64: btoa(chunks.join('')), sha256: sweep.sourceSha,
-            verifierSource: contents[1], thresholdSource: contents[2],
+            verifierSource: contents[1], thresholdSource: contents[2], tieSource: contents[3],
             thresholdDefault: currentThreshold
           });
           if (token !== revision || reportToken !== reportRevision) return;
@@ -271,7 +300,7 @@
           $('status').className = 'good';
           $('sweep-view').hidden = !result.isSweep;
           if (result.isSweep) {
-            verifiedSweep = {result, inputs: receipt.inputs,
+            verifiedSweep = {result, inputs: receipt.inputs, receipt,
               sourceSha: [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join(''),
               sourceBytes: bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)};
             $('report-download').disabled = false;
@@ -281,6 +310,11 @@
             $('sweep-ties').textContent = result.tieTargetInterval ?
               `Tie for every target in [${result.tieTargetInterval.join(', ')}]; witnessed at target ${result.tieWitness.target} with readings [${result.tieWitness.readings.join(', ')}].` :
               'No target in this range permits a tie.';
+            $('tie-form').hidden = !result.tieTargetInterval;
+            if (result.tieTargetInterval) {
+              $('tie-target').value = result.tieTargetInterval[0];
+              updateTieWitness();
+            }
             $('sweep-pieces').textContent = result.strictPieces.map(piece =>
               `[${piece.from}, ${piece.to}]  ${piece.verdict}  gap(t) = (${piece.slope})t + (${piece.intercept})\nAttained at readings [${piece.readings.join(', ')}]`).join('\n\n');
             updateMargin();

@@ -6,10 +6,11 @@ const {tmpdir} = require('node:os');
 const {join} = require('node:path');
 const {webcrypto} = require('node:crypto');
 const vm = require('node:vm');
+const verifier = require('../joint-reading-box-verifier.js');
 
 async function openReport(html) {
   const scripts = [...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)];
-  assert.equal(scripts.length, 4);
+  assert.equal(scripts.length, 5);
   const nodes = new Map();
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {textContent: '', value: '', hidden: true,
@@ -27,7 +28,8 @@ async function openReport(html) {
     TextDecoder, TextEncoder, Uint8Array, BigInt, crypto: webcrypto, window: {print() {}}};
   vm.runInNewContext(scripts[1][1], context, {timeout: 2000});
   vm.runInNewContext(scripts[2][1], context, {timeout: 2000});
-  await vm.runInNewContext(scripts[3][1], context, {timeout: 2000});
+  vm.runInNewContext(scripts[3][1], context, {timeout: 2000});
+  await vm.runInNewContext(scripts[4][1], context, {timeout: 2000});
   return {node, source: scripts[0][1], scripts, context};
 }
 
@@ -48,14 +50,23 @@ test('standalone report rechecks the exact JSON and probes strict and tie target
   for (const [target, expected] of [
     ['45', /2581\/25.*48, 49, 51, 51, 85/],
     ['979/20', /Median wins.*2871\/50/],
-    ['533/10', /a tie is attainable \(exact lead 0\)/],
-    ['54', /a tie is attainable/],
+    ['533/10', /an exact tie is attained at readings/],
+    ['54', /an exact tie is attained at readings/],
     ['286/5', /Mean wins.*957\/25/],
     ['80', /Mean wins.*7569\/25/]
   ]) {
     node('target-input').value = target;
     node('probe-form').handlers.submit({preventDefault() {}});
     assert.match(node('probe-result').textContent, expected);
+    if (target === '54') {
+      assert.equal(node('tie-download').hidden, false);
+      const retargeted = verifier.parseReceipt(decodeURIComponent(node('tie-download').href.split(',')[1]));
+      assert.equal(retargeted.claim.tieWitness.target, '54');
+      assert.equal(verifier.verify(retargeted).isSweep, true);
+      node('target-input').value = '55';
+      node('target-input').handlers.input();
+      assert.equal(node('tie-download').hidden, true);
+    }
   }
   node('target-input').value = '81';
   node('probe-form').handlers.submit({preventDefault() {}});
@@ -108,7 +119,7 @@ test('renderer rejects forged evidence and handles all-target ties and custom re
     assert.equal(rendered.status, 0, rendered.stderr);
     const {node} = await openReport(readFileSync(outputPath, 'utf8'));
     assert.equal(node('report').hidden, false);
-    assert.match(node('probe-result').textContent, /a tie is attainable/);
+    assert.match(node('probe-result').textContent, /an exact tie is attained/);
     assert.match(node('threshold-result').textContent, /No target/);
     assert.match(readFileSync(outputPath, 'utf8'), /No strict region/);
   } finally {rmSync(dir, {recursive: true, force: true});}
