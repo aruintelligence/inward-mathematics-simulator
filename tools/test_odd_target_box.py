@@ -1,17 +1,52 @@
 """Exact exhaustion, adversarial certificates, and boundary cases."""
 import copy
 from fractions import Fraction
+import base64
+import hashlib
 import json
 from pathlib import Path
 import random
+import re
 import unittest
 
 from odd_target_box import (certificate, gap_certificate, stability_certificate,
                             atlas_certificate, horizon_certificate, winner)
 from verify_odd_target_box import verify, query_target_horizon
+from render_target_horizon_report import render
 
 
 class TargetBoxTests(unittest.TestCase):
+    def test_portable_horizon_report_embeds_exact_checked_bytes_and_scopes_formal_claim(self):
+        raw = Path("examples/target-horizon-v6.json").read_bytes()
+        page = render(raw)
+        self.assertEqual(page, Path("target-horizon-report.html").read_text())
+        self.assertIn(hashlib.sha256(raw).hexdigest(), page)
+        encoded = re.search(r'href="data:application/json;base64,([A-Za-z0-9+/=]+)"', page)
+        self.assertIsNotNone(encoded)
+        self.assertEqual(base64.b64decode(encoded.group(1)), raw)
+        self.assertIn("six_reading_full_horizon theorem", page)
+        self.assertIn("17/3 ≤ t ≤ 95/12", page)
+        self.assertIn("At x = 10: <strong>95/12</strong>", page)
+        self.assertIn("Move reading 1 to 4", page)
+
+        altered = json.loads(raw)
+        altered["claim"]["targetHorizon"]["high"] = "8"
+        with self.assertRaises(ValueError):
+            render(json.dumps(altered).encode())
+        with self.assertRaises(ValueError):
+            render(raw.replace(b'"format":', b'"format":"other","format":', 1))
+        with self.assertRaises(ValueError):
+            render(Path("examples/odd-target-box-v1.json").read_bytes())
+
+    def test_portable_horizon_report_handles_all_target_equality_without_false_winners(self):
+        blocked = horizon_certificate(["48", "49", "50", "51", "85"],
+                                      "0", "100", "48", "52")
+        page = render(json.dumps(blocked).encode())
+        self.assertIn("No strict target guarantee", page)
+        self.assertIn("Move reading\n1 to <code>15</code>", page)
+        self.assertNotIn("Complete target classification", page)
+        self.assertIn("does not claim a Lean proof of an arbitrary receipt", page)
+
     def test_example_and_sliced_target(self):
         case = certificate(["48", "49", "50", "51", "85"], "0", "100", "48", "52")
         self.assertEqual(case, json.loads(Path("examples/odd-target-box-v1.json").read_text()))

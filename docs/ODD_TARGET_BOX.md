@@ -100,6 +100,8 @@ certificate into an automatically checked Lean proof of its data.
 
 For readings `[8,6,8,7,0,8]`, movement `[0,10]`, and probe target `[6,6]`, the [checked v6 example](../examples/target-horizon-v6.json) has $h_-=17/3$ and $h_+=95/12$. Every target below $17/3$ strictly favors Mean under every permitted move; every target above $95/12$ strictly favors Median. At target $6$, moving reading 1 to $4$ gives an exact tie. By contrast, the five-reading `[48,49,50,51,85]` case with movement `[0,100]` has an all-target tie after moving reading 1 to $15$, so no target can provide a strict global guarantee across every route. These conclusions concern the stated hypothetical movement model and do not establish which estimator is appropriate for real measurements.
 
+The [offline research report](../target-horizon-report.html) is rendered only after the independent Python verifier rechecks the exact v6 JSON bytes. It shows each route's endpoint midpoints, the common original-sample midpoint, a concrete target probe, the SHA-256 fingerprint, and an embedded download of those same bytes. The example's Lean note applies only when the independently checked readings, movement, and horizon match the six-reading theorem; arbitrary receipts receive no Lean badge. For a different v6 receipt, run `python3 tools/render_target_horizon_report.py receipt.json --output report.html`. Reproduce the checked-in example with `python3 tools/render_target_horizon_report.py --check`. Neither the receipt nor its fingerprint authenticates the origin of the inputs.
+
 The Lean inner-interval proof uses two explicit routes. Moving the first `8`
 to $x\in[0,8]$ gives mean $(x+29)/6$ and median $13/2$ until $x=6$,
 then $(x+7)/2$ through $x=8$. This route covers midpoint targets from
