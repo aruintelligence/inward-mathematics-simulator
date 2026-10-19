@@ -6,6 +6,7 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-joint-reading-box-v1";
+  const RANGE_FORMAT = "inward-joint-reading-box-v2";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = n => n < 0n ? -n : n;
   function gcd(a, b) {
@@ -107,7 +108,7 @@
     }
     throw new Error("A bracketed continuous factor has no root");
   }
-  function certificate(rawIntervals, rawTarget) {
+  function build(rawIntervals, rawTarget, rawTargetHigh, ranged) {
     if (!Array.isArray(rawIntervals) || rawIntervals.length < 3 || rawIntervals.length > 5) {
       throw new Error("Supply 3 through 5 independent reading intervals.");
     }
@@ -118,35 +119,44 @@
       return [low, high];
     });
     const target = parse(rawTarget);
+    const targetHigh = ranged ? parse(rawTargetHigh) : target;
+    if (cmp(target, targetHigh) > 0) throw new RangeError("Target bounds must be ordered.");
     const [minimum, maximum] = extrema(intervals);
     const lower = intervals.map(pair => pair[0]), upper = intervals.map(pair => pair[1]);
     const hlow = factors(lower).midpoint, hhigh = factors(upper).midpoint;
-    let witness = null;
+    let witness = null, tieTarget = null;
     if (cmp(minimum.value, ZERO) <= 0 && cmp(ZERO, maximum.value) <= 0) {
       witness = interpolateRoot(minimum.readings, maximum.readings, "estimate");
-    } else if (cmp(hlow, target) <= 0 && cmp(target, hhigh) <= 0) {
-      witness = interpolateRoot(lower, upper, "midpoint", target);
+      tieTarget = target;
+    } else if (cmp(hlow, targetHigh) <= 0 && cmp(target, hhigh) <= 0) {
+      tieTarget = cmp(hlow, target) > 0 ? hlow : target;
+      witness = interpolateRoot(lower, upper, "midpoint", tieTarget);
     }
     let verdict, margin;
     if (witness) {
       const {difference, midpoint} = factors(witness);
-      if (mul(difference, sub(midpoint, target)).n !== 0n) throw new Error("Constructed readings do not tie");
+      if (mul(difference, sub(midpoint, tieTarget)).n !== 0n) throw new Error("Constructed readings do not tie");
       verdict = "Tie possible"; margin = null;
     } else {
       verdict = cmp(mul(minimum.value, sub(hlow, target)), ZERO) < 0 ? "Mean" : "Median";
       const nearD = cmp(absQ(minimum.value), absQ(maximum.value)) < 0 ?
         absQ(minimum.value) : absQ(maximum.value);
-      const nearH = cmp(absQ(sub(hlow, target)), absQ(sub(hhigh, target))) < 0 ?
-        absQ(sub(hlow, target)) : absQ(sub(hhigh, target));
+      const nearH = cmp(hlow, targetHigh) > 0 ? sub(hlow, targetHigh) : sub(target, hhigh);
       margin = notation(mul(TWO, mul(nearD, nearH)));
     }
     function absQ(value) { return q(abs(value.n), value.d); }
     const extremum = item => ({value: notation(item.value), readings: item.readings.map(notation)});
-    return {format: FORMAT,
-      inputs: {intervals: intervals.map(pair => pair.map(notation)), target: notation(target)},
-      claim: {estimateRange: {min: extremum(minimum), max: extremum(maximum)},
+    const inputs = {intervals: intervals.map(pair => pair.map(notation))};
+    if (ranged) inputs.targetInterval = [notation(target), notation(targetHigh)];
+    else inputs.target = notation(target);
+    const claim = {estimateRange: {min: extremum(minimum), max: extremum(maximum)},
         midpointRange: {min: notation(hlow), max: notation(hhigh)},
-        verdict, squaredGapLowerBound: margin, tieWitness: witness ? witness.map(notation) : null}};
+        verdict, squaredGapLowerBound: margin, tieWitness: witness ? witness.map(notation) : null};
+    if (ranged) claim.tieTarget = tieTarget ? notation(tieTarget) : null;
+    return {format: ranged ? RANGE_FORMAT : FORMAT, inputs, claim};
   }
-  return {certificate};
+  const certificate = (intervals, target) => build(intervals, target, target, false);
+  const certificateRange = (intervals, targetLow, targetHigh) =>
+    build(intervals, targetLow, targetHigh, true);
+  return {certificate, certificateRange};
 });

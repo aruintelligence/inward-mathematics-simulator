@@ -1,20 +1,21 @@
-# Joint Reading Box: simultaneous uncertainty certificate v1
+# Joint Reading Box: simultaneous uncertainty certificates
 
 This research instrument answers a specific question: for a fixed rational target
-and **3–5 readings that may all change independently** inside closed rational
-intervals, is Mean or Median strictly closer at every permitted configuration?
-If a tie is reachable, the receipt supplies exact rational readings that attain
-it. This extends the original Target Lens five-reading uniform-drift model to
-heterogeneous, signed rational intervals and includes the central-pair median
+or a **closed rational target interval**, and **3–5 readings that may all change
+independently** inside closed rational intervals, is Mean or Median strictly
+closer at every permitted configuration? If a tie is reachable, the receipt
+supplies exact rational readings and a target that attain it. This extends the
+original Target Lens five-reading uniform-drift model to heterogeneous,
+signed rational intervals and includes the central-pair median
 for even samples. It does not replace the one-reading-at-a-time Target Box.
 
 ## Reproduce and inspect
 
 Open the [browser lab](../joint-reading-box.html) to set 3–5 reading bounds
-and a target, generate a certificate on your device, independently verify
-its claim, and download the checked JSON. The same lab can check the two
-examples, imported files, or pasted receipts on a phone. It reads files
-locally, rejects duplicate JSON keys, verifies exact rational calculations,
+and a target or target interval, generate a certificate on your device,
+independently verify its claim, and download the checked JSON. The same lab
+can check the examples, imported files, or pasted receipts on a phone. It
+reads files locally, rejects duplicate JSON keys, verifies exact rational calculations,
 and prints the SHA-256 of the checked bytes. The fingerprint identifies
 matching bytes; it does not authenticate an author. Generating a new receipt
 does not require Python or a server.
@@ -25,13 +26,23 @@ To reproduce the experiment offline from the repository root:
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 > joint.json
 node tools/verify-joint-reading-box.cjs joint.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
+python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 > joint-range.json
+node tools/verify-joint-reading-box.cjs joint-range.json
+node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v2.json
 ```
 
 The browser constructor and Python generator produce the same versioned
 receipt; the separate BigInt browser verifier and independent Node checker
 recompute the claim without importing either constructor. GitHub Actions
-checks both examples and runs seeded odd/even cases against an integer-grid
+checks the examples and runs seeded odd/even cases against an integer-grid
 oracle. These finite checks are distinct from the proof below.
+
+The v1 receipt has one fixed `inputs.target`. The v2 receipt has
+`inputs.targetInterval: [low, high]` and a `claim.tieTarget` when a tie is
+possible. Equal target bounds are allowed. The verifier accepts both versions
+and rejects a v2 tie target outside the supplied interval. The range model
+allows **every** combination of readings and target in the Cartesian product;
+it does not describe correlated motion or a probability distribution.
 
 ## Complete algebraic argument
 
@@ -85,6 +96,41 @@ $$
 This bound need not be sharp. It is a quantitative guarantee for the
 stipulated box, not a probability or an empirical error bar.
 
+## Target interval theorem (v2)
+
+Let the target vary independently over $T=[a,b]$ and write
+$I_H=[H(L),H(U)]$, $I_D=[D_{\min},D_{\max}]$. The **complete** tie test is
+
+$$
+0\in I_D\quad\text{or}\quad T\cap I_H\ne\varnothing.
+$$
+
+If $0\in I_D$, an attained configuration has $\mu=m$ and ties at **every**
+target in $T$. Otherwise, if the intervals intersect, choose any rational
+$t_*\in T\cap I_H$. Continuity and monotonicity of $H$ give readings with
+$H=t_*$, so their squared errors tie. The generator chooses
+$t_*=\max(a,H(L))$ and solves for readings by exact piecewise affine
+interpolation. The verifier independently checks both the reading bounds
+and $t_*\in T$ and recomputes the zero squared-error difference.
+
+If neither condition holds, $D$ keeps one nonzero sign and $H(x)-t$ keeps
+one nonzero sign for every $(x,t)\in B\times T$. Thus the strict winner is
+uniform over the entire box and target interval. With
+$\delta_T=\operatorname{dist}(I_H,T)>0$, the receipt proves
+
+$$
+\left|(\mu(x)-t)^2-(m(x)-t)^2\right|
+\ge 2\operatorname{dist}(0,I_D)\,\delta_T>0
+\quad\text{for every }(x,t)\in B\times T.
+$$
+
+For the example readings around $48,49,50,51,85$, the target interval
+$[0,45]$ gives a uniform Median verdict and a squared-error lead of at least
+$2407/25$. The interval $[54,55]$ permits a tie at target $54$ with exact
+readings $(487/10,497/10,507/10,517/10,857/10)$. Both claims can be
+reproduced from the [strict](../examples/joint-reading-box-strict-v2.json)
+and [tie](../examples/joint-reading-box-tie-v2.json) v2 receipts.
+
 ## Why corners alone are insufficient
 
 For the intervals $[-4,-3],[-1,4],[1,2]$, the true minimum of $D$ is
@@ -95,7 +141,8 @@ records the exact extremum and an attained tie at target $-2$.
 ## Limits and status
 
 Input is 3–5 intervals, rational or at most six-place decimal bounds within
-$[-1{,}000{,}000,1{,}000{,}000]$, and one fixed target in that range.
+$[-1{,}000{,}000,1{,}000{,}000]$, and a fixed target (v1) or target interval
+(v2) in that range.
 Every interval may have zero width. At most 100,000 feasible endpoint-valued
 vectors may be enumerated; a larger case fails explicitly. Imported input
 fractions are canonical and limited to 18 digits per part, computed claim

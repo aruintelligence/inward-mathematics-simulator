@@ -13,7 +13,10 @@ try {
   console.log(`Verified conditional verdict: ${result.verdict}`);
   if (result.squaredGapLowerBound !== null) {
     console.log(`Conservative squared-error lead: at least ${result.squaredGapLowerBound}`);
-  } else console.log(`Exact tie readings: ${result.tieWitness.join(', ')}`);
+  } else {
+    console.log(`Exact tie readings: ${result.tieWitness.join(', ')}`);
+    console.log(`Exact tie target: ${result.tieTarget}`);
+  }
   console.log(`Receipt SHA-256: ${createHash('sha256').update(raw).digest('hex')}`);
 } catch (error) {
   console.error(`Joint reading box rejected: ${error.message}`);

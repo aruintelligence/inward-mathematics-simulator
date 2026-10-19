@@ -16,9 +16,10 @@ test('browser lab pins constructor and verifier assets to their SHA-256 versions
   }
 });
 
-function generate(intervals, target) {
+function generate(intervals, target, targetHigh = null) {
   const command = spawnSync('python3', ['tools/joint_reading_box.py',
-    `--intervals=${intervals.map(pair => pair.join(':')).join(',')}`, `--target=${target}`],
+    `--intervals=${intervals.map(pair => pair.join(':')).join(',')}`, `--target=${target}`,
+    ...(targetHigh === null ? [] : [`--target-high=${targetHigh}`])],
   {encoding: 'utf8'});
   assert.equal(command.status, 0, command.stderr);
   const receipt = verifier.parseReceipt(command.stdout);
@@ -97,6 +98,111 @@ test('strict guarantee includes a positive exact squared-error lower bound', () 
   const tied = generate(intervals, 54);
   assert.equal(tied.claim.verdict, 'Tie possible');
   assert.ok(tied.claim.tieWitness);
+});
+
+test('v2 certifies every target in an interval and gives an attained interior tie', () => {
+  const intervals = [['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']];
+  const strict = generate(intervals, '0', '45');
+  assert.deepEqual(strict, JSON.parse(readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateRange(intervals, '0', '45'), strict);
+  assert.equal(strict.claim.verdict, 'Median');
+  assert.equal(strict.claim.squaredGapLowerBound, '2407/25');
+  const mean = generate(intervals, '60', '65');
+  assert.equal(mean.claim.verdict, 'Mean');
+  for (const target of ['0', '22', '45']) {
+    assert.equal(generate(intervals, target).claim.verdict, 'Median');
+  }
+  const tie = generate(intervals, '54', '55');
+  assert.deepEqual(tie, JSON.parse(readFileSync('examples/joint-reading-box-tie-v2.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateRange(intervals, '54', '55'), tie);
+  assert.equal(tie.claim.tieTarget, '54');
+  assert.deepEqual(tie.claim.tieWitness, ['487/10', '497/10', '507/10', '517/10', '857/10']);
+  assert.equal(verifier.verify(tie).tieTarget, '54');
+  assert.equal(generate(intervals, '0', '100').claim.verdict, 'Tie possible');
+  assert.equal(generate(intervals, '0').claim.verdict, 'Median');
+  assert.equal(generate(intervals, '100').claim.verdict, 'Mean');
+});
+
+test('v2 handles coincident estimates, touching targets, equal bounds, and rational inputs', () => {
+  const samples = [
+    [[['-4', '-3'], ['-1', '4'], ['1', '2']], '-100', '-99'],
+    [[['0', '0'], ['0', '0'], ['0', '0'], ['10', '10']], '5/4', '5/4'],
+    [[['0.5', '1'], ['1/3', '2/3'], ['-1/2', '0'], ['2/3', '5/6']], '1/3', '4/3']
+  ];
+  for (const [intervals, low, high] of samples) {
+    const receipt = generate(intervals, low, high);
+    assert.deepEqual(browserCore.certificateRange(intervals, low, high), receipt);
+    assert.equal(verifier.verify(receipt).verdict, receipt.claim.verdict);
+  }
+  const coincident = generate(samples[0][0], '-100', '-99');
+  assert.equal(coincident.claim.verdict, 'Tie possible');
+  assert.equal(coincident.claim.tieTarget, '-100');
+  const touch = generate(samples[1][0], '5/4', '5/4');
+  assert.equal(touch.claim.tieTarget, '5/4');
+  assert.throws(() => browserCore.certificateRange(samples[0][0], '1', '0'), /Target bounds/);
+  const primes = [100000007, 100000037, 100000039, 100000049, 100000073];
+  const longIntervals = primes.map(p => [`1/${p}`, `1/${p}`]);
+  const longTie = generate(longIntervals, '-1', '1');
+  assert.ok(longTie.claim.tieTarget.length > 18);
+  assert.deepEqual(browserCore.certificateRange(longIntervals, '-1', '1'), longTie);
+  assert.equal(verifier.verify(longTie).verdict, 'Tie possible');
+});
+
+test('seeded target intervals agree with an independent integer-grid oracle', () => {
+  let seed = 0x29ad183;
+  const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  for (let k = 0; k < 24; k++) {
+    const n = 3 + k % 3;
+    const intervals = Array.from({length: n}, () => {
+      const low = -4 + next() % 8;
+      return [low, low + next() % 4];
+    });
+    const targetLow = -6 + next() % 13, targetHigh = targetLow + next() % 5;
+    const receipt = generate(intervals, targetLow, targetHigh);
+    const samples = [];
+    function walk(index, values) {
+      if (index === n) { samples.push(at(values)); return; }
+      for (let value = intervals[index][0]; value <= intervals[index][1]; value++) {
+        walk(index + 1, [...values, value]);
+      }
+    }
+    walk(0, []);
+    const dmin = Math.min(...samples.map(v => v[0]));
+    const dmax = Math.max(...samples.map(v => v[0]));
+    const hLow = at(intervals.map(pair => pair[0]))[1];
+    const hHigh = at(intervals.map(pair => pair[1]))[1];
+    const possible = dmin <= 0 && dmax >= 0 || hLow <= targetHigh && targetLow <= hHigh;
+    assert.equal(receipt.claim.verdict === 'Tie possible', possible);
+    assert.deepEqual(browserCore.certificateRange(intervals.map(pair => pair.map(String)),
+      String(targetLow), String(targetHigh)), receipt);
+    if (!possible) {
+      const bound = numeric(receipt.claim.squaredGapLowerBound);
+      assert.ok(bound > 0);
+      for (const [difference, midpoint] of samples) for (const t of [targetLow, targetHigh]) {
+        assert.ok(2 * Math.abs(difference * (midpoint - t)) + 1e-9 >= bound);
+      }
+    } else assert.equal(verifier.verify(receipt).tieTarget, receipt.claim.tieTarget);
+  }
+});
+
+test('v2 verifier rejects forged target witnesses, bounds, verdicts, and schemas', () => {
+  const strict = generate([['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']], '0', '45');
+  const tie = generate([['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']], '54', '55');
+  for (const [original, change] of [
+    [tie, x => { x.claim.tieTarget = '53'; }],
+    [tie, x => { x.claim.tieTarget = '55'; }],
+    [tie, x => { x.claim.tieWitness[0] = '49'; }],
+    [tie, x => { x.claim.tieTarget = null; }],
+    [strict, x => { x.claim.squaredGapLowerBound = '100'; }],
+    [strict, x => { x.claim.tieTarget = '0'; }],
+    [strict, x => { x.inputs.targetInterval = ['45', '0']; }],
+    [strict, x => { x.inputs.targetInterval = ['0', '46']; }],
+    [strict, x => { x.inputs.target = '0'; }],
+    [tie, x => { x.format = 'inward-joint-reading-box-v1'; }]
+  ]) {
+    const forged = clone(original); change(forged);
+    assert.throws(() => verifier.verify(forged));
+  }
 });
 
 test('even-sample central-pair median and singleton tie boundaries are exact', () => {
@@ -271,6 +377,28 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   await node('tie-example').handlers.click();
   assert.equal(node('verdict').textContent, 'Tie possible');
   assert.match(node('detail').textContent, /-22\/7/);
+  await node('range-strict-example').handlers.click();
+  assert.equal(node('verdict').textContent, 'Median');
+  assert.match(node('detail').textContent, /2407\/25/);
+  await node('range-tie-example').handlers.click();
+  assert.equal(node('verdict').textContent, 'Tie possible');
+  assert.match(node('detail').textContent, /target 54/);
+  node('target-high').value = '45';
+  node('target-high').handlers.input();
+  assert.equal(node('download').disabled, true);
+  node('reading-count').value = '5';
+  node('reading-count').handlers.change();
+  node('low-1').value = '48';
+  await node('builder-form').handlers.submit({preventDefault() {}});
+  assert.equal(node('verdict').textContent, 'Median');
+  assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v2');
+  assert.equal(node('download').disabled, false);
+  node('target-high').value = '55';
+  node('target-high').handlers.input();
+  node('target').value = '54';
+  await node('builder-form').handlers.submit({preventDefault() {}});
+  assert.equal(node('verdict').textContent, 'Tie possible');
+  assert.match(node('detail').textContent, /target 54/);
   node('receipt-json').value = '{"invalid":true}';
   node('receipt-json').handlers.input();
   await node('verify').handlers.click();

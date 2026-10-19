@@ -8,6 +8,7 @@ import json
 from odd_sample_flip import LIMIT, exact
 
 FORMAT = "inward-joint-reading-box-v1"
+RANGE_FORMAT = "inward-joint-reading-box-v2"
 MAX_CANDIDATES = 100_000
 
 
@@ -80,7 +81,7 @@ def interpolate_root(start, end, factor, target=Fraction(0)):
     raise ArithmeticError("A bracketed continuous factor has no root")
 
 
-def certificate(raw_intervals, raw_target):
+def certificate(raw_intervals, raw_target, raw_target_high=None):
     if type(raw_intervals) is not list or not 3 <= len(raw_intervals) <= 5:
         raise ValueError("Supply 3 through 5 independent reading intervals")
     intervals = []
@@ -92,48 +93,60 @@ def certificate(raw_intervals, raw_target):
             raise ValueError("Reading bounds must be ordered")
         intervals.append((low, high))
     target = exact(raw_target, -LIMIT, LIMIT)
+    target_high = (exact(raw_target_high, -LIMIT, LIMIT)
+                   if raw_target_high is not None else target)
+    if target > target_high:
+        raise ValueError("Target bounds must be ordered")
+    ranged = raw_target_high is not None
     minimum, maximum = exact_extrema(intervals)
     lower = tuple(pair[0] for pair in intervals)
     upper = tuple(pair[1] for pair in intervals)
     hlow, hhigh = factors(lower)[1], factors(upper)[1]
     if minimum[0] <= 0 <= maximum[0]:
         witness = interpolate_root(minimum[1], maximum[1], "estimate")
-    elif hlow <= target <= hhigh:
-        witness = interpolate_root(lower, upper, "midpoint", target)
+        tie_target = target
+    elif max(hlow, target) <= min(hhigh, target_high):
+        tie_target = max(hlow, target)
+        witness = interpolate_root(lower, upper, "midpoint", tie_target)
     else:
         witness = None
+        tie_target = None
     if witness is not None:
         d, h = factors(witness)
-        if d * (h - target):
+        if d * (h - tie_target):
             raise ArithmeticError("Constructed readings do not tie")
         verdict, margin = "Tie possible", None
     else:
         verdict = "Mean" if minimum[0] * (hlow - target) < 0 else "Median"
         distance_d = min(abs(minimum[0]), abs(maximum[0]))
-        distance_h = min(abs(hlow - target), abs(hhigh - target))
+        distance_h = hlow - target_high if hlow > target_high else target - hhigh
         margin = str(2 * distance_d * distance_h)
 
     extremum = lambda item: {"value": str(item[0]),
                              "readings": list(map(str, item[1]))}
-    return {"format": FORMAT,
-            "inputs": {"intervals": [[str(a), str(b)] for a, b in intervals],
-                       "target": str(target)},
-            "claim": {"estimateRange": {"min": extremum(minimum),
-                                         "max": extremum(maximum)},
-                      "midpointRange": {"min": str(hlow), "max": str(hhigh)},
-                      "verdict": verdict, "squaredGapLowerBound": margin,
-                      "tieWitness": list(map(str, witness)) if witness is not None else None}}
+    inputs = {"intervals": [[str(a), str(b)] for a, b in intervals]}
+    inputs.update({"targetInterval": [str(target), str(target_high)]} if ranged
+                  else {"target": str(target)})
+    claim = {"estimateRange": {"min": extremum(minimum), "max": extremum(maximum)},
+             "midpointRange": {"min": str(hlow), "max": str(hhigh)},
+             "verdict": verdict, "squaredGapLowerBound": margin,
+             "tieWitness": list(map(str, witness)) if witness is not None else None}
+    if ranged:
+        claim["tieTarget"] = str(tie_target) if tie_target is not None else None
+    return {"format": RANGE_FORMAT if ranged else FORMAT, "inputs": inputs, "claim": claim}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--intervals", required=True,
                         help="comma-separated LOW:HIGH pairs, e.g. -4:-3,-1:4,1:2")
-    parser.add_argument("--target", required=True, help="exact target")
+    parser.add_argument("--target", required=True, help="fixed target or lower target bound")
+    parser.add_argument("--target-high", help="upper target bound; enables v2 interval receipt")
     args = parser.parse_args()
     try:
         intervals = [item.split(":") for item in args.intervals.split(",")]
-        print(json.dumps(certificate(intervals, args.target), indent=2, ensure_ascii=False))
+        print(json.dumps(certificate(intervals, args.target, args.target_high),
+                         indent=2, ensure_ascii=False))
     except (ValueError, TypeError, ArithmeticError, ZeroDivisionError) as error:
         parser.exit(1, f"Joint reading box failed: {error}\n")
 

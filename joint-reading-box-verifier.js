@@ -6,6 +6,7 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-joint-reading-box-v1";
+  const RANGE_FORMAT = "inward-joint-reading-box-v2";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
   const fail = message => { throw new Error(message); };
   const abs = n => n < 0n ? -n : n;
@@ -105,8 +106,9 @@
   }
   function verify(receipt) {
     fields(receipt, ["format", "inputs", "claim"], "certificate");
-    if (receipt.format !== FORMAT) fail("Unknown joint reading box format");
-    fields(receipt.inputs, ["intervals", "target"], "inputs");
+    const ranged = receipt.format === RANGE_FORMAT;
+    if (!ranged && receipt.format !== FORMAT) fail("Unknown joint reading box format");
+    fields(receipt.inputs, ["intervals", ranged ? "targetInterval" : "target"], "inputs");
     const raw = receipt.inputs.intervals;
     if (!Array.isArray(raw) || raw.length < 3 || raw.length > 5) fail("Supply 3 through 5 intervals");
     const intervals = raw.map((pair, i) => {
@@ -116,7 +118,11 @@
       if (cmp(low, high) > 0) fail("Reversed reading interval");
       return [low, high];
     });
-    const target = rational(receipt.inputs.target, "target", LIMIT);
+    const targetBounds = ranged ? receipt.inputs.targetInterval : [receipt.inputs.target, receipt.inputs.target];
+    if (!Array.isArray(targetBounds) || targetBounds.length !== 2) fail("Invalid target interval");
+    const targetLow = rational(targetBounds[0], "lower target", LIMIT);
+    const targetHigh = rational(targetBounds[1], "upper target", LIMIT);
+    if (cmp(targetLow, targetHigh) > 0) fail("Reversed target interval");
     const endpoints = new Map(intervals.flat().map(value => [notation(value), value]));
     const options = intervals.map(([low, high]) => [...endpoints.values()].filter(value =>
       cmp(low, value) <= 0 && cmp(value, high) <= 0));
@@ -135,8 +141,10 @@
       for (const value of options[index]) { sample[index] = value; visit(index + 1); }
     }
     visit(0);
-    fields(receipt.claim, ["estimateRange", "midpointRange", "verdict",
-      "squaredGapLowerBound", "tieWitness"], "claim");
+    const claimFields = ["estimateRange", "midpointRange", "verdict",
+      "squaredGapLowerBound", "tieWitness"];
+    if (ranged) claimFields.push("tieTarget");
+    fields(receipt.claim, claimFields, "claim");
     fields(receipt.claim.estimateRange, ["min", "max"], "estimate range");
     for (const [side, expected] of [["min", min], ["max", max]]) {
       const part = receipt.claim.estimateRange[side];
@@ -154,27 +162,32 @@
       fail("Incorrect midpoint bounds");
     }
     const estimateTie = cmp(min, ZERO) <= 0 && cmp(max, ZERO) >= 0;
-    const targetTie = cmp(low, target) <= 0 && cmp(target, high) <= 0;
+    const targetTie = cmp(low, targetHigh) <= 0 && cmp(targetLow, high) <= 0;
     if (estimateTie || targetTie) {
       if (receipt.claim.verdict !== "Tie possible" ||
           receipt.claim.squaredGapLowerBound !== null) fail("False strict claim");
+      const tieTarget = ranged ? rational(receipt.claim.tieTarget, "tie target") : targetLow;
+      if (cmp(tieTarget, targetLow) < 0 || cmp(tieTarget, targetHigh) > 0) {
+        fail("Tie target outside target interval");
+      }
       const witness = vector(receipt.claim.tieWitness, intervals, "tie witness");
       const {difference, midpoint} = factors(witness);
-      if (cmp(mul(difference, sub(midpoint, target)), ZERO) !== 0) fail("False tie witness");
+      if (cmp(mul(difference, sub(midpoint, tieTarget)), ZERO) !== 0) fail("False tie witness");
     } else {
-      const verdict = cmp(mul(min, sub(low, target)), ZERO) < 0 ? "Mean" : "Median";
-      if (receipt.claim.verdict !== verdict || receipt.claim.tieWitness !== null) {
+      const verdict = cmp(mul(min, sub(low, targetLow)), ZERO) < 0 ? "Mean" : "Median";
+      if (receipt.claim.verdict !== verdict || receipt.claim.tieWitness !== null ||
+          ranged && receipt.claim.tieTarget !== null) {
         fail("Incorrect strict winner");
       }
       const distanceD = cmp(min, ZERO) > 0 ? min : q(-max.n, max.d);
-      const distanceH = cmp(low, target) > 0 ? sub(low, target) : sub(target, high);
+      const distanceH = cmp(low, targetHigh) > 0 ? sub(low, targetHigh) : sub(targetLow, high);
       const bound = mul(TWO, mul(distanceD, distanceH));
       if (cmp(rational(receipt.claim.squaredGapLowerBound, "squared gap"), bound) !== 0) {
         fail("Incorrect squared-gap lower bound");
       }
     }
     return {verdict: receipt.claim.verdict, squaredGapLowerBound: receipt.claim.squaredGapLowerBound,
-      tieWitness: receipt.claim.tieWitness};
+      tieWitness: receipt.claim.tieWitness, tieTarget: ranged ? receipt.claim.tieTarget : receipt.inputs.target};
   }
   return {parseReceipt, verify};
 });

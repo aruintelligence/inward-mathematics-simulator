@@ -20,11 +20,12 @@
   <header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Back to the lab</a></div></header>
   <main>
     <section class="hero"><p class="eyebrow">Exact mathematics / interactive research</p><h1>Several readings can move. Does the result hold?</h1>
-      <p class="lede">Set independent bounds for 3–5 readings and a target. Build an exact certificate, verify it with a separate checker, and share the receipt for anyone to inspect.</p></section>
+      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Build an exact certificate, verify it with a separate checker, and share the receipt for anyone to inspect.</p></section>
     <section class="section"><p class="eyebrow">01 / Define an experiment</p><h2>What might each reading become?</h2>
       <div class="grid"><form id="builder-form" class="card">
         <div class="setup"><label for="reading-count">Number of readings</label><select id="reading-count"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option></select>
-          <label for="target">Target</label><input id="target" type="text" inputmode="decimal" value="0" autocomplete="off" aria-describedby="input-help"></div>
+          <label for="target">Target from</label><input id="target" type="text" inputmode="decimal" value="0" autocomplete="off" aria-describedby="input-help">
+          <label for="target-high">Target through (optional)</label><input id="target-high" type="text" inputmode="decimal" placeholder="Fixed target" autocomplete="off" aria-describedby="input-help"></div>
         <div class="reading-list">
           <div class="reading" id="row-1"><strong>Reading 1</strong><div class="reading-pair"><label for="low-1">Lowest value<input id="low-1" type="text" inputmode="decimal" value="48" autocomplete="off"></label><label for="high-1">Highest value<input id="high-1" type="text" inputmode="decimal" value="49" autocomplete="off"></label></div></div>
           <div class="reading" id="row-2"><strong>Reading 2</strong><div class="reading-pair"><label for="low-2">Lowest value<input id="low-2" type="text" inputmode="decimal" value="49" autocomplete="off"></label><label for="high-2">Highest value<input id="high-2" type="text" inputmode="decimal" value="50" autocomplete="off"></label></div></div>
@@ -32,15 +33,15 @@
           <div class="reading" id="row-4"><strong>Reading 4</strong><div class="reading-pair"><label for="low-4">Lowest value<input id="low-4" type="text" inputmode="decimal" value="51" autocomplete="off"></label><label for="high-4">Highest value<input id="high-4" type="text" inputmode="decimal" value="52" autocomplete="off"></label></div></div>
           <div class="reading" id="row-5"><strong>Reading 5</strong><div class="reading-pair"><label for="low-5">Lowest value<input id="low-5" type="text" inputmode="decimal" value="85" autocomplete="off"></label><label for="high-5">Highest value<input id="high-5" type="text" inputmode="decimal" value="86" autocomplete="off"></label></div></div>
         </div>
-        <p id="input-help" class="number-note">Use integers, fractions such as -3/2, or decimals up to six places. Each interval includes both endpoints.</p>
+        <p id="input-help" class="number-note">Use integers, fractions such as -3/2, or decimals up to six places. Each interval includes both endpoints. Leave “Target through” empty for one fixed target; fill it to certify every target in the closed range.</p>
         <div class="actions"><button type="submit">Generate and verify</button><button id="download" type="button" class="secondary" disabled>Download checked JSON</button></div>
         <p id="builder-status" class="help" role="status">Edit the example bounds or generate its receipt.</p>
-      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings that attain it. Otherwise the receipt gives the strict winner and a positive lower bound on its squared-error lead.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
+      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the receipt gives the strict winner and a positive lower bound on its squared-error lead.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
     </section>
     <section class="section grid">
       <div class="card"><p class="eyebrow">02 / Independent check</p><h2>Inspect the receipt</h2><label for="receipt-file">Choose a JSON certificate</label><br><input id="receipt-file" type="file" accept="application/json,.json">
-        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1 receipt"></textarea>
-        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="strict-example" class="secondary" type="button">Load strict example</button><button id="tie-example" class="secondary" type="button">Load tie example</button></div>
+        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1 or v2 receipt"></textarea>
+        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="strict-example" class="secondary" type="button">Fixed target: strict</button><button id="tie-example" class="secondary" type="button">Fixed target: tie</button><button id="range-strict-example" class="secondary" type="button">Target range: strict</button><button id="range-tie-example" class="secondary" type="button">Target range: tie</button></div>
         <p class="help">The verifier recomputes the claim without importing the constructor. You can also generate or check receipts offline using the documented Python and Node commands.</p></div>
       <div class="card" aria-live="polite" aria-atomic="true"><p class="eyebrow">Verified result</p><p id="status" class="muted">Choose a certificate or load an example.</p><p id="verdict" class="result">—</p>
         <div class="fact"><span>All-reading guarantee or witness</span><strong id="detail">No certificate checked yet.</strong></div>
@@ -49,12 +50,12 @@
         <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
     </section>
     <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
-      <p class="lede">The exact finite calculation covers every real reading inside each supplied interval. A strict verdict includes a conservative positive lower bound on the squared-error lead. A tie result includes an exact attainable set of readings. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
+      <p class="lede">The exact finite calculation covers every real reading and, in v2, every target inside the supplied intervals. A strict verdict includes a conservative positive lower bound on the squared-error lead. A tie result includes an exact attainable set of readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
       <p><a href="docs/JOINT_READING_BOX.md">Read the proof, limits, and reproduction commands</a></p></section>
   </main>
   <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
-  <script src="joint-reading-box-core.js?v=da1faae11eec"></script>
-  <script src="joint-reading-box-verifier.js?v=403bfc5153a3"></script>
+  <script src="joint-reading-box-core.js?v=ccd1441e539a"></script>
+  <script src="joint-reading-box-verifier.js?v=a343c10f8a3b"></script>
   <script>
     (() => {
       'use strict';
@@ -80,7 +81,7 @@
       }
       syncRows(false);
       $('reading-count').addEventListener('change', () => syncRows());
-      for (const id of ['target', ...Array.from({length: 5}, (_, i) => 'low-' + (i + 1)),
+      for (const id of ['target', 'target-high', ...Array.from({length: 5}, (_, i) => 'low-' + (i + 1)),
         ...Array.from({length: 5}, (_, i) => 'high-' + (i + 1))]) {
         $(id).addEventListener('input', () => invalidate('Inputs changed. Generate and verify the new experiment.'));
       }
@@ -91,7 +92,9 @@
           const count = Number($('reading-count').value);
           const intervals = Array.from({length: count}, (_, i) =>
             [$('low-' + (i + 1)).value.trim(), $('high-' + (i + 1)).value.trim()]);
-          const receipt = InwardJointBox.certificate(intervals, $('target').value.trim());
+          const targetLow = $('target').value.trim(), targetHigh = $('target-high').value.trim();
+          const receipt = targetHigh ? InwardJointBox.certificateRange(intervals, targetLow, targetHigh) :
+            InwardJointBox.certificate(intervals, targetLow);
           InwardJointBoxVerifier.verify(receipt);
           const json = JSON.stringify(receipt, null, 2) + '\n';
           if (new TextEncoder().encode(json).length > 2000000) throw new Error('Certificate exceeds 2 MB');
@@ -118,7 +121,8 @@
         if (!generatedJSON) return;
         const url = URL.createObjectURL(new Blob([generatedJSON], {type: 'application/json'}));
         const link = document.createElement('a');
-        link.href = url; link.download = 'joint-reading-box-v1.json';
+        link.href = url; link.download = generatedJSON.includes('inward-joint-reading-box-v2') ?
+          'joint-reading-box-v2.json' : 'joint-reading-box-v1.json';
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
@@ -157,7 +161,7 @@
           $('status').className = 'good';
           $('verdict').textContent = result.verdict;
           $('detail').textContent = result.tieWitness ?
-            `Tie attained at readings [${result.tieWitness.join(', ')}] for target ${receipt.inputs.target}.` :
+            `Tie attained at readings [${result.tieWitness.join(', ')}] for target ${result.tieTarget}.` :
             `For every permitted configuration, squared-error lead ≥ ${result.squaredGapLowerBound}.`;
           $('estimate').textContent = `[${receipt.claim.estimateRange.min.value}, ${receipt.claim.estimateRange.max.value}]`;
           $('midpoint').textContent = `[${receipt.claim.midpointRange.min}, ${receipt.claim.midpointRange.max}]`;
@@ -167,7 +171,9 @@
       }
       $('verify').addEventListener('click', inspect);
       for (const [id, path] of [['strict-example', 'examples/joint-reading-box-strict-v1.json'],
-        ['tie-example', 'examples/joint-reading-box-tie-v1.json']]) {
+        ['tie-example', 'examples/joint-reading-box-tie-v1.json'],
+        ['range-strict-example', 'examples/joint-reading-box-strict-v2.json'],
+        ['range-tie-example', 'examples/joint-reading-box-tie-v2.json']]) {
         $(id).addEventListener('click', async () => {
           invalidate('Loading example certificate…');
           const token = revision;
