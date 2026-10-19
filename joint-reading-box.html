@@ -51,7 +51,7 @@
         <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
     </section>
     <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div>
-      <form id="margin-form" class="card"><h2>Where is a required lead guaranteed?</h2><p class="help">Enter a positive squared-error lead. The target regions below include their exact endpoints; the cutoff readings attain the threshold. This is a sensitivity question about your stipulated bounds.</p><label for="margin-threshold">Required lead<input id="margin-threshold" type="text" inputmode="decimal" value="100" autocomplete="off"></label><div class="actions"><button type="submit">Find exact target regions</button><button id="margin-download" type="button" class="secondary" disabled>Download checked region answer</button></div></form>
+      <form id="margin-form" class="card"><h2>Where is a required lead guaranteed?</h2><p class="help">Enter a positive squared-error lead. The target regions below include their exact endpoints; the cutoff readings attain the threshold. This is a sensitivity question about your stipulated bounds.</p><label for="margin-threshold">Required lead<input id="margin-threshold" type="text" inputmode="decimal" value="100" autocomplete="off"></label><div class="actions"><button type="submit">Find exact target regions</button><button id="margin-download" type="button" class="secondary" disabled>Download checked region answer</button><button id="report-download" type="button" class="secondary" disabled>Download self-checking HTML report</button></div><p id="report-status" class="help" role="status">The offline report contains all reading and target bounds. Share it only when those values are okay to disclose.</p></form>
       <div id="margin-result" class="card" role="status" aria-live="polite">Verify a v4 sweep to calculate target regions.</div></section>
     <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
       <p class="lede">The exact finite calculation covers every real reading and target inside the supplied intervals. A strict v3 verdict includes the exact attained minimum squared-error lead; legacy v1/v2 receipts retain their conservative bound. A v4 map can answer a required-lead query and export exact target regions linked to the checked source JSON. A tie result includes attainable readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
@@ -61,17 +61,22 @@
   <script src="joint-reading-box-core.js?v=4333d1ab1d37"></script>
   <script src="joint-reading-box-verifier.js?v=f2bfc6c05e94"></script>
   <script src="joint-reading-threshold.js?v=a976351e5ca5"></script>
+  <script src="joint-reading-portable-report.js?v=e5f61187440e"></script>
   <script>
     (() => {
       'use strict';
       const $ = id => document.getElementById(id);
       let rawBytes = null, generatedJSON = null, revision = 0;
-      let verifiedSweep = null, marginJSON = null;
+      let verifiedSweep = null, marginJSON = null, reportRevision = 0;
       function clearMargin(message = 'Verify a v4 sweep to calculate target regions.') {
+        reportRevision++;
         verifiedSweep = null; marginJSON = null;
         $('margin-download').disabled = true;
+        $('report-download').disabled = true;
         $('margin-result').textContent = message;
         $('margin-result').className = 'card';
+        $('report-status').textContent = 'The offline report contains all reading and target bounds. Share it only when those values are okay to disclose.';
+        $('report-status').className = 'help';
       }
       function invalidate(message) {
         revision++;
@@ -137,20 +142,22 @@
       $('sweep').addEventListener('click', () => generate(true));
       $('download').addEventListener('click', () => {
         if (!generatedJSON) return;
-        downloadJSON(generatedJSON, generatedJSON.includes('"inward-joint-reading-box-v4"') ?
+        downloadFile(generatedJSON, generatedJSON.includes('"inward-joint-reading-box-v4"') ?
           'joint-reading-box-v4.json' : 'joint-reading-box-v3.json');
       });
-      function downloadJSON(content, filename) {
-        const url = URL.createObjectURL(new Blob([content], {type: 'application/json'}));
+      function downloadFile(content, filename, type = 'application/json') {
+        const url = URL.createObjectURL(new Blob([content], {type}));
         const link = document.createElement('a');
         link.href = url; link.download = filename;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
       $('margin-download').addEventListener('click', () => {
-        if (marginJSON && verifiedSweep) downloadJSON(marginJSON, 'joint-reading-margin-regions-v1.json');
+        if (marginJSON && verifiedSweep) downloadFile(marginJSON, 'joint-reading-margin-regions-v1.json');
       });
       $('margin-threshold').addEventListener('input', () => {
+        reportRevision++;
+        $('report-download').disabled = !verifiedSweep;
         marginJSON = null; $('margin-download').disabled = true;
         $('margin-result').textContent = 'Threshold changed. Calculate the exact target regions again.';
         $('margin-result').className = 'card';
@@ -179,6 +186,52 @@
         }
       }
       $('margin-form').addEventListener('submit', event => {event.preventDefault(); updateMargin();});
+      $('report-download').addEventListener('click', async () => {
+        if (!verifiedSweep) return;
+        const token = revision, reportToken = reportRevision, sweep = verifiedSweep;
+        $('report-download').disabled = true;
+        $('report-status').textContent = 'Building a self-contained report from the checked receipt…';
+        try {
+          const currentThreshold = InwardJointThreshold.regions(sweep.result, sweep.inputs,
+            $('margin-threshold').value.trim()).threshold;
+          const sources = [
+            ['tools/joint-reading-portable-template.html', '4fe02eda29f4ca594a1e2cc74be692924aa94fc5baa7d2fc5b4cb3b25ffaaafb'],
+            ['joint-reading-box-verifier.js', 'f2bfc6c05e945dc85c2d40c25acb2dc1e688a43c9aad3dc5198054d3294d89f3'],
+            ['joint-reading-threshold.js', 'a976351e5ca51566d6e4684da1817224f3bbe39beafcb1029c08a05551f65d66']
+          ];
+          const contents = await Promise.all(sources.map(async ([path, expected]) => {
+            const response = await fetch(path + '?v=' + expected.slice(0, 12));
+            if (!response.ok) throw new Error('Could not load ' + path);
+            const content = await response.text();
+            const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
+            const found = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+            if (found !== expected) throw new Error('Report source changed: ' + path);
+            return content;
+          }));
+          if (token !== revision || reportToken !== reportRevision) return;
+          const bytes = sweep.sourceBytes, chunks = [];
+          for (let i = 0; i < bytes.length; i += 8192) {
+            chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)));
+          }
+          const html = InwardJointPortableReport.render(contents[0], {
+            base64: btoa(chunks.join('')), sha256: sweep.sourceSha,
+            verifierSource: contents[1], thresholdSource: contents[2],
+            thresholdDefault: currentThreshold
+          });
+          if (token !== revision || reportToken !== reportRevision) return;
+          downloadFile(html, 'joint-reading-verified-report.html', 'text/html;charset=utf-8');
+          $('report-status').textContent = 'Self-contained report downloaded. It rechecks the original JSON on opening.';
+          $('report-status').className = 'good';
+        } catch (error) {
+          if (token !== revision || reportToken !== reportRevision) return;
+          $('report-status').textContent = 'Report could not be built: ' + error.message;
+          $('report-status').className = 'error';
+        } finally {
+          if (token === revision && reportToken === reportRevision) {
+            $('report-download').disabled = !verifiedSweep;
+          }
+        }
+      });
       $('receipt-json').addEventListener('input', () => invalidate('Receipt edited. Verify its current contents.'));
       $('receipt-file').addEventListener('change', async event => {
         const file = event.target.files[0];
@@ -219,7 +272,9 @@
           $('sweep-view').hidden = !result.isSweep;
           if (result.isSweep) {
             verifiedSweep = {result, inputs: receipt.inputs,
-              sourceSha: [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')};
+              sourceSha: [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join(''),
+              sourceBytes: bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)};
+            $('report-download').disabled = false;
             $('verdict').textContent = result.tieTargetInterval ? 'Target map with ties' : 'Strict target map';
             $('detail').textContent = `${result.strictPieces.length} exact strict piece(s); ${
               result.tieTargetInterval ? 'ties on [' + result.tieTargetInterval.join(', ') + ']' : 'no ties in this range'}.`;
