@@ -40,6 +40,8 @@ node tools/verify-joint-reading-box.cjs examples/joint-reading-box-interior-v3.j
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=80 --target-sweep > joint-sweep.json
 node tools/verify-joint-reading-box.cjs joint-sweep.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-sweep-v4.json
+python3 tools/verify_joint_reading_sweep.py joint-sweep.json
+python3 tools/verify_joint_reading_sweep.py examples/joint-reading-box-sweep-v4.json
 python3 tools/render_joint_reading_sweep_report.py --check
 python3 tools/joint_reading_threshold.py examples/joint-reading-box-sweep-v4.json --threshold=100 > margin-regions.json
 node tools/verify-joint-reading-threshold.cjs examples/joint-reading-box-sweep-v4.json margin-regions.json
@@ -228,6 +230,20 @@ its line at **every target on that piece**. The verifier independently
 enumerates the endpoint-valued candidates, rebuilds the lower envelopes,
 checks all breakpoints and each witness, and rejects omitted or altered
 pieces. Thus there is no target sampling assumption.
+
+The separate [Python v4 auditor](../tools/verify_joint_reading_sweep.py)
+checks the same claim by a different route: for each reported piece, it
+recomputes the minimum over all endpoint-valued reading candidates at both
+piece endpoints, checks that the reported line has those exact values, and
+checks an in-box reading vector that attains the line. The difference between
+two affine lines is affine, so if the reported line is no higher than every
+candidate at both ends, it is no higher at every real target in between.
+Checking exact coverage, ties, and adjacent unequal formulas detects omitted
+regions and fabricated breakpoints. This audit uses exact fractions and
+rejects duplicate JSON keys. It has a 2 MB input limit, the 100,000-candidate
+limit, and a 2,000,000 endpoint-comparison budget. It relies on the
+ordering-cell vertex argument above for completeness of the candidate set;
+it is an independent executable check, not a Lean formalization of v4.
 
 The [example v4 receipt](../examples/joint-reading-box-sweep-v4.json) for
 readings near $(48,49,50,51,85)$ and target range $[0,80]$ has ties exactly
