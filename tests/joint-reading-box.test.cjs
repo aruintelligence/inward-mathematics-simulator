@@ -7,12 +7,13 @@ const vm = require('node:vm');
 const browserCore = require('../joint-reading-box-core.js');
 const verifier = require('../joint-reading-box-verifier.js');
 const thresholdCore = require('../joint-reading-threshold.js');
+const tieWitness = require('../joint-reading-tie-witness.js');
 const targetLens = require('../target-lens.js');
 
 test('browser lab pins its exact computation assets to their SHA-256 versions', () => {
   const html = readFileSync('joint-reading-box.html', 'utf8');
   for (const path of ['joint-reading-box-core.js', 'joint-reading-box-verifier.js',
-    'joint-reading-threshold.js', 'joint-reading-portable-report.js']) {
+    'joint-reading-threshold.js', 'joint-reading-tie-witness.js', 'joint-reading-portable-report.js']) {
     const hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12);
     assert.ok(html.includes(`<script src="${path}?v=${hash}"></script>`));
   }
@@ -520,12 +521,11 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
     node('low-' + (i + 1)).value = String(low);
     node('high-' + (i + 1)).value = String(high);
   });
-  let alterReportAsset = false, holdReportTemplate = false, releaseReportTemplate;
+  let alterReportAsset = '', holdReportTemplate = false, releaseReportTemplate;
   const fetch = async path => {
     const file = path.split('?')[0];
     const bytes = readFileSync(file);
-    const content = alterReportAsset && file === 'tools/joint-reading-portable-template.html' ?
-      bytes.toString('utf8').replace('Portable exact research report', 'Changed report') : bytes.toString('utf8');
+    const content = alterReportAsset === file ? bytes.toString('utf8') + '\n// changed asset' : bytes.toString('utf8');
     return {ok: true, arrayBuffer: async () => Uint8Array.from(bytes).buffer,
       text: async () => holdReportTemplate && file === 'tools/joint-reading-portable-template.html' ?
         new Promise(resolve => { releaseReportTemplate = () => resolve(content); }) : content};
@@ -543,7 +543,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
     assert.equal(tag, 'a'); return {click() {clicked = true;}};
   }}, fetch, URL, Blob, setTimeout() {}, btoa: raw => Buffer.from(raw, 'binary').toString('base64'),
     InwardJointBox: browserCore, InwardJointBoxVerifier: verifier,
-    InwardJointThreshold: thresholdCore,
+    InwardJointThreshold: thresholdCore, InwardJointTieWitness: tieWitness,
     InwardJointPortableReport: require('../joint-reading-portable-report.js'),
     TextEncoder, TextDecoder, Uint8Array, crypto: testCrypto},
   {timeout: 1000});
@@ -597,6 +597,20 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(node('sweep-view').hidden, false);
   assert.match(node('sweep-pieces').textContent, /979\/20/);
   assert.match(node('sweep-ties').textContent, /533\/10, 543\/10/);
+  assert.equal(node('tie-form').hidden, false);
+  node('tie-target').value = '54';
+  node('tie-form').handlers.submit({preventDefault() {}});
+  assert.match(node('tie-result').textContent, /At target 54, readings \[.*\] attain an exact tie/);
+  assert.equal(node('tie-download').disabled, false);
+  node('tie-download').handlers.click();
+  const retargeted = verifier.parseReceipt(await exported.text());
+  assert.equal(retargeted.claim.tieWitness.target, '54');
+  assert.equal(verifier.verify(retargeted).isSweep, true);
+  node('tie-target').value = '0';
+  node('tie-target').handlers.input();
+  assert.equal(node('tie-download').disabled, true);
+  node('tie-form').handlers.submit({preventDefault() {}});
+  assert.match(node('tie-result').textContent, /inside the tie interval/);
   assert.match(node('margin-result').textContent, /13131\/290.*18131\/290/s);
   assert.equal(node('margin-download').disabled, false);
   node('margin-download').handlers.click();
@@ -607,13 +621,17 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(exported.type, 'text/html;charset=utf-8');
   const downloadedReport = await exported.text();
   assert.match(downloadedReport, /Self-contained, exact Mean and Median/);
+  assert.match(downloadedReport, /Construct exact readings attaining a tie/);
   assert.ok(downloadedReport.includes(Buffer.from(readFileSync('examples/joint-reading-box-sweep-v4.json')).toString('base64')));
   assert.ok(downloadedReport.includes(createHash('sha256').update(readFileSync('examples/joint-reading-box-sweep-v4.json')).digest('hex')));
   assert.match(node('report-status').textContent, /rechecks the original JSON/);
-  alterReportAsset = true;
+  alterReportAsset = 'tools/joint-reading-portable-template.html';
   await node('report-download').handlers.click();
   assert.match(node('report-status').textContent, /Report source changed/);
-  alterReportAsset = false;
+  alterReportAsset = 'joint-reading-tie-witness.js';
+  await node('report-download').handlers.click();
+  assert.match(node('report-status').textContent, /joint-reading-tie-witness\.js/);
+  alterReportAsset = '';
   const priorExport = exported;
   holdReportTemplate = true;
   const staleReport = node('report-download').handlers.click();
@@ -644,6 +662,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8');
   node('receipt-json').handlers.input();
   assert.equal(node('margin-download').disabled, true);
+  assert.equal(node('tie-form').hidden, true);
   assert.equal(node('report-download').disabled, true);
   await node('verify').handlers.click();
   assert.match(node('detail').textContent, /2407\/25.*conservative bound/);

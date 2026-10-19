@@ -14,8 +14,9 @@ EXAMPLE = ROOT / "examples/joint-reading-box-sweep-v4.json"
 REPORT = ROOT / "joint-reading-sweep-report.html"
 VERIFIER = ROOT / "joint-reading-box-verifier.js"
 THRESHOLD_CORE = ROOT / "joint-reading-threshold.js"
+TIE_CORE = ROOT / "joint-reading-tie-witness.js"
 PROOF_URL = ("https://github.com/aruintelligence/inward-mathematics-simulator/"
-             "blob/feature/joint-reading-target-sweep-20261019/docs/JOINT_READING_BOX.md")
+             "blob/main/docs/JOINT_READING_BOX.md")
 NODE_CHECK = """const fs=require('node:fs');
 const {parseReceipt,verify}=require('./joint-reading-box-verifier.js');
 const source=new TextDecoder('utf-8',{fatal:true}).decode(fs.readFileSync(0));
@@ -121,7 +122,8 @@ def render(raw):
     # offline. The checked-in renderer gate also detects stale HTML or scripts.
     verifier_source = VERIFIER.read_text(encoding="utf-8")
     threshold_source = THRESHOLD_CORE.read_text(encoding="utf-8")
-    if any("</script" in source.lower() for source in (verifier_source, threshold_source)):
+    tie_source = TIE_CORE.read_text(encoding="utf-8")
+    if any("</script" in source.lower() for source in (verifier_source, threshold_source, tie_source)):
         raise ValueError("Exact scripts cannot be safely embedded")
     bounds = ", ".join(f'[{safe(a)}, {safe(b)}]' for a, b in inputs["intervals"])
     pieces = piece_cards(receipt)
@@ -152,7 +154,7 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 <section class="section"><p class="eyebrow">01 / The full curve</p><h2>Exact breakpoints. Attained margins.</h2>
 {plot}<p class="plot-note">The connecting lines are exact between displayed rational breakpoints. Screen geometry is approximate; the receipt and fraction labels are exact.</p>
 <form id="probe-form"><label for="target-input">Inspect an exact target<input id="target-input" type="text" inputmode="decimal" autocomplete="off" value="{safe(low)}"></label><button type="submit">Calculate</button></form>
-<div id="probe-result" class="panel" aria-live="polite"></div></section>
+<div id="probe-result" class="panel" aria-live="polite"></div><div class="actions"><a id="tie-download" class="button secondary" download="joint-reading-box-tie-target-v4.json" hidden>Download checked tie receipt</a></div></section>
 <section class="section"><p class="eyebrow">02 / Inverse guarantee</p><h2>Where is a required lead guaranteed?</h2>
 <p class="muted">Choose a positive minimum squared-error lead. The exact intervals include their endpoints, and a boundary witness shows when the guarantee is tight. The target and readings remain independent.</p>
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
@@ -168,6 +170,7 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 <script id="receipt-bytes" type="application/octet-stream">{encoded}</script>
 <script>{verifier_source}</script>
 <script>{threshold_source}</script>
+<script>{tie_source}</script>
 <script>
 (async () => {{
   'use strict';
@@ -199,8 +202,8 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
     if (cmp(t, lo) < 0 || cmp(t, hi) > 0) throw new Error(`Target must be between ${{show(lo)}} and ${{show(hi)}}.`);
     const tie = result.tieTargetInterval;
     if (tie && cmp(t, canonical(tie[0])) >= 0 && cmp(t, canonical(tie[1])) <= 0) {{
-      const example = result.tieWitness;
-      return {{text: `At target ${{show(t)}}, a tie is attainable (exact lead 0). The receipt's checked example ties at target ${{example.target}} with readings [${{example.readings.join(', ')}}].`, gap: q(0n), t}};
+      const witness = InwardJointTieWitness.witnessAt(receipt, show(t));
+      return {{text: `At target ${{witness.target}}, an exact tie is attained at readings [${{witness.readings.join(', ')}}]. Mean = ${{witness.mean}}; Median = ${{witness.median}}. Exact lead 0.`, gap: q(0n), t, witness}};
     }}
     const piece = result.strictPieces.find(item =>
       cmp(t, canonical(item.from)) >= 0 && cmp(t, canonical(item.to)) <= 0);
@@ -224,9 +227,16 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
     $('status').textContent = 'Exact certificate independently rechecked on this device.';
     $('status').className = 'wrap';
     function update(raw) {{
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
       try {{
         const probe = formatProbe(receipt, result, raw);
         $('probe-result').textContent = probe.text;
+        if (probe.witness) {{
+          $('tie-download').href = 'data:application/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify(probe.witness.receipt, null, 2) + '\n');
+          $('tie-download').hidden = false;
+        }}
         const [lo, hi] = receipt.inputs.targetInterval.map(canonical);
         const ratio = q((probe.t.n * lo.d - lo.n * probe.t.d) * hi.d,
           probe.t.d * (hi.n * lo.d - lo.n * hi.d));
@@ -260,6 +270,10 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
       }} catch (error) {{$('threshold-result').textContent = `Cannot calculate regions: ${{error.message}}`;}}
     }}
     $('probe-form').addEventListener('submit', event => {{event.preventDefault(); update($('target-input').value.trim());}});
+    $('target-input').addEventListener('input', () => {{
+      $('tie-download').hidden = true;
+      $('tie-download').removeAttribute('href');
+    }});
     $('threshold-form').addEventListener('submit', event => {{event.preventDefault(); updateThreshold($('threshold-input').value.trim());}});
     document.querySelectorAll('[data-target]').forEach(button => button.addEventListener('click', () => {{
       $('target-input').value = button.dataset.target;

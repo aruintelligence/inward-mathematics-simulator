@@ -256,10 +256,35 @@ zero; the strict winner applies to the open part of each exterior piece.
 The [standalone research report](../joint-reading-sweep-report.html) shows
 these exact pieces, their witnesses, and a piecewise-line plot. Enter a
 target as an integer, fraction, or six-place decimal to query its exact
-winner and attained lead. For a tie target, it reports attainability and
-the receipt's checked example tie; it does not imply that the example
-readings tie at every other target in the band. The SVG uses approximate
-screen coordinates, while its rational labels and query results are exact.
+winner and attained lead. For any tie target, it constructs exact in-box
+readings that tie at **that target** and independently rechecks the modified
+witness. The receipt's original example readings need not tie at every other
+target in the band. The SVG uses approximate screen coordinates, while its
+rational labels and query results are exact.
+
+The [exact tie witness constructor](../joint-reading-tie-witness.js) uses two
+cases. If the checked example has equal Mean and Median, its same readings tie
+for every target. Otherwise, interpolate each reading from its lower bound
+to its upper bound using one common parameter $u\in[0,1]$. The estimator
+midpoint $H(u)$ is continuous and nondecreasing. It is affine between the
+finite parameters where two readings cross, because their sorted order and
+central median formula are fixed there. Both $H(0)$ and $H(1)$ bracket every
+target in the verified tie band. The constructor solves $H(u)=t$ exactly on
+the containing segment, checks every reading against its own interval, and
+replays the new witness through the independent v4 verifier. This is a
+constructive attainable tie for the selected target, including fractional,
+singleton, and even-median cases. The [browser lab](../joint-reading-box.html)
+and downloaded offline reports expose this calculation and download a new
+v4 receipt with the selected witness, within the receipt's rational precision
+limits. Replay it with both checkers:
+
+```sh
+node tools/verify-joint-reading-box.cjs joint-reading-box-tie-target-v4.json
+python3 tools/verify_joint_reading_sweep.py joint-reading-box-tie-target-v4.json
+```
+
+The original receipt bytes remain separately available;
+retargeting produces a different JSON fingerprint.
 The renderer invokes the independent Node verifier on the original JSON
 bytes before writing HTML, embeds those bytes and verifier in the output,
 and checks their SHA-256 against the rendered report before independently
