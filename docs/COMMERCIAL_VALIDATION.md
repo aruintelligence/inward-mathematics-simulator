@@ -8,6 +8,8 @@ The public lab demonstrates two toy models. Its strongest mathematical workflow 
 
 ## Market context and differentiation hypothesis
 
+The separate Joint Reading Box v1 receipt covers simultaneous, heterogeneous rational uncertainty for 3–5 readings, includes even medians, and gives a constructive tie or a conservative squared-error lead. This is a broader inspectable workflow than the five-reading Target Lens uniform-drift setting; it remains a bounded conditional model. A pilot should test whether prospective users actually need simultaneous perturbations and understand the exact assumptions before making product or pricing commitments.
+
 The new target-horizon receipt adds an inverse question a prospective research or education pilot can inspect: which reference targets preserve a strict Mean or Median result against every permitted one-reading perturbation, and which targets admit a constructive tie? It handles the degenerate case where one movement makes the estimators equal for every target. This is a demonstrable modeling and audit feature; its commercial demand and fitness for any professional domain still require interviews and domain validation.
 
 | Existing option | Publicly described scope | Implication for an INWARD trial |

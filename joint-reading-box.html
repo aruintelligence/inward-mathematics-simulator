@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Inspect exact, independently checked Mean versus Median results when several readings vary at once.">
+  <title>Joint Reading Box / Receipt Inspector | INWARD Mathematics™</title>
+  <style>
+    :root{color-scheme:dark light;--bg:#071827;--panel:#102b3c;--ink:#f3f9f6;--muted:#c1d4d8;--line:#7896a3;--mint:#75e8c4;--gold:#ffd18a}
+    *{box-sizing:border-box}body{margin:0;min-width:320px;background:radial-gradient(circle at 83% 0,#204c61 0,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
+    main,header .wrap,footer .wrap{width:min(1020px,calc(100% - 36px));margin:auto}a{color:var(--mint);text-underline-offset:3px}a:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+    header,footer{border-bottom:1px solid var(--line);padding:18px 0}footer{border-bottom:0;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}header .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}header strong{font-size:.75rem;letter-spacing:.14em}
+    .hero{padding:clamp(45px,7vw,85px) 0 32px}.eyebrow{color:var(--mint);font-size:.74rem;letter-spacing:.17em;text-transform:uppercase;font-weight:800}h1{font-size:clamp(2.6rem,7vw,5.5rem);line-height:1.03;letter-spacing:-.06em;margin:12px 0 17px;max-width:820px}h2{font-size:clamp(1.5rem,3vw,2.2rem);letter-spacing:-.035em;line-height:1.12}.lede{font-size:1.1rem;max-width:780px;color:var(--muted)}.section{border-top:1px solid var(--line);padding:30px 0 43px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:22px;min-width:0}.card h2{margin-top:0}textarea{width:100%;min-height:220px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);font:13px/1.55 ui-monospace,monospace;padding:12px}input[type=file]{max-width:100%;margin:8px 0 14px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}button{font:inherit;font-weight:800;cursor:pointer;border:1px solid var(--mint);border-radius:9px;padding:10px 15px;min-height:46px;background:var(--mint);color:#082d2a}button.secondary{background:transparent;color:var(--mint)}.help{color:var(--muted);font-size:.88rem}.result{font-size:clamp(1.6rem,3vw,2.6rem);line-height:1.15;letter-spacing:-.04em;color:var(--gold);margin:10px 0}.fact{border-top:1px solid var(--line);padding:11px 0}.fact span{display:block;color:var(--muted);font-size:.8rem}.fact strong{overflow-wrap:anywhere}.error{color:#ffc5be}.good{color:var(--mint)}code{font:inherit;overflow-wrap:anywhere}#fingerprint{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.muted{color:var(--muted)}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:18px}.hero{padding:36px 0 20px}}@media(prefers-color-scheme:light){:root{--bg:#f4f8f6;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}body{background:radial-gradient(circle at 83% 0,#e0f0e9 0,transparent 35%),var(--bg)}button{color:#fff}}@media print{button,textarea,input,.actions{display:none}body{background:#fff;color:#173341}.card{break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Back to the lab</a></div></header>
+  <main>
+    <section class="hero"><p class="eyebrow">Exact mathematics / independent inspector</p><h1>Several readings can move. Does the result hold?</h1>
+      <p class="lede">Check a portable research receipt for 3–5 independently bounded readings. The verifier uses exact fractions and looks for a real tie across the whole continuous box.</p></section>
+    <section class="section grid">
+      <div class="card"><h2>Inspect a receipt</h2><label for="receipt-file">Choose a JSON certificate</label><br><input id="receipt-file" type="file" accept="application/json,.json">
+        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1 receipt"></textarea>
+        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="strict-example" class="secondary" type="button">Load strict example</button><button id="tie-example" class="secondary" type="button">Load tie example</button></div>
+        <p class="help">Analysis stays in this browser. The examples load from this site's static files. Generate your own receipt with the documented Python command.</p></div>
+      <div class="card" aria-live="polite" aria-atomic="true"><p class="eyebrow">Verified result</p><p id="status" class="muted">Choose a certificate or load an example.</p><p id="verdict" class="result">—</p>
+        <div class="fact"><span>All-reading guarantee or witness</span><strong id="detail">No certificate checked yet.</strong></div>
+        <div class="fact"><span>Exact mean minus median range</span><strong id="estimate">—</strong></div>
+        <div class="fact"><span>Exact estimator-midpoint range</span><strong id="midpoint">—</strong></div>
+        <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
+    </section>
+    <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
+      <p class="lede">The exact finite calculation covers every real reading inside each supplied interval. A strict verdict includes a conservative positive lower bound on the squared-error lead. A tie result includes an exact attainable set of readings. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
+      <p><a href="docs/JOINT_READING_BOX.md">Read the proof, limits, and reproduction commands</a></p></section>
+  </main>
+  <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
+  <script src="joint-reading-box-verifier.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      let rawBytes = null;
+      $('receipt-json').addEventListener('input', () => { rawBytes = null; });
+      $('receipt-file').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+          if (file.size > 2000000) throw new Error('Certificate exceeds 2 MB');
+          rawBytes = await file.arrayBuffer();
+          $('receipt-json').value = new TextDecoder('utf-8', {fatal: true}).decode(rawBytes);
+          await inspect();
+        } catch (error) { rejected(error); }
+      });
+      function rejected(error) {
+        $('status').textContent = `Rejected: ${error.message}`; $('status').className = 'error';
+        $('verdict').textContent = 'Unverified';
+        for (const id of ['detail', 'estimate', 'midpoint', 'fingerprint']) $(id).textContent = '—';
+      }
+      async function inspect() {
+        try {
+          const text = $('receipt-json').value;
+          const bytes = rawBytes || new TextEncoder().encode(text);
+          const receipt = InwardJointBoxVerifier.parseReceipt(text);
+          const result = InwardJointBoxVerifier.verify(receipt);
+          const digest = await crypto.subtle.digest('SHA-256', bytes);
+          $('status').textContent = 'Exact receipt accepted. The claim was recalculated.';
+          $('status').className = 'good';
+          $('verdict').textContent = result.verdict;
+          $('detail').textContent = result.tieWitness ?
+            `Tie attained at readings [${result.tieWitness.join(', ')}] for target ${receipt.inputs.target}.` :
+            `For every permitted configuration, squared-error lead ≥ ${result.squaredGapLowerBound}.`;
+          $('estimate').textContent = `[${receipt.claim.estimateRange.min.value}, ${receipt.claim.estimateRange.max.value}]`;
+          $('midpoint').textContent = `[${receipt.claim.midpointRange.min}, ${receipt.claim.midpointRange.max}]`;
+          $('fingerprint').textContent = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (error) { rejected(error); }
+      }
+      $('verify').addEventListener('click', inspect);
+      for (const [id, path] of [['strict-example', 'examples/joint-reading-box-strict-v1.json'],
+        ['tie-example', 'examples/joint-reading-box-tie-v1.json']]) {
+        $(id).addEventListener('click', async () => {
+          try {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error('Example could not be loaded');
+            rawBytes = await response.arrayBuffer();
+            $('receipt-json').value = new TextDecoder('utf-8', {fatal: true}).decode(rawBytes);
+            await inspect();
+          } catch (error) { rejected(error); }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
