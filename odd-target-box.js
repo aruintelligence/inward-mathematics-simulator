@@ -16,17 +16,78 @@
   }
   function chart(route, inputs) {
     const figure = element("figure");
-    const plot = svg("svg", {viewBox: "0 0 600 190", role: "img",
-      "aria-label": `Reading ${route.index + 1}: exact witness positions within the movement and target ranges`});
+    const plot = svg("svg", {viewBox: "0 0 600 198", role: "img",
+      "aria-label": route.region ? `Reading ${route.index + 1}: Mean and Median decision regions, exact tie boundaries, original reading, and certified witnesses` :
+        `Reading ${route.index + 1}: exact witness positions within the movement and target ranges`});
     const x = value => 45 + 520 * InwardTargetBox.position(value, inputs.movement.low, inputs.movement.high);
     const y = value => inputs.target.low === inputs.target.high ? 94 :
       164 - 140 * InwardTargetBox.position(value, inputs.target.low, inputs.target.high);
+    if (route.region) {
+      const color = name => name === "Mean" ? "var(--map-mean)" : "var(--map-median)";
+      if (inputs.target.low === inputs.target.high) {
+        for (const stripe of route.region.stripes) {
+          plot.append(svg("line", {x1: x(stripe.from), x2: x(stripe.to), y1: 94, y2: 94,
+            stroke: color(stripe.atTargetLow), "stroke-width": 78}));
+        }
+        const ties = new Set(route.region.verticalTies);
+        for (const stripe of route.region.stripes) {
+          if (stripe.tieFrom === inputs.target.low) ties.add(stripe.from);
+          if (stripe.tieTo === inputs.target.low) ties.add(stripe.to);
+        }
+        for (const tied of ties) plot.append(svg("circle", {cx: x(tied), cy: 94, r: 5,
+          fill: "var(--map-tie)", stroke: "#10283a", "stroke-width": 1}));
+      } else {
+        for (const stripe of route.region.stripes) {
+          const left = x(stripe.from), right = x(stripe.to);
+          const first = Math.max(24, Math.min(164, y(stripe.tieFrom)));
+          const last = Math.max(24, Math.min(164, y(stripe.tieTo)));
+          const below = `${left},164 ${right},164 ${right},${last} ${left},${first}`;
+          const above = `${left},${first} ${right},${last} ${right},24 ${left},24`;
+          plot.append(svg("polygon", {points: below, fill: color(stripe.below)}));
+          plot.append(svg("polygon", {points: above, fill: color(stripe.above)}));
+          if (stripe.atTargetLow !== stripe.atTargetHigh) {
+            plot.append(svg("line", {x1: left, y1: first, x2: right, y2: last,
+              stroke: "var(--map-tie)", "stroke-width": 2.8}));
+          }
+        }
+        for (const tied of route.region.verticalTies) plot.append(svg("line", {
+          x1: x(tied), x2: x(tied), y1: 24, y2: 164,
+          stroke: "var(--map-tie)", "stroke-width": 2.8}));
+      }
+    }
+    if (route.stability?.baseline) {
+      const left = x(route.stability.left.limit), right = x(route.stability.right.limit);
+      plot.append(svg("rect", {x: left, y: 24, width: Math.max(0, right - left),
+        height: 140, fill: "#40cfa7", opacity: ".17"}));
+    }
     plot.append(svg("rect", {x: 45, y: 24, width: 520, height: 140, fill: "none", stroke: "currentColor", opacity: ".45"}));
     for (const value of route.knots) {
       const line = svg("line", {x1: x(value), x2: x(value), y1: 24, y2: 164,
         stroke: "currentColor", opacity: ".23", "stroke-width": 1});
       plot.append(line);
     }
+    if (route.region && inputs.target.low !== inputs.target.high) {
+      const boundaryTies = new Map();
+      for (const stripe of route.region.stripes) {
+        for (const [reading, target] of [[stripe.from, stripe.tieFrom], [stripe.to, stripe.tieTo]]) {
+          if (target === inputs.target.low || target === inputs.target.high) {
+            boundaryTies.set(`${reading}|${target}`, {reading, target});
+          }
+        }
+      }
+      for (const {reading, target} of boundaryTies.values()) {
+        const marker = svg("circle", {cx: x(reading), cy: y(target), r: 4,
+          fill: "var(--map-tie)", stroke: "#10283a", "stroke-width": 1});
+        const title = svg("title", {});
+        title.textContent = `Exact tie at reading ${reading}, target ${target}`;
+        marker.append(title);
+        plot.append(marker);
+      }
+    }
+    const starting = x(inputs.readings[route.index]);
+    plot.append(svg("line", {x1: starting, x2: starting, y1: 24, y2: 164,
+      stroke: "var(--ink)", opacity: ".85", "stroke-width": 1.6,
+      "stroke-dasharray": "4 4"}));
     for (const name of route.reachable) {
       const witness = route.witnesses[name];
       const color = {Mean: "#40cfa7", Median: "#8abffd", Tie: "#f2b85c"}[name];
@@ -37,8 +98,17 @@
       marker.append(tooltip);
       plot.append(marker);
     }
+    for (const [value, px, py, anchor] of [["A", 32, 164, "end"], ["B", 32, 28, "end"],
+      ["L", 45, 187, "start"], ["U", 565, 187, "end"]]) {
+      const label = svg("text", {x: px, y: py, fill: "currentColor", "font-size": 12,
+        "text-anchor": anchor});
+      label.textContent = value;
+      plot.append(label);
+    }
     figure.append(plot);
-    figure.append(element("figcaption", "Horizontal: moved reading. Vertical: target. Lines mark exact partition knots; dots are certified witnesses."));
+    figure.append(element("figcaption", route.region ?
+      `L=${inputs.movement.low}, U=${inputs.movement.high}; A=${inputs.target.low}, B=${inputs.target.high}. Green: Mean; blue: Median; gold: tie boundaries. Dashed line: original reading; dots: exact witnesses. Colors show outcomes, not probabilities or area-based frequencies.` :
+      "Horizontal: moved reading L–U. Vertical: target A–B. Lines mark exact partition knots; dots are certified witnesses. Dashed line: original reading. A shaded band, when present, is the strict baseline region; its exact boundary status is given below."));
     return figure;
   }
   function show(record) {
@@ -52,8 +122,44 @@
       `${guaranteedRoutes.length} of ${claim.routes.length} individual routes have a strict winner throughout the target box.`;
     $("summary-copy").textContent = "Exact outcomes across all routes: " + claim.reachable.join(", ") +
       ". A route marked guaranteed has the same strict winner for every real value in its rectangle.";
+    $("gap-summary").textContent = claim.gap ?
+      `Exact squared-error gap D = (mean − target)² − (median − target)² spans [${claim.gap.min.value}, ${claim.gap.max.value}] across every route. Minimum: reading ${claim.gap.min.index + 1} at ${claim.gap.min.reading}, target ${claim.gap.min.target}. Maximum: reading ${claim.gap.max.index + 1} at ${claim.gap.max.reading}, target ${claim.gap.max.target}. Negative favors Mean; positive favors Median. These bounds are attained.` :
+      "Choose Quantify exact gap to certify the attained worst and best squared-error difference.";
+    const stability = claim.stability;
+    $("stability-summary").textContent = stability ? stability.nearestFailure ? stability.baseline ?
+      `Original verdict across the target interval: ${stability.baseline}. First possible tie after a one-reading movement of ${stability.nearestFailure.distance}: reading ${stability.nearestFailure.index + 1}, ${stability.nearestFailure.side}, at ${stability.nearestFailure.reading} with target ${stability.nearestFailure.target}. All smaller permitted absolute movements preserve the strict verdict.` :
+      `No strict winner holds across the target interval at the original readings. A tie already occurs at target ${stability.nearestFailure.target}; stability distance is zero.` :
+      `Original verdict: ${stability.baseline}. No tie or change is possible anywhere in the specified movement range, moving one reading at a time.` :
+      "Choose Find first failure to certify exact movement thresholds from the original readings.";
+    const horizon = claim.targetHorizon;
+    const horizonVisual = $("horizon-visual");
+    horizonVisual.replaceChildren();
+    if (horizon) {
+      if (horizon.allTargetTie) {
+        $("horizon-summary").textContent =
+          `Every real target ties if reading ${horizon.allTargetTie.index + 1} moves to ${horizon.allTargetTie.reading}. No strict global target guarantee exists for these movement bounds. The finite midpoint range [${horizon.low}, ${horizon.high}] does not remove this all-target tie.`;
+      } else {
+        $("horizon-summary").textContent =
+          `Across every one-reading move: strict ${horizon.below} for every target below ${horizon.low}; strict ${horizon.above} for every target above ${horizon.high}. At every target in [${horizon.low}, ${horizon.high}], some permitted move produces an exact tie. Both boundaries are attained ties.`;
+        const spectrum = element("div", undefined, "horizon-spectrum");
+        for (const [name, label] of [[horizon.below,
+          `${horizon.below} wins · t < ${horizon.low}`], ["Tie",
+          `A tie is reachable · ${horizon.low} ≤ t ≤ ${horizon.high}`],
+          [horizon.above, `${horizon.above} wins · t > ${horizon.high}`]]) {
+          spectrum.append(element("span", label, `horizon-segment ${name.toLowerCase()}`));
+        }
+        horizonVisual.append(spectrum);
+        horizonVisual.append(element("p", "Schematic bands; widths do not encode probability or target distance.", "meta"));
+      }
+      const {probe} = horizon;
+      horizonVisual.append(element("p", probe.witness ?
+        `Exact probe at the chosen target midpoint ${probe.target}: Tie. Move reading ${probe.witness.index + 1} to ${probe.witness.reading}.` :
+        `Exact probe at the chosen target midpoint ${probe.target}: strict ${probe.verdict} for every permitted one-reading move.`, "probe"));
+    } else $("horizon-summary").textContent =
+      "Choose Solve target horizon to find exact target ranges with a strict global winner and construct a tie witness when possible.";
     const facts = $("facts"); facts.replaceChildren();
     for (const value of [`${inputs.readings.length} readings`,
+      inputs.readings.length % 2 ? "Median: middle reading" : "Median: central-pair average",
       `Movement [${inputs.movement.low}, ${inputs.movement.high}]`,
       `Target [${inputs.target.low}, ${inputs.target.high}]`,
       `${guaranteedRoutes.length} guaranteed routes`]) facts.append(element("span", value));
@@ -69,6 +175,17 @@
       const pills = element("div", undefined, "pills");
       for (const outcome of route.reachable) pills.append(element("span", outcome, `pill ${outcome.toLowerCase()}`));
       card.append(pills, chart(route, inputs));
+      if (route.region) {
+        const details = element("details");
+        details.append(element("summary", "Read exact region rules"));
+        const rules = element("ol");
+        for (const stripe of route.region.stripes) rules.append(element("li",
+          `Reading (${stripe.from}, ${stripe.to}): tie target follows a straight line from ${stripe.tieFrom} to ${stripe.tieTo}; below it ${stripe.below} wins, above it ${stripe.above} wins. At target ${inputs.target.low}: ${stripe.atTargetLow}; at ${inputs.target.high}: ${stripe.atTargetHigh}.`));
+        details.append(rules);
+        if (route.region.verticalTies.length) details.append(element("p",
+          `Every target ties at reading ${route.region.verticalTies.join(", ")}.`, "meta"));
+        card.append(details);
+      }
       const list = element("ul");
       for (const outcome of route.reachable) {
         const witness = route.witnesses[outcome];
@@ -80,15 +197,35 @@
         list.append(item);
       }
       card.append(list, element("p", `${route.knots.length} exact partition knots: ${route.knots.join(" · ")}`, "meta"));
+      if (route.gap) card.append(element("p",
+        `Exact D range [${route.gap.min.value}, ${route.gap.max.value}]. Minimum at x=${route.gap.min.reading}, t=${route.gap.min.target}; maximum at x=${route.gap.max.reading}, t=${route.gap.max.target}.`, "meta"));
+      if (route.stability) {
+        const describe = side => {
+          const part = route.stability[side];
+          return `${side} ${part.limit} (${part.included ? "included: still strict" :
+            `excluded: tie at target ${part.witness.target}`})`;
+        };
+        card.append(element("p", route.stability.baseline ?
+          `From ${inputs.readings[route.index]}, baseline ${route.stability.baseline}; safe region: ${describe("left")}, ${describe("right")}.` :
+          `At the original reading ${inputs.readings[route.index]}, no strict winner holds across all targets. Tie at target ${route.stability.left.witness.target}; stability distance is zero.`, "meta"));
+      }
+      if (route.targetHorizon) card.append(element("p",
+        `Tie-target span from movement endpoints: ${route.targetHorizon.atMovementLow} to ${route.targetHorizon.atMovementHigh}. ${route.targetHorizon.allTargetTie === null ?
+          "No all-target tie on this route." : `Every target ties at reading ${route.targetHorizon.allTargetTie}.`}`, "meta"));
       routes.append(card);
     }
     $("download").disabled = false;
   }
-  function analyze(event) {
+  function analyze(event, mode = "outcomes") {
     if (event) event.preventDefault();
     try {
       const readings = $("readings").value.split(",").map(part => part.trim());
-      const result = InwardTargetBox.certificate(readings, $("move-low").value.trim(),
+      const constructor = mode === "gap" ? InwardTargetBox.gapCertificate :
+        mode === "stability" ? InwardTargetBox.stabilityCertificate :
+          mode === "atlas" ? InwardTargetBox.atlasCertificate :
+            mode === "horizon" ? InwardTargetBox.horizonCertificate : InwardTargetBox.certificate;
+      const result = constructor(
+        readings, $("move-low").value.trim(),
         $("move-high").value.trim(), $("target-low").value.trim(), $("target-high").value.trim());
       $("input-error").textContent = "";
       show(result);
@@ -98,6 +235,10 @@
       $("headline").textContent = "Check the inputs";
       $("headline-detail").textContent = "The earlier result has been cleared.";
       $("summary-copy").textContent = "No certificate for these inputs.";
+      $("gap-summary").textContent = "";
+      $("stability-summary").textContent = "";
+      $("horizon-summary").textContent = "";
+      $("horizon-visual").replaceChildren();
       $("facts").replaceChildren(); $("routes").replaceChildren();
       $("input-error").textContent = error.message;
     }
@@ -108,15 +249,35 @@
     $("results").scrollIntoView({behavior: "smooth"});
   }
   $("box-form").addEventListener("submit", analyze);
+  $("quantify").addEventListener("click", () => analyze(null, "gap"));
+  $("first-failure").addEventListener("click", () => analyze(null, "stability"));
+  $("region-atlas").addEventListener("click", () => analyze(null, "atlas"));
+  $("target-horizon").addEventListener("click", () => analyze(null, "horizon"));
+  for (const id of ["readings", "move-low", "move-high", "target-low", "target-high"]) {
+    $(id).addEventListener("input", () => {
+      latest = null;
+      $("download").disabled = true;
+      $("headline").textContent = "Analyze inputs";
+      $("headline-detail").textContent = "The inputs changed. Certify the new rectangle before exporting.";
+      $("summary-copy").textContent = "No certificate for the current inputs.";
+      $("gap-summary").textContent = "";
+      $("stability-summary").textContent = "";
+      $("horizon-summary").textContent = "";
+      $("horizon-visual").replaceChildren();
+      $("facts").replaceChildren(); $("routes").replaceChildren();
+    });
+  }
   $("locked-example").addEventListener("click", () => example({readings: "24, 13, 45, 41, 38",
     "move-low": "13", "move-high": "45", "target-low": "49", "target-high": "51"}));
   $("signed-example").addEventListener("click", () => example({readings: "-2, -1, 0, 1, 35",
     "move-low": "-10", "move-high": "40", "target-low": "-1", "target-high": "1"}));
+  $("even-example").addEventListener("click", () => example({readings: "40, 45, 50, 80",
+    "move-low": "0", "move-high": "100", "target-low": "48", "target-high": "52"}));
   $("download").addEventListener("click", () => {
     if (!latest) return;
     const blob = new Blob([JSON.stringify(latest, null, 2) + "\n"], {type: "application/json"});
     const url = URL.createObjectURL(blob);
-    const anchor = element("a"); anchor.href = url; anchor.download = "inward-target-box-v1.json";
+    const anchor = element("a"); anchor.href = url; anchor.download = `${latest.format}.json`;
     document.body.append(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });

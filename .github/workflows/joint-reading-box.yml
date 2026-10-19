@@ -1,0 +1,37 @@
+name: Verify simultaneous reading boxes
+on:
+  push:
+  pull_request:
+jobs:
+  joint-box:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/joint-reading-box.test.cjs
+      - run: node --test tests/joint-reading-sweep-report.test.cjs
+      - run: node --test tests/joint-reading-threshold.test.cjs
+      - run: python3 tools/render_joint_reading_sweep_report.py --check
+      - run: node tools/verify-joint-reading-threshold.cjs examples/joint-reading-box-sweep-v4.json examples/joint-reading-box-margin-100-v1.json
+      - run: python3 tools/joint_reading_threshold.py examples/joint-reading-box-sweep-v4.json --threshold=100 | diff - examples/joint-reading-box-margin-100-v1.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v1.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v2.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v2.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v3.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v3.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-interior-v3.json
+      - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-sweep-v4.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 | diff - examples/joint-reading-box-strict-v1.json
+      - run: python3 tools/joint_reading_box.py --intervals=-4:-3,-1:4,1:2 --target=-2 | diff - examples/joint-reading-box-tie-v1.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 | diff - examples/joint-reading-box-strict-v2.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=54 --target-high=55 | diff - examples/joint-reading-box-tie-v2.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 --exact-gap | diff - examples/joint-reading-box-strict-v3.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=54 --target-high=55 --exact-gap | diff - examples/joint-reading-box-tie-v3.json
+      - run: python3 tools/joint_reading_box.py --intervals=-2:-2,-4:-4,8:12,-2:0,-3:2 --target=-20 --exact-gap | diff - examples/joint-reading-box-interior-v3.json
+      - run: python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=80 --target-sweep | diff - examples/joint-reading-box-sweep-v4.json

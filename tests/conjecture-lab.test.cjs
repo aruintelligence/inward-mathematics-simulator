@@ -93,28 +93,36 @@ test('every supported condition and prediction has an independently replayed sta
   const dir = mkdtempSync(join(tmpdir(), 'conditional-claims-'));
   try {
     let proved = 0, refuted = 0;
-    for (const readingCount of [3, 5, 7]) for (const condition of conditions) for (const prediction of predictions) {
+    for (const readingCount of [3, 4, 5, 6, 7]) for (const condition of conditions) for (const prediction of predictions) {
       const report = lab.compose('0,25,50,75,100', '0,25,50,75,100', condition, prediction, readingCount);
       const verified = checkClaim(report, dir);
       assert.equal(verified.status, 0, `${readingCount}/${condition}/${prediction}: ${verified.stderr}`);
       assert.equal(report.domain.readingCount, readingCount);
+      assert.equal(report.domain.medianRule, 'central-order-statistics-v1');
       assert.equal(report.classification.counterexample?.readings.length || readingCount, readingCount);
       if (report.proof) {
         assert.equal(report.search.status, 'proved-by-algebra');
         assert.equal(report.search.counterexample, null);
         assert.match(report.formal.declaration, /^InwardFormal\./);
-        assert.deepEqual(report.classification, {status: 'proved-by-algebra', counterexample: null});
+        assert.deepEqual(report.classification,
+          {status: 'proved-by-algebra', counterexample: null, construction: null});
         proved++;
       } else {
         assert.equal(report.formal, null);
         assert.equal(report.search.status, 'counterexample-found');
         assert.equal(report.classification.status, 'refuted-by-exact-witness');
         assert.ok(report.classification.counterexample);
+        assert.equal(report.classification.construction.method, 'endpoint-family-v1');
+        const witness = report.classification.counterexample;
+        assert.equal(witness.target, report.classification.construction.target);
+        assert.equal(witness.median, report.classification.construction.family === 'one-high' ? '0' : '100');
+        assert.equal(witness.readings.filter(x => x === '0').length,
+          report.classification.construction.family === 'one-high' ? readingCount - 1 : 1);
         refuted++;
       }
     }
-    assert.equal(proved, 12, 'only four sign arguments for each supported count may claim a general proof');
-    assert.equal(refuted, 48, 'each remaining universal pair has a concrete exact witness for every count');
+    assert.equal(proved, 20, 'only four sign arguments for each supported count may claim a general proof');
+    assert.equal(refuted, 80, 'each remaining universal pair has a concrete exact witness for every count');
     const narrow = lab.compose('0,100', '0,1', 'target-at-or-above-both', 'mean-no-worse');
     assert.equal(checkClaim(narrow, dir).status, 0);
     assert.equal(narrow.search.status, 'unrefuted-on-finite-grid');
@@ -134,30 +142,33 @@ test('every supported condition and prediction has an independently replayed sta
       const targets = pool.filter((_, i) => i % 4 !== index % 4);
       const report = lab.compose(readings.join(','), targets.join(','),
         conditions[(index * 3) % conditions.length], predictions[(index * 7) % predictions.length],
-        [3, 5, 7][index % 3]);
+        [3, 4, 5, 6, 7][index % 5]);
       const verified = checkClaim(report, dir);
       assert.equal(verified.status, 0, `fractional case ${index}: ${verified.stderr}`);
     }
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
-test('published v4 examples reproduce exact bytes while v2/v3 examples remain checkable', () => {
+test('published v6 examples reproduce exact bytes while v2–v5 examples remain checkable', () => {
   const regenerated = lab.compose('0,25,50,75,100', '0,25,50,75,100',
-    'target-at-or-below-midpoint', 'lower-no-worse', 7);
+    'target-at-or-below-midpoint', 'lower-no-worse', 6);
   const source = JSON.stringify(regenerated, null, 2) + '\n';
-  assert.equal(readFileSync('examples/conditional-claim-v4.json', 'utf8'), source);
+  assert.equal(readFileSync('examples/conditional-claim-v6.json', 'utf8'), source);
   const dir = mkdtempSync(join(tmpdir(), 'theorem-bound-example-'));
   try {
     const verified = checkClaim(source, dir);
     assert.equal(verified.status, 0, verified.stderr);
     assert.match(verified.stdout, /Verified proved-by-algebra; [0-9]+ exact eligible cases/);
-    const missed = lab.compose('50,100', '0,1', 'target-at-or-above-both', 'mean-no-worse', 3);
-    const missedSource = JSON.stringify(missed, null, 2) + '\n';
-    assert.equal(readFileSync('examples/conditional-claim-v4-grid-miss.json', 'utf8'), missedSource);
-    assert.match(checkClaim(missedSource, dir).stdout,
-      /Verified refuted-by-exact-witness; selected grid unrefuted-on-finite-grid; 0 exact eligible cases/);
+    const refuted = lab.compose('0,1,2', '1/4,1/2', 'any-target', 'mean-no-worse', 4);
+    const refutedSource = JSON.stringify(refuted, null, 2) + '\n';
+    assert.equal(readFileSync('examples/conditional-claim-v6-endpoint.json', 'utf8'), refutedSource);
+    assert.equal(refuted.search.counterexample.median, '1/2');
+    assert.equal(refuted.search.counterexample.mean, '3/4');
+    assert.match(checkClaim(refutedSource, dir).stdout, /Verified refuted-by-exact-witness/);
     assert.equal(checkClaim(readFileSync('examples/conditional-claim-v2.json', 'utf8'), dir).status, 0);
-    for (const name of ['conditional-claim-v3.json', 'conditional-claim-v3-grid-miss.json']) {
+    for (const name of ['conditional-claim-v3.json', 'conditional-claim-v3-grid-miss.json',
+      'conditional-claim-v4.json', 'conditional-claim-v4-grid-miss.json',
+      'conditional-claim-v5.json', 'conditional-claim-v5-even-witness.json']) {
       assert.equal(checkClaim(readFileSync(`examples/${name}`, 'utf8'), dir).status, 0);
     }
   } finally { rmSync(dir, {recursive: true, force: true}); }
@@ -184,6 +195,10 @@ test('independent checker rejects forged universal proof, witness, status, input
       [refuted, x => { x.proof = clone(proved.proof); }],
       [refuted, x => { x.formal = clone(proved.formal); }],
       [refuted, x => { x.classification.counterexample.target = '100'; }],
+      [refuted, x => { x.classification.construction.family = 'one-low'; }],
+      [refuted, x => { x.classification.construction.method = 'finite-search'; }],
+      [refuted, x => { x.classification.construction.target = '100'; }],
+      [refuted, x => { delete x.classification.construction; }],
       [refuted, x => { delete x.classification; }],
       [refuted, x => { x.search.counterexample.target = '100'; }],
       [refuted, x => { x.domain.readingMultisets = true; }],
@@ -191,6 +206,8 @@ test('independent checker rejects forged universal proof, witness, status, input
       [refuted, x => { x.domain.readingCount = '5'; }],
       [refuted, x => { x.domain.readingCount = 7; }],
       [refuted, x => { delete x.domain.readingCount; }],
+      [refuted, x => { x.domain.medianRule = 'upper-central'; }],
+      [refuted, x => { delete x.domain.medianRule; }],
       [refuted, x => { x.claim.statement = x.claim.statement.replace('5 real', 'seven real'); }],
     ]) {
       const forged = clone(base); mutate(forged);
@@ -203,13 +220,22 @@ test('independent checker rejects forged universal proof, witness, status, input
     const legacy = clone(proved);
     legacy.format = 'inward-conditional-claim-v1';
     delete legacy.domain.readingCount;
+    delete legacy.domain.medianRule;
     legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
     delete legacy.formal;
     delete legacy.classification;
     assert.equal(checkClaim(legacy, dir).status, 0, 'existing v1 receipts remain checkable');
     legacy.formal = clone(proved.formal);
     assert.notEqual(checkClaim(legacy, dir).status, 0, 'v1 does not silently accept new fields');
-    for (const count of [0, 2, 4, 6, 8, '7', null, true]) {
+    const even = lab.compose('0,1,2', '1/4,1/2', 'any-target', 'mean-no-worse', 4);
+    const forgedV4 = clone(even);
+    forgedV4.format = 'inward-conditional-claim-v4';
+    delete forgedV4.domain.medianRule;
+    assert.notEqual(checkClaim(forgedV4, dir).status, 0, 'v4 retains its odd-only interpretation');
+    const wrongMedian = clone(even);
+    wrongMedian.search.counterexample.median = '1';
+    assert.notEqual(checkClaim(wrongMedian, dir).status, 0, 'central-pair average is replayed independently');
+    for (const count of [0, 2, 8, '7', null, true]) {
       assert.throws(() => lab.compose('0,1', '0,1', 'any-target', 'mean-no-worse', count));
     }
   } finally { rmSync(dir, {recursive: true, force: true}); }
@@ -267,6 +293,11 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.match(fields['claim-title'].textContent, /For any 7 real readings/);
   assert.match(fields['claim-count'].textContent, /7-reading multisets/);
+  fields['claim-reading-count'].value = '4';
+  fields['claim-reading-count'].handlers.change();
+  await fields['claim-form'].handlers.submit({preventDefault() {}});
+  assert.match(fields['claim-title'].textContent, /For any 4 real readings/);
+  assert.match(fields['claim-count'].textContent, /4-reading multisets/);
   fields['claim-reading-count'].value = '5';
   fields['claim-prediction'].value = 'higher-no-worse';
   fields['claim-prediction'].handlers.change();
@@ -304,7 +335,7 @@ test('browser view renders exact counterexample maps and clears stale evidence o
   await fields['claim-form'].handlers.submit({preventDefault() {}});
   assert.equal(fields['claim-badge'].textContent, 'Universal claim refuted');
   assert.match(fields['claim-count'].textContent, /0 eligible exact cases/);
-  assert.match(fields['claim-summary'].textContent, /fixed 0, 50, 100 witness basis/);
+  assert.match(fields['claim-summary'].textContent, /Constructed endpoint counterexample/);
   assert.match(fields['claim-proof'].textContent, /chosen grid missed/);
   assert.equal(fields['claim-plot'].children.length, 1);
   assert.equal(fields['claim-crossover'].hidden, false);

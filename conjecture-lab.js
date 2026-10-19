@@ -202,7 +202,7 @@
       const label = report.proof ? "General algebraic proof" : "Universal claim refuted";
       $("claim-badge").textContent = label;
       $("claim-results").classList.toggle("counterexample", Boolean(globalPoint));
-      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} ${report.domain.readingCount}-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : "Your grid found none; the classification below uses a separate fixed witness basis."}`;
+      $("claim-count").textContent = `${search.casesChecked} eligible exact case${search.casesChecked === 1 ? "" : "s"} checked across ${report.domain.readingMultisets} ${report.domain.readingCount}-reading multisets on your chosen grid. ${search.counterexample ? "Your grid found a counterexample." : report.proof ? "The general proof does not depend on your grid." : "Your grid found none; the classification below uses a separate endpoint construction."}`;
       $("claim-formal-link").hidden = !report.proof;
       $("claim-formal-ref").hidden = !report.formal;
       if (report.formal) {
@@ -213,10 +213,10 @@
         $("claim-summary").textContent = "This conditional statement holds for all real readings and targets under its stated guard. Its general real-number implication is proved in Lean; this exported JSON is checked separately by the app and independent verifiers. This is established mathematics, not a newly discovered theorem.";
         $("claim-proof").textContent = `Let a ≤ b be the two estimates and t the target. (a−t)² − (b−t)² = (a−b)(a+b−2t). The claim assumes ${report.proof.assumptions[1]}; hence a−b ≤ 0 and a+b−2t is ${report.proof.factorSigns[1]}. The product gives ${report.proof.result}. The same ordering holds for absolute errors. The exported certificate can be checked independently in Python.`;
       } else {
-        $("claim-summary").textContent = `Exact counterexample from the fixed 0, 50, 100 witness basis: ${globalPoint.actualWinner} is closer at target ${globalPoint.target}, with readings ${globalPoint.readings.join(", ")}. This one case refutes the universal statement regardless of which grid you chose.`;
+        $("claim-summary").textContent = `Constructed endpoint counterexample (${report.classification.construction.family}): ${globalPoint.actualWinner} is closer at target ${globalPoint.target}, with readings ${globalPoint.readings.join(", ")}. This one case refutes the universal statement regardless of which grid you chose.`;
         $("claim-proof").textContent = search.counterexample ?
           `Your chosen grid also found a counterexample at target ${search.counterexample.target}. The chart shows that chosen-grid case.` :
-          "Your chosen grid missed the counterexample (or had no eligible cases). The chart shows the independent fixed-basis witness.";
+          "Your chosen grid missed the counterexample (or had no eligible cases). The chart shows the independently checked endpoint construction.";
       }
       const shown = search.counterexample || globalPoint;
       const axis = shown ? scale({readingValues: [...report.domain.readingValues, ...shown.readings].sort(compareRaw),
@@ -261,7 +261,7 @@
     const url = URL.createObjectURL(new Blob([claimExportBytes], {type:"application/json"}));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "inward-conditional-claim-v4.json";
+    anchor.download = "inward-conditional-claim-v6.json";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

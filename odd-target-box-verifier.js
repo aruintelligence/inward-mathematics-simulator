@@ -6,7 +6,13 @@
 })(globalThis, function () {
   "use strict";
   const FORMAT = "inward-odd-target-box-v1";
+  const EVEN_FORMAT = "inward-even-target-box-v2";
+  const GAP_FORMAT = "inward-target-box-gap-v3";
+  const STABILITY_FORMAT = "inward-target-box-stability-v4";
+  const ATLAS_FORMAT = "inward-target-box-atlas-v5";
+  const HORIZON_FORMAT = "inward-target-horizon-v6";
   const RATIONAL = /^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/;
+  const DECIMAL_TARGET = /^(-?)(0|[1-9][0-9]{0,256})\.([0-9]{1,6})$/;
   const ORDER = ["Mean", "Median", "Tie"];
   const fail = message => { throw new Error(message); };
   const abs = n => n < 0n ? -n : n;
@@ -36,6 +42,15 @@
     if (notation(value) !== raw || low && compare(value, low) < 0 ||
         high && compare(value, high) > 0) fail(`Noncanonical or out-of-range ${label}`);
     return value;
+  }
+  function queryTarget(raw) {
+    if (typeof raw !== "string") fail("Enter an exact target as an integer, fraction, or decimal");
+    const value = raw.trim();
+    if (RATIONAL.test(value)) return rational(value, "query target");
+    const match = DECIMAL_TARGET.exec(value);
+    if (!match) fail("Enter an exact target as an integer, reduced fraction, or decimal with up to six places");
+    const numerator = BigInt(match[2] + match[3]) * (match[1] === "-" ? -1n : 1n);
+    return fraction(numerator, 10n ** BigInt(match[3].length));
   }
   function fields(object, names, label) {
     if (object === null || typeof object !== "object" || Array.isArray(object) ||
@@ -97,7 +112,9 @@
   function estimators(fixed, moved) {
     const sorted = [...fixed, moved].sort(compare);
     const mean = divide(sorted.reduce(add, ZERO), fraction(BigInt(sorted.length)));
-    return [mean, sorted[(sorted.length - 1) / 2]];
+    const median = divide(add(sorted[Math.floor((sorted.length - 1) / 2)],
+      sorted[Math.floor(sorted.length / 2)]), TWO);
+    return [mean, median];
   }
   function outcome(fixed, moved, target) {
     const [mean, median] = estimators(fixed, moved);
@@ -110,11 +127,14 @@
   function allRoots(fixed, low, high, targetLow, targetHigh) {
     const n = fixed.length + 1;
     const ordered = [...fixed].sort(compare);
-    const k = (n - 1) / 2;
-    const lower = ordered[k - 1], upper = ordered[k];
+    const even = n % 2 === 0, k = Math.floor(n / 2);
+    const lower = ordered[even ? k - 2 : k - 1], upper = ordered[k];
+    const center = even ? ordered[k - 1] : ZERO;
+    const leftMedian = even ? divide(add(lower, center), TWO) : lower;
+    const rightMedian = even ? divide(add(center, upper), TWO) : upper;
     const sum = fixed.reduce(add, ZERO), count = fraction(BigInt(n));
     const candidates = new Map([low, high, lower, upper].map(x => [notation(x), x]));
-    for (const [start, end, median] of [[low, lower, lower], [upper, high, upper]]) {
+    for (const [start, end, median] of [[low, lower, leftMedian], [upper, high, rightMedian]]) {
       const roots = [subtract(multiply(count, median), sum),
         ...[targetLow, targetHigh].map(target =>
           subtract(multiply(count, subtract(multiply(TWO, target), median)), sum))];
@@ -124,7 +144,12 @@
         }
       }
     }
-    const middle = [divide(sum, fraction(BigInt(n - 1))),
+    const middle = even ? [
+      divide(subtract(multiply(TWO, sum), multiply(count, center)), fraction(BigInt(n - 2))),
+      ...[targetLow, targetHigh].map(target => divide(subtract(
+        subtract(multiply(fraction(BigInt(4 * n)), target), multiply(TWO, sum)),
+        multiply(count, center)), fraction(BigInt(n + 2))))
+    ] : [divide(sum, fraction(BigInt(n - 1))),
       ...[targetLow, targetHigh].map(target =>
         divide(subtract(multiply(multiply(TWO, count), target), sum), fraction(BigInt(n + 1))))];
     for (const root of middle) {
@@ -152,9 +177,200 @@
   function strictWinner(reachable) {
     return reachable.length === 1 && reachable[0] !== "Tie" ? reachable[0] : null;
   }
+  function gapAt(fixed, moved, target) {
+    const [mean, median] = estimators(fixed, moved);
+    const meanError = subtract(mean, target), medianError = subtract(median, target);
+    return subtract(multiply(meanError, meanError), multiply(medianError, medianError));
+  }
+  function extrema(fixed, knots, targetLow, targetHigh) {
+    const values = [];
+    for (const target of [targetLow, targetHigh]) {
+      for (let i = 0; i < knots.length - 1; i++) {
+        const left = knots[i], right = knots[i + 1];
+        values.push(gapAt(fixed, left, target), gapAt(fixed, right, target));
+        const [meanLeft, medianLeft] = estimators(fixed, left);
+        const [, medianRight] = estimators(fixed, right);
+        const medianSlope = divide(subtract(medianRight, medianLeft), subtract(right, left));
+        const medianBase = subtract(medianLeft, multiply(medianSlope, left));
+        const meanSlope = divide(fraction(1n), fraction(BigInt(fixed.length + 1)));
+        const meanBase = subtract(meanLeft, multiply(meanSlope, left));
+        const a = subtract(multiply(meanSlope, meanSlope), multiply(medianSlope, medianSlope));
+        if (compare(a, ZERO) === 0) continue;
+        const b = multiply(TWO, subtract(
+          multiply(subtract(meanBase, target), meanSlope),
+          multiply(subtract(medianBase, target), medianSlope)));
+        const vertex = divide(subtract(ZERO, b), multiply(TWO, a));
+        if (compare(left, vertex) < 0 && compare(vertex, right) < 0) {
+          values.push(gapAt(fixed, vertex, target));
+        }
+      }
+    }
+    values.sort(compare);
+    return {min: values[0], max: values[values.length - 1]};
+  }
+  function checkGap(gap, expected, fixed, low, high, targetLow, targetHigh, label) {
+    fields(gap, ["min", "max"], label);
+    for (const extreme of ["min", "max"]) {
+      const point = gap[extreme];
+      fields(point, ["value", "reading", "target"], `${label} ${extreme}`);
+      const value = rational(point.value, `${label} ${extreme} value`);
+      const reading = rational(point.reading, `${label} ${extreme} reading`, low, high);
+      const target = rational(point.target, `${label} ${extreme} target`, targetLow, targetHigh);
+      if (compare(value, expected[extreme]) !== 0 ||
+          compare(value, gapAt(fixed, reading, target)) !== 0) {
+        fail(`Incorrect ${label} ${extreme} or unattained witness`);
+      }
+    }
+  }
+  function checkStability(stability, fixed, start, roots, low, high, targetLow, targetHigh, index) {
+    fields(stability, ["baseline", "left", "right"], `route ${index + 1} stability`);
+    const atStart = [outcome(fixed, start, targetLow), outcome(fixed, start, targetHigh)];
+    const baseline = atStart[0] === atStart[1] && atStart[0] !== "Tie" ? atStart[0] : null;
+    if (stability.baseline !== baseline) fail(`Incorrect route ${index + 1} baseline`);
+    const failures = [];
+    for (const [side, edge] of [["left", low], ["right", high]]) {
+      const detail = stability[side];
+      fields(detail, ["limit", "included", "witness"], `${side} stability boundary`);
+      const candidates = [start, ...roots.filter(x => side === "left" ?
+        compare(x, start) < 0 : compare(x, start) > 0)].sort((a, b) =>
+          side === "left" ? -compare(a, b) : compare(a, b));
+      const first = candidates.find(x => baseline === null ||
+        outcome(fixed, x, targetLow) !== baseline || outcome(fixed, x, targetHigh) !== baseline);
+      const limit = rational(detail.limit, `${side} stability limit`, low, high);
+      if (first === undefined) {
+        if (compare(limit, edge) !== 0 || detail.included !== true || detail.witness !== null) {
+          fail(`Incorrect safe ${side} boundary on route ${index + 1}`);
+        }
+        continue;
+      }
+      if (compare(limit, first) !== 0 || detail.included !== false) {
+        fail(`Incorrect first ${side} failure on route ${index + 1}`);
+      }
+      fields(detail.witness, ["reading", "target"], `${side} failure witness`);
+      const moved = rational(detail.witness.reading, "failure reading", low, high);
+      const target = rational(detail.witness.target, "failure target", targetLow, targetHigh);
+      if (compare(moved, first) !== 0 || outcome(fixed, moved, target) !== "Tie") {
+        fail(`False ${side} tie witness on route ${index + 1}`);
+      }
+      failures.push({distance: side === "left" ? subtract(start, first) : subtract(first, start),
+        index, side, reading: first, target});
+    }
+    return {baseline, failures};
+  }
+  function checkRegion(region, fixed, roots, targetLow, targetHigh, index) {
+    fields(region, ["stripes", "verticalTies"], `route ${index + 1} region`);
+    if (!Array.isArray(region.stripes) || region.stripes.length !== roots.length - 1) {
+      fail(`Incomplete region stripes on route ${index + 1}`);
+    }
+    const crossing = moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return divide(add(mean, median), TWO);
+    };
+    for (let i = 0; i < region.stripes.length; i++) {
+      const stripe = region.stripes[i], left = roots[i], right = roots[i + 1];
+      fields(stripe, ["from", "to", "tieFrom", "tieTo", "below", "above",
+        "atTargetLow", "atTargetHigh"], `route ${index + 1} stripe ${i + 1}`);
+      if (compare(rational(stripe.from, "stripe start"), left) !== 0 ||
+          compare(rational(stripe.to, "stripe end"), right) !== 0 ||
+          compare(rational(stripe.tieFrom, "first tie target", NEGATIVE_LIMIT, LIMIT), crossing(left)) !== 0 ||
+          compare(rational(stripe.tieTo, "last tie target", NEGATIVE_LIMIT, LIMIT), crossing(right)) !== 0) {
+        fail(`Incorrect region geometry on route ${index + 1}`);
+      }
+      const midpoint = divide(add(left, right), TWO), tie = crossing(midpoint);
+      const below = outcome(fixed, midpoint, subtract(tie, fraction(1n)));
+      const above = outcome(fixed, midpoint, add(tie, fraction(1n)));
+      if (stripe.below !== below || stripe.above !== above || below === above ||
+          stripe.atTargetLow !== outcome(fixed, midpoint, targetLow) ||
+          stripe.atTargetHigh !== outcome(fixed, midpoint, targetHigh)) {
+        fail(`Incorrect region winner on route ${index + 1}`);
+      }
+    }
+    const ties = roots.filter(moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return compare(mean, median) === 0;
+    }).map(notation);
+    sameList(region.verticalTies, ties, `all-target tie columns on route ${index + 1}`);
+  }
+  function checkRouteHorizon(horizon, fixed, roots, low, high, index) {
+    fields(horizon, ["atMovementLow", "atMovementHigh", "allTargetTie"],
+      `route ${index + 1} target horizon`);
+    const crossing = moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return divide(add(mean, median), TWO);
+    };
+    const first = crossing(low), last = crossing(high);
+    if (compare(first, last) >= 0 ||
+        compare(rational(horizon.atMovementLow, "first tie target", NEGATIVE_LIMIT, LIMIT), first) !== 0 ||
+        compare(rational(horizon.atMovementHigh, "last tie target", NEGATIVE_LIMIT, LIMIT), last) !== 0) {
+      fail(`Incorrect tie target bounds on route ${index + 1}`);
+    }
+    const equality = roots.find(moved => {
+      const [mean, median] = estimators(fixed, moved);
+      return compare(mean, median) === 0;
+    });
+    if (horizon.allTargetTie !== (equality === undefined ? null : notation(equality))) {
+      fail(`Incorrect all-target tie on route ${index + 1}`);
+    }
+    return {first, last, equality};
+  }
+  function checkTargetHorizon(horizon, routeBounds, readings, low, high, targetLow, targetHigh) {
+    fields(horizon, ["low", "high", "allTargetTie", "below", "above", "probe"],
+      "global target horizon");
+    const first = routeBounds.map(item => item.first).sort(compare)[0];
+    const last = routeBounds.map(item => item.last).sort(compare).at(-1);
+    if (compare(rational(horizon.low, "horizon lower", NEGATIVE_LIMIT, LIMIT), first) !== 0 ||
+        compare(rational(horizon.high, "horizon upper", NEGATIVE_LIMIT, LIMIT), last) !== 0) {
+      fail("Incorrect global target horizon bounds");
+    }
+    const equalityIndex = routeBounds.findIndex(item => item.equality !== undefined);
+    const equality = equalityIndex < 0 ? null :
+      {index: equalityIndex, reading: notation(routeBounds[equalityIndex].equality)};
+    if (equality) {
+      fields(horizon.allTargetTie, ["index", "reading"], "global all-target tie");
+      if (horizon.allTargetTie.index !== equality.index ||
+          horizon.allTargetTie.reading !== equality.reading || horizon.below !== null ||
+          horizon.above !== null) fail("Incorrect global all-target tie");
+    } else {
+      if (horizon.allTargetTie !== null) fail("False global all-target tie");
+      const before = outcome(readings.slice(1), readings[0], subtract(first, fraction(1n)));
+      const after = outcome(readings.slice(1), readings[0], add(last, fraction(1n)));
+      if (!(["Mean", "Median"].includes(before)) ||
+          horizon.below !== before || horizon.above !== after || before === after) {
+        fail("Incorrect guaranteed target sides");
+      }
+      for (let index = 0; index < readings.length; index++) {
+        const fixed = readings.filter((_, i) => i !== index);
+        for (const moved of [low, high]) {
+          if (outcome(fixed, moved, subtract(first, fraction(1n))) !== before ||
+              outcome(fixed, moved, add(last, fraction(1n))) !== after) {
+            fail("Target side guarantee contradicted by a movement endpoint");
+          }
+        }
+      }
+    }
+    fields(horizon.probe, ["target", "verdict", "witness"], "target probe");
+    const probe = divide(add(targetLow, targetHigh), TWO);
+    if (compare(rational(horizon.probe.target, "probe target", targetLow, targetHigh), probe) !== 0) {
+      fail("Incorrect target probe");
+    }
+    const expected = equality ? "Tie" : compare(probe, first) < 0 ? horizon.below :
+      compare(probe, last) > 0 ? horizon.above : "Tie";
+    if (horizon.probe.verdict !== expected) fail("Incorrect target probe verdict");
+    if (expected === "Tie") {
+      fields(horizon.probe.witness, ["index", "reading"], "target probe tie witness");
+      const {index, reading} = horizon.probe.witness;
+      if (!Number.isInteger(index) || index < 0 || index >= readings.length) {
+        fail("Invalid target probe route");
+      }
+      const moved = rational(reading, "target probe reading", low, high);
+      const fixed = readings.filter((_, i) => i !== index);
+      if (outcome(fixed, moved, probe) !== "Tie") fail("False target probe tie witness");
+    } else if (horizon.probe.witness !== null) fail("Unexpected target probe witness");
+  }
   function verify(record) {
     fields(record, ["format", "inputs", "claim"], "certificate");
-    if (record.format !== FORMAT) fail("Unknown certificate format");
+    if (![FORMAT, EVEN_FORMAT, GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT,
+      HORIZON_FORMAT].includes(record.format)) fail("Unknown certificate format");
     fields(record.inputs, ["readings", "movement", "target"], "inputs");
     fields(record.inputs.movement, ["low", "high"], "movement");
     fields(record.inputs.target, ["low", "high"], "target");
@@ -165,18 +381,31 @@
     const targetHigh = rational(inputs.target.high, "target upper", NEGATIVE_LIMIT, LIMIT);
     if (compare(low, high) >= 0 || compare(targetLow, targetHigh) > 0) fail("Invalid interval order");
     if (!Array.isArray(inputs.readings) || inputs.readings.length < 3 ||
-        inputs.readings.length > 21 || inputs.readings.length % 2 !== 1) {
-      fail("Reading count must be odd and between 3 and 21");
+        inputs.readings.length > 21 || ![GAP_FORMAT, STABILITY_FORMAT, ATLAS_FORMAT,
+          HORIZON_FORMAT].includes(record.format) &&
+        (inputs.readings.length % 2 === 0) !== (record.format === EVEN_FORMAT)) {
+      fail("Reading count must match certificate format and be between 3 and 21");
     }
     const readings = inputs.readings.map((item, index) =>
       rational(item, `reading ${index + 1}`, low, high));
-    fields(claim, ["routes", "reachable", "guarantee"], "claim");
+    const quantified = record.format === GAP_FORMAT;
+    const stable = record.format === STABILITY_FORMAT;
+    const atlas = record.format === ATLAS_FORMAT;
+    const horizon = record.format === HORIZON_FORMAT;
+    fields(claim, ["routes", "reachable", "guarantee",
+      ...(quantified ? ["gap"] : stable ? ["stability"] : horizon ? ["targetHorizon"] : [])], "claim");
     if (!Array.isArray(claim.routes) || claim.routes.length !== readings.length) {
       fail("Missing one-reading routes");
     }
     const overall = new Set();
+    const routeExtrema = [];
+    const failures = [];
+    const routeBounds = [];
+    let baseline = null;
     claim.routes.forEach((route, index) => {
-      fields(route, ["index", "knots", "reachable", "guarantee", "witnesses"], `route ${index + 1}`);
+      fields(route, ["index", "knots", "reachable", "guarantee", "witnesses",
+        ...(quantified ? ["gap"] : stable ? ["stability"] : atlas ? ["region"] :
+          horizon ? ["targetHorizon"] : [])], `route ${index + 1}`);
       if (!Number.isInteger(route.index) || route.index !== index) fail("Incorrect route index");
       const fixed = readings.filter((_, i) => i !== index);
       const roots = allRoots(fixed, low, high, targetLow, targetHigh);
@@ -196,13 +425,143 @@
         const target = rational(witness.target, "witness target", targetLow, targetHigh);
         if (outcome(fixed, moved, target) !== name) fail(`False ${name} witness on route ${index + 1}`);
       }
+      if (quantified) {
+        const expected = extrema(fixed, roots, targetLow, targetHigh);
+        checkGap(route.gap, expected, fixed, low, high, targetLow, targetHigh,
+          `route ${index + 1} gap`);
+        if (route.guarantee === "Mean" && compare(expected.max, ZERO) >= 0 ||
+            route.guarantee === "Median" && compare(expected.min, ZERO) <= 0) {
+          fail(`Gap contradicts route ${index + 1} guarantee`);
+        }
+        routeExtrema.push(expected);
+      }
+      if (stable) {
+        const checked = checkStability(route.stability, fixed, readings[index], roots,
+          low, high, targetLow, targetHigh, index);
+        if (index === 0) baseline = checked.baseline;
+        else if (baseline !== checked.baseline) fail("Baseline differs across routes");
+        failures.push(...checked.failures);
+      }
+      if (atlas) checkRegion(route.region, fixed, roots, targetLow, targetHigh, index);
+      if (horizon) routeBounds.push(checkRouteHorizon(route.targetHorizon, fixed, roots,
+        low, high, index));
       reachable.forEach(name => overall.add(name));
     });
     const reachable = ORDER.filter(name => overall.has(name));
     sameList(claim.reachable, reachable, "global reachable outcomes");
     const guarantee = strictWinner(reachable);
     if (claim.guarantee !== guarantee) fail("Incorrect global guarantee");
-    return {routes: readings.length, reachable, guarantee};
+    if (horizon) checkTargetHorizon(claim.targetHorizon, routeBounds, readings,
+      low, high, targetLow, targetHigh);
+    if (quantified) {
+      fields(claim.gap, ["min", "max"], "global gap");
+      for (const extreme of ["min", "max"]) {
+        const expected = routeExtrema.map(item => item[extreme]).sort(compare)[
+          extreme === "min" ? 0 : routeExtrema.length - 1];
+        const point = claim.gap[extreme];
+        fields(point, ["value", "index", "reading", "target"], `global gap ${extreme}`);
+        if (!Number.isInteger(point.index) || point.index < 0 || point.index >= readings.length) {
+          fail("Invalid global gap route index");
+        }
+        const value = rational(point.value, `global ${extreme} value`);
+        const reading = rational(point.reading, `global ${extreme} reading`, low, high);
+        const target = rational(point.target, `global ${extreme} target`, targetLow, targetHigh);
+        const fixed = readings.filter((_, i) => i !== point.index);
+        if (compare(value, expected) !== 0 ||
+            compare(value, gapAt(fixed, reading, target)) !== 0) {
+          fail(`Incorrect global ${extreme} or unattained witness`);
+        }
+      }
+    }
+    if (stable) {
+      fields(claim.stability, ["baseline", "nearestFailure"], "global stability");
+      if (claim.stability.baseline !== baseline) fail("Incorrect global baseline");
+      failures.sort((a, b) => compare(a.distance, b.distance) || a.index - b.index ||
+        (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
+      const nearest = failures[0];
+      if (!nearest) {
+        if (claim.stability.nearestFailure !== null) fail("False global failure");
+      } else {
+        const reported = claim.stability.nearestFailure;
+        fields(reported, ["distance", "index", "side", "reading", "target"], "nearest failure");
+        const distance = rational(reported.distance, "nearest failure distance", ZERO);
+        const reading = rational(reported.reading, "nearest failure reading", low, high);
+        const target = rational(reported.target, "nearest failure target", targetLow, targetHigh);
+        if (compare(distance, nearest.distance) !== 0 || reported.index !== nearest.index ||
+            reported.side !== nearest.side || compare(reading, nearest.reading) !== 0 ||
+            outcome(readings.filter((_, i) => i !== nearest.index), reading, target) !== "Tie") {
+          fail("Incorrect global nearest failure or witness");
+        }
+      }
+    }
+    return {routes: readings.length, reachable, guarantee,
+      ...(quantified ? {gap: claim.gap} : stable ? {stability: claim.stability} :
+        atlas ? {atlas: true} : horizon ? {targetHorizon: claim.targetHorizon} : {})};
   }
-  return {parseReceipt, verify};
+  // Query a portable receipt without trusting its claimed witness or importing
+  // the constructor. The receipt is checked again before its knots are used.
+  function queryTargetHorizon(record, rawTarget) {
+    if (record?.format !== HORIZON_FORMAT) fail("A verified target-horizon certificate is required");
+    const checked = verify(record);
+    const target = queryTarget(rawTarget), horizon = checked.targetHorizon;
+    const answer = (verdict, witness = null) => ({target: notation(target), verdict, witness});
+    const readings = record.inputs.readings.map(value => rational(value, "reading"));
+    if (horizon.allTargetTie) {
+      const {index, reading} = horizon.allTargetTie;
+      const fixed = readings.filter((_, i) => i !== index);
+      const moved = rational(reading, "all-target tie reading");
+      if (outcome(fixed, moved, target) !== "Tie") fail("All-target tie contradicted by exact errors");
+      return answer("Tie", {index, reading});
+    }
+    if (compare(target, rational(horizon.low, "horizon lower")) < 0) return answer(horizon.below);
+    if (compare(target, rational(horizon.high, "horizon upper")) > 0) return answer(horizon.above);
+    for (const route of record.claim.routes) {
+      const fixed = readings.filter((_, i) => i !== route.index);
+      const knots = route.knots.map(value => rational(value, "checked knot"));
+      const crossing = moved => {
+        const [mean, median] = estimators(fixed, moved);
+        return divide(add(mean, median), TWO);
+      };
+      for (let i = 1; i < knots.length; i++) {
+        const left = knots[i - 1], right = knots[i];
+        const first = crossing(left), last = crossing(right);
+        if (compare(first, target) <= 0 && compare(target, last) <= 0) {
+          if (compare(first, last) >= 0) fail("Target-horizon cell is not increasing");
+          const moved = add(left, divide(multiply(subtract(right, left),
+            subtract(target, first)), subtract(last, first)));
+          if (compare(moved, left) < 0 || compare(moved, right) > 0 ||
+              outcome(fixed, moved, target) !== "Tie") fail("Exact query witness is not a tie");
+          return answer("Tie", {index: route.index, reading: notation(moved)});
+        }
+      }
+    }
+    fail("No exact tie witness in the checked target horizon");
+  }
+  // The first reached horizon endpoint is an attained tie, making this open
+  // radius sharp. queryTargetHorizon has already rechecked the whole receipt.
+  function queryTargetMargin(record, rawTarget) {
+    const answer = queryTargetHorizon(record, rawTarget);
+    if (answer.verdict === "Tie") return {...answer, margin: null};
+    const horizon = record.claim.targetHorizon;
+    const target = rational(answer.target, "exact query target");
+    const lower = compare(target, rational(horizon.low, "horizon lower")) < 0;
+    const side = lower ? "atMovementLow" : "atMovementHigh";
+    const boundary = rational(lower ? horizon.low : horizon.high, "target margin boundary");
+    const radius = lower ? subtract(boundary, target) : subtract(target, boundary);
+    const movedRaw = record.inputs.movement[lower ? "low" : "high"];
+    const readings = record.inputs.readings.map(value => rational(value, "reading"));
+    for (const route of record.claim.routes) {
+      if (compare(rational(route.targetHorizon[side], "route midpoint"), boundary) !== 0) continue;
+      const fixed = readings.filter((_, index) => index !== route.index);
+      if (compare(radius, ZERO) <= 0 ||
+          outcome(fixed, rational(movedRaw, "movement endpoint"), boundary) !== "Tie") {
+        fail("Target margin boundary is not an attained tie");
+      }
+      return {...answer, margin: {radius: notation(radius), toward: lower ? "higher" : "lower",
+        boundary: {target: notation(boundary),
+          witness: {index: route.index, reading: movedRaw}}}};
+    }
+    fail("No attaining route for target margin boundary");
+  }
+  return {parseReceipt, verify, queryTargetHorizon, queryTargetMargin};
 });

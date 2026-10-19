@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independently check exhaustive piecewise-affine odd-sample flip certificates."""
+"""Independently check exhaustive piecewise-affine sample flip certificates."""
 from fractions import Fraction
 import hashlib
 import json
@@ -9,6 +9,7 @@ import sys
 
 FORMAT = "inward-odd-sample-flip-v1"
 BOUNDED_FORMAT = "inward-odd-sample-flip-v2"
+EVEN_FORMAT = "inward-even-sample-flip-v3"
 RATIONAL = re.compile(r"(?:0|-?[1-9][0-9]{0,256})(?:/[1-9][0-9]{0,256})?\Z")
 LIMIT = Fraction(1_000_000)
 
@@ -29,7 +30,7 @@ def rational(value, name, low=None, high=None):
 
 def outcome(fixed, moved, target):
     values = sorted([*fixed, moved])
-    middle = values[len(values) // 2]
+    middle = (values[(len(values) - 1) // 2] + values[len(values) // 2]) / 2
     total = sum(values)
     # Directly compare squared absolute errors; no generator code is imported.
     delta = (total / len(values) - target) ** 2 - (middle - target) ** 2
@@ -40,14 +41,26 @@ def all_roots(fixed, target, low=Fraction(0), high=Fraction(100)):
     """Closed-form roots of each factor on the three possible median cells."""
     n = len(fixed) + 1
     ordered = sorted(fixed)
-    lower, upper = ordered[n // 2 - 1], ordered[n // 2]
     total = sum(fixed)
+    if n % 2:
+        lower, upper = ordered[n // 2 - 1], ordered[n // 2]
+        left_median, right_median = lower, upper
+        middle_roots = (total / (n - 1), (2 * n * target - total) / (n + 1))
+    else:
+        k = n // 2
+        lower, upper = ordered[k - 2], ordered[k]
+        center = ordered[k - 1]
+        left_median = (lower + center) / 2
+        right_median = (center + upper) / 2
+        # On this cell m(x)=(center+x)/2. Solve mu=m and mu+m=2t.
+        middle_roots = ((2 * total - n * center) / (n - 2),
+                        (4 * n * target - 2 * total - n * center) / (n + 2))
     roots = {low, high, lower, upper}
-    for start, end, median in ((low, lower, lower), (upper, high, upper)):
+    for start, end, median in ((low, lower, left_median), (upper, high, right_median)):
         for root in (n * median - total, n * (2 * target - median) - total):
             if start <= root <= end:
                 roots.add(root)
-    for root in (total / (n - 1), (2 * n * target - total) / (n + 1)):
+    for root in middle_roots:
         if lower <= root <= upper:
             roots.add(root)
     return sorted(roots)
@@ -65,12 +78,12 @@ def no_duplicates(pairs):
 def verify(record):
     fields(record, {"format", "inputs", "claim"}, "certificate")
     version = record["format"]
-    if version not in (FORMAT, BOUNDED_FORMAT):
+    if version not in (FORMAT, BOUNDED_FORMAT, EVEN_FORMAT):
         raise ValueError("Unknown certificate format")
     inputs = record["inputs"]
-    fields(inputs, {"readings", "target", "bounds"} if version == BOUNDED_FORMAT
+    fields(inputs, {"readings", "target", "bounds"} if version in (BOUNDED_FORMAT, EVEN_FORMAT)
            else {"readings", "target"}, "inputs")
-    if version == BOUNDED_FORMAT:
+    if version in (BOUNDED_FORMAT, EVEN_FORMAT):
         fields(inputs["bounds"], {"low", "high"}, "bounds")
         low = rational(inputs["bounds"]["low"], "lower bound", -LIMIT, LIMIT)
         high = rational(inputs["bounds"]["high"], "upper bound", -LIMIT, LIMIT)
@@ -81,8 +94,9 @@ def verify(record):
         low, high = Fraction(0), Fraction(100)
         target_low, target_high = low, high
     raw = inputs["readings"]
-    if type(raw) is not list or not 3 <= len(raw) <= 21 or len(raw) % 2 != 1:
-        raise ValueError("Reading count must be odd and between 3 and 21")
+    if type(raw) is not list or not 3 <= len(raw) <= 21 or \
+            len(raw) % 2 != (0 if version == EVEN_FORMAT else 1):
+        raise ValueError("Reading count does not match certificate format")
     values = [rational(value, "reading", low, high) for value in raw]
     target = rational(inputs["target"], "target", target_low, target_high)
     claim = record["claim"]

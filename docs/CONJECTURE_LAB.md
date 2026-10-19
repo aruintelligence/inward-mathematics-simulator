@@ -20,7 +20,7 @@ Existing work and attribution remain with Daniel Jacob Read IV / ĀRU Intelligen
 
 The same page now lets a visitor form a precise universal statement: select a condition on the target (`any`, at/below or at/above the estimates' midpoint, at/below both estimates, or at/above both) and predict whether the lower, higher, mean, or median estimate is no farther from the target. This is a deliberately small mathematical language. A phrase like “no farther” includes ties; no free-form or unsupported theorem is silently interpreted.
 
-The builder tests every eligible reading multiset and selected target, stopping at the first counterexample. It supports a selectable odd sample size of 3, 5, or 7 readings; the four fixed candidates above remain five-reading experiments. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports a separate `inward-conditional-claim-v4` record. Existing v1, v2, and v3 conditional-claim files remain checkable.
+The builder tests every eligible reading multiset and selected target, stopping at the first counterexample. It supports 3 through 7 readings; for even sample sizes, the median is the exact average of the two central sorted readings. The four fixed candidates above remain five-reading experiments. If a condition admits zero selected grid cases, the report explicitly says so and makes no claim of finite support. It exports an `inward-conditional-claim-v6` record. Existing v1–v5 conditional-claim files remain checkable.
 
 For four condition and prediction pairs, the report also carries a **general algebraic proof** independent of the grid:
 
@@ -107,10 +107,79 @@ and a 3-reading [grid-miss example](../examples/conditional-claim-v4-grid-miss.j
 can be checked offline. V1–v3 receipts retain their original five-reading
 schema and bytes.
 
+Version 5 extends the conditional builder to **4 and 6 readings**. The
+`domain.medianRule` field must be `central-order-statistics-v1`: for sorted
+$x_1\le\dots\le x_n$, the median is $x_{(n+1)/2}$ when $n$ is odd and
+$(x_{n/2}+x_{n/2+1})/2$ when $n$ is even. The mean remains
+$(x_1+\dots+x_n)/n$. Both verifiers independently recompute these as exact
+fractions for each selected-grid case and fixed-basis witness. Four general
+implications about the **resulting two estimates** retain their existing
+Lean bindings; the Lean source does not formalize the sorting or median
+algorithm. The other 16 claim pairs have independently replayed exact
+counterexamples for each supported size. The
+[6-reading proof example](../examples/conditional-claim-v5.json) and
+[4-reading fractional-median witness](../examples/conditional-claim-v5-even-witness.json)
+are reproducible. V4 receipts remain odd-only and cannot assert an even count.
+
+## Uniform endpoint construction in version 6
+
+The 16 refutable claim pairs no longer rely on a search of the arbitrary
+`{0, 50, 100}` basis. For **every integer $n\ge3$**, consider these two sorted
+families, with conventional even-sample medians:
+
+| Family | Readings | Mean | Median |
+| --- | --- | --- | --- |
+| One high | $0,\ldots,0,100$ | $100/n$ | $0$ |
+| One low | $0,100,\ldots,100$ | $100-100/n$ | $100$ |
+
+Since $n\ge3$, both central readings in an even sample, or its single central
+reading in an odd sample, equal the repeated endpoint. Also
+$0<100/n<100$. In the one-high family, target 0 strictly favors the median
+and target 100 strictly favors the mean. In the one-low family, target 0
+strictly favors the mean and target 100 strictly favors the median. Target 0
+is at or below **both** estimates; target 100 is at or above both. Therefore
+the corresponding weaker midpoint guards also hold. Choosing the appropriate
+family and endpoint supplies an exact counterexample for each of the other
+16 condition/prediction pairs, for any $n\ge3$. The four surviving pairs are
+the existing real-number implications established by the squared-error
+factorization and checked in Lean. This is a complete classification of the
+registered 20-pair language for conventional mean and median, **not** a
+general theorem-discovery algorithm or a novel mathematical theorem.
+
+The [Lean module](../formal/InwardFormal.lean) checks the exact mean and
+central-pair median formulas for both sorted endpoint lists for all $n\ge3$.
+It also checks the strict winner at both endpoint targets. Its typed
+`RegisteredClaim` theorem checks all 20 cells of the table above: four are
+universal for arbitrary real estimates, and each other cell has a sorted
+endpoint counterexample at every $n\ge3$. The Lean table is encoded
+separately from the browser and Python tables; `endpointRoute_sound` proves its
+witness choice for every $n\ge3$. Formal CI compares all 20 Lean route outputs
+with the builder and Python verifier at each supported size 3–7. This detects
+routing drift but does not formally prove executable source equivalence for
+all inputs. Separate Lean lemmas
+equate its midpoint guard to the app's average-of-estimates rule and expand
+the two endpoint guards into inequalities for each estimate. Arbitrary input
+sorting and JSON receipt verification remain outside Lean.
+
+The v6 `classification.construction` identifies one-high or one-low and its
+endpoint target. The browser and Python verifiers independently rebuild all
+$n$ readings, recompute the exact mean and median, check the target guard,
+check that the predicted ordering is strictly false, and require the full
+canonical record. The UI still bounds its finite selected-grid search to
+3–7 readings. A certificate for one selected $n$ contains an exact witness
+for that $n$; the algebra above explains why the family works for every
+$n\ge3$. Older v1–v5 bytes retain their historical interpretation.
+
+Check a v6 example with a central-pair median:
+
+```sh
+python3 tools/verify_conditional_claim.py examples/conditional-claim-v6-endpoint.json
+```
+
 Reproduce the grid-miss receipt and its verification:
 
 ```sh
-python3 tools/verify_conditional_claim.py examples/conditional-claim-v4-grid-miss.json
+python3 tools/verify_conditional_claim.py examples/conditional-claim-v5-even-witness.json
 node --test tests/conjecture-lab.test.cjs
 ```
 

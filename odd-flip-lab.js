@@ -4,6 +4,7 @@
   const $ = id => document.getElementById(id);
   const svgNS = "http://www.w3.org/2000/svg";
   let current = null;
+  let revision = 0;
   const element = (tag, className, content) => {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -57,7 +58,9 @@
     const bounds = inputs.bounds || {low: "0", high: "100"};
     $("input-facts").replaceChildren(...inputs.readings.map((reading, i) =>
       element("span", "", `r${i + 1} = ${reading}`)), element("span", "", `target = ${inputs.target}`),
-      element("span", "", `movement ∈ [${bounds.low}, ${bounds.high}]`));
+      element("span", "", `movement ∈ [${bounds.low}, ${bounds.high}]`),
+      element("span", "", inputs.readings.length % 2 ? "Median: middle reading" :
+        "Median: average of central pair"));
     const best = claim.best;
     $("result-label").textContent = claim.kind === "baseline-tie" ? "Starting outcome" : "Strict reversal infimum";
     $("result-value").textContent = claim.kind === "baseline-tie" ? "Already tied" :
@@ -71,10 +74,22 @@
       `Starting verdict: ${claim.baseline}. All ${claim.routes.length} movable readings are partitioned over [${bounds.low}, ${bounds.high}].`;
     $("routes").replaceChildren(...claim.routes.map(route => card(route, inputs.readings[route.index], best, bounds)));
     $("download").disabled = false;
+    $("save-local").disabled = false;
+  }
+  function clearResult() {
+    revision++;
+    current = null;
+    $("download").disabled = true;
+    $("save-local").disabled = true;
+    $("save-status").textContent = "";
+    $("result-value").textContent = "Analyze inputs";
+    $("result-explanation").textContent = "The inputs changed. Analyze again to create a certificate for these values.";
+    $("result-summary").textContent = "No certificate for the current inputs.";
+    $("routes").replaceChildren(); $("input-facts").replaceChildren();
   }
   function analyze(event) {
     if (event) event.preventDefault();
-    current = null; $("download").disabled = true; $("input-error").textContent = "";
+    clearResult(); $("input-error").textContent = "";
     try {
       const raw = $("readings").value.split(",").map(s => s.trim());
       const low = $("low").value.trim(), high = $("high").value.trim();
@@ -86,10 +101,16 @@
       $("result-value").textContent = "Check inputs";
       $("result-explanation").textContent = "The previous result has been cleared. Correct the values and analyze again.";
       $("result-summary").textContent = "No certificate for the current inputs.";
-      $("routes").replaceChildren(); $("input-facts").replaceChildren();
     }
   }
   $("flip-form").addEventListener("submit", analyze);
+  for (const id of ["readings", "target", "low", "high"]) {
+    $(id).addEventListener("input", clearResult);
+  }
+  $("even-example").addEventListener("click", () => {
+    $("readings").value = "40, 45, 50, 80"; $("target").value = "50";
+    $("low").value = "0"; $("high").value = "100"; analyze();
+  });
   $("mean-example").addEventListener("click", () => {
     $("readings").value = "40, 42, 50, 60, 68"; $("target").value = "52";
     $("low").value = "0"; $("high").value = "100"; analyze();
@@ -108,6 +129,36 @@
     const link = element("a"); link.href = url; link.download = "odd-sample-flip-certificate.json";
     document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $("save-local").addEventListener("click", async () => {
+    if (!current) return;
+    const atStart = revision;
+    const source = JSON.stringify(current, null, 2) + "\n";
+    $("save-local").disabled = true;
+    $("save-status").textContent = "Independently checking and saving on this device…";
+    let database;
+    try {
+      if (!globalThis.InwardResearchArchive || !globalThis.InwardOddFlipVerifier ||
+          !globalThis.TargetLensVerifier || !globalThis.crypto?.subtle) {
+        throw new Error("Local archive verification is unavailable in this browser.");
+      }
+      const archive = globalThis.InwardResearchArchive;
+      database = await archive.open();
+      // A changed form can invalidate this action while IndexedDB is opening.
+      if (atStart !== revision) return;
+      const saved = await archive.add(database, source, "", {
+        sampleReversal: globalThis.InwardOddFlipVerifier,
+        strictJson: globalThis.TargetLensVerifier.parseReceipt
+      }, globalThis.crypto);
+      if (atStart === revision) $("save-status").textContent = saved.created ?
+        `Independently checked and saved locally. Fingerprint: ${saved.digest}.` :
+        `Already in your local archive. Fingerprint: ${saved.digest}.`;
+    } catch (error) {
+      if (atStart === revision) $("save-status").textContent = `Not saved: ${error.message}`;
+    } finally {
+      database?.close();
+      if (atStart === revision) $("save-local").disabled = !current;
+    }
   });
   $("print").addEventListener("click", () => window.print());
   analyze();

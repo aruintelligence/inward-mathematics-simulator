@@ -27,7 +27,7 @@ test('independent browser and Python check all choices and fractional boundary g
   const dir = mkdtempSync(join(tmpdir(), 'browser-claim-'));
   try {
     for (const [gridIndex, [readings, targets]] of grids.entries())
-      for (const readingCount of gridIndex === 0 ? [3, 5, 7] : [5])
+      for (const readingCount of gridIndex === 0 ? [3, 4, 5, 6, 7] : gridIndex === 1 ? [4, 6] : [5])
         for (const condition of conditions) for (const prediction of predictions) {
       const receipt = maker.compose(readings, targets, condition, prediction, readingCount);
       const browser = checker.verify(checker.parseClaim(JSON.stringify(receipt)));
@@ -56,11 +56,15 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
     [proved, x => {x.domain.readingCount = true;}],
     [proved, x => {x.domain.readingCount = 7;}],
     [proved, x => {delete x.domain.readingCount;}],
+    [proved, x => {x.domain.medianRule = 'lower-central';}],
+    [proved, x => {delete x.domain.medianRule;}],
     [proved, x => {x.formal.declaration = 'InwardFormal.higher_no_worse_at_midpoint';}],
     [proved, x => {x.formal.sourceCommit = '0'.repeat(40);}],
     [proved, x => {delete x.formal;}],
     [proved, x => {x.classification.counterexample = clone(refuted.classification.counterexample);}],
     [refuted, x => {x.classification.counterexample.actualWinner = 'tie';}],
+    [refuted, x => {x.classification.construction.target = '100';}],
+    [refuted, x => {delete x.classification.construction;}],
     [refuted, x => {delete x.classification;}],
     [refuted, x => {x.search.counterexample.target = '100';}],
     [refuted, x => {x.search.status = 'proved-by-algebra';}],
@@ -78,6 +82,7 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
   const legacy = clone(proved);
   legacy.format = 'inward-conditional-claim-v1';
   delete legacy.domain.readingCount;
+  delete legacy.domain.medianRule;
   legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;
@@ -85,6 +90,7 @@ test('browser checker rejects malformed, duplicate-key, forged proof, counts, an
   const v2 = clone(proved);
   v2.format = 'inward-conditional-claim-v2';
   delete v2.domain.readingCount;
+  delete v2.domain.medianRule;
   v2.claim.statement = v2.claim.statement.replace('5 real', 'five real');
   delete v2.classification;
   assert.equal(checker.verify(v2).classification, null);
@@ -152,10 +158,12 @@ test('browser inspector refuses stale results when source changes and fingerprin
   assert.equal(nodes.badge.textContent,'Universal claim refuted');
   assert.match(nodes.count.textContent,/0 eligible exact cases/);
   assert.match(nodes.explanation.textContent,/selected finite grid found none/);
-  assert.match(nodes.witness.textContent,/Readings 0, 0, 50, 50, 50/);
+  assert.match(nodes.witness.textContent,/Readings 0, 100, 100, 100, 100/);
+  assert.match(nodes.explanation.textContent,/endpoint construction/);
   const legacy=clone(proof);
   legacy.format='inward-conditional-claim-v1';
   delete legacy.domain.readingCount;
+  delete legacy.domain.medianRule;
   legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;

@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 const checker = require('../odd-target-box-verifier.js');
 const claimChecker = require('../tools/conditional-claim-verifier.js');
+const reversalChecker = require('../odd-flip-verifier.js');
 const strictJson = require('../tools/target-lens-proof-core.js').parseReceipt;
 const maker = require('../conjecture-lab-core.js');
 const archive = require('../research-archive-core.js');
@@ -12,10 +13,14 @@ const {mkdtempSync, writeFileSync, rmSync} = require('node:fs');
 const {join} = require('node:path');
 const {tmpdir} = require('node:os');
 const {spawnSync} = require('node:child_process');
-const checkers = {targetBox: checker, conditionalClaim: claimChecker, strictJson};
+const checkers = {targetBox: checker, conditionalClaim: claimChecker,
+  sampleReversal: reversalChecker, strictJson};
 
 const source = readFileSync('examples/odd-target-box-v1.json', 'utf8');
 const digest = crypto.createHash('sha256').update(source).digest('hex');
+const evenSource = readFileSync('examples/even-sample-flip-v3.json', 'utf8');
+const oddSource = readFileSync('examples/odd-sample-flip-v1.json', 'utf8');
+const signedSource = readFileSync('examples/odd-sample-flip-v2.json', 'utf8');
 
 // A minimal asynchronous IndexedDB transaction double checks the archive's
 // request ordering, duplicate handling, and commit/abort behavior in Node.
@@ -153,35 +158,44 @@ test('mixed archive preserves legacy Target Box entries and independently rechec
   assert.equal(items.find(x => x.digest === first.digest).valid, true);
 });
 
-test('legacy v1/v2/v3 claims remain readable and portable beside v4 claims', async () => {
+test('legacy v1–v5 claims remain readable and portable beside v6 claims', async () => {
   const db = memoryDB();
   const current = maker.compose('0,25,50,75,100', '0,25,50,75,100',
     'target-at-or-below-midpoint', 'lower-no-worse');
   const legacy = JSON.parse(JSON.stringify(current));
   legacy.format = 'inward-conditional-claim-v1';
   delete legacy.domain.readingCount;
+  delete legacy.domain.medianRule;
   legacy.claim.statement = legacy.claim.statement.replace('5 real', 'five real');
   delete legacy.formal;
   delete legacy.classification;
   const previous = JSON.parse(JSON.stringify(current));
   previous.format = 'inward-conditional-claim-v2';
   delete previous.domain.readingCount;
+  delete previous.domain.medianRule;
   previous.claim.statement = previous.claim.statement.replace('5 real', 'five real');
   delete previous.classification;
   await archive.add(db, JSON.stringify(legacy), 'Earlier proof', checkers, crypto.webcrypto);
   await archive.add(db, JSON.stringify(previous), 'Theorem bound proof', checkers, crypto.webcrypto);
   await archive.add(db, readFileSync('examples/conditional-claim-v3.json', 'utf8'),
     'Five-reading classified proof', checkers, crypto.webcrypto);
+  await archive.add(db, readFileSync('examples/conditional-claim-v4.json', 'utf8'),
+    'Seven-reading proof', checkers, crypto.webcrypto);
+  await archive.add(db, readFileSync('examples/conditional-claim-v5.json', 'utf8'),
+    'Six-reading proof', checkers, crypto.webcrypto);
   await archive.add(db, JSON.stringify(current), 'Classified proof', checkers, crypto.webcrypto);
   const listed = await archive.list(db, checkers, crypto.webcrypto);
-  assert.equal(listed.length, 4);
+  assert.equal(listed.length, 6);
   assert.ok(listed.every(item => item.valid && item.result.status === 'proved-by-algebra'));
   assert.equal(listed.find(item => item.record.format.endsWith('-v1')).result.formal, null);
   assert.equal(listed.find(item => item.record.format.endsWith('-v2')).result.formal.declaration,
     'InwardFormal.lower_no_worse_at_midpoint');
   assert.equal(listed.find(item => item.record.format.endsWith('-v3')).result.classification.status,
     'proved-by-algebra');
-  assert.equal(listed.find(item => item.record.format.endsWith('-v4')).result.readingCount, 5);
+  assert.equal(listed.find(item => item.record.format.endsWith('-v4')).result.readingCount, 7);
+  assert.equal(listed.find(item => item.record.format.endsWith('-v5')).record.domain.medianRule,
+    'central-order-statistics-v1');
+  assert.equal(listed.find(item => item.record.format.endsWith('-v6')).result.classification.construction, null);
   const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
   const dir = mkdtempSync(join(tmpdir(), 'inward-legacy-collection-'));
   try {
@@ -190,7 +204,7 @@ test('legacy v1/v2/v3 claims remain readable and portable beside v4 claims', asy
     const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
       {encoding: 'utf8'});
     assert.equal(checked.status, 0, checked.stderr);
-    assert.match(checked.stdout, /Verified 4 research records/);
+    assert.match(checked.stdout, /Verified 6 research records/);
   } finally {rmSync(dir, {recursive:true, force:true});}
 });
 
@@ -243,6 +257,179 @@ test('portable collection round trips mixed receipts and is independently replay
     {total:3, created:0, duplicates:3});
   assert.deepEqual((await archive.exportCollection(restored, checkers, crypto.webcrypto)).source,
     collection.source);
+});
+
+test('even Target Box receipts remain portable in v1 collections', async () => {
+  const db = memoryDB();
+  const evenBox = readFileSync('examples/even-target-box-v2.json', 'utf8');
+  const added = await archive.add(db, evenBox, 'Four-reading rectangle', checkers, crypto.webcrypto);
+  assert.equal(added.kind, 'target-box');
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].valid, true);
+  assert.equal(listed[0].result.routes, 4);
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-even-box-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /target-box: Mean\/Median\/Tie; 4 exact routes/);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const restored = memoryDB();
+  assert.equal((await archive.importCollection(restored, exported.source,
+    checkers, crypto.webcrypto)).created, 1);
+  assert.equal((await archive.exportCollection(restored, checkers, crypto.webcrypto)).source,
+    exported.source);
+});
+
+test('quantified gap receipts replay in the archive and Python v1 collection checker', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-box-gap-v3.json', 'utf8');
+  await archive.add(db, receipt, 'Exact gap envelope', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.gap.min.value, '-1435/16');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-gap-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.gap.min.value = '-1';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
+test('first-failure receipts remain independently checked in portable collections', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-box-stability-v4.json', 'utf8');
+  await archive.add(db, receipt, 'First tie after eight', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.stability.nearestFailure.distance, '8');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-stability-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.stability.nearestFailure.distance = '7';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
+test('exact region atlas receipts survive portable archive replay and reject forged strips', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-box-atlas-v5.json', 'utf8');
+  await archive.add(db, receipt, 'Decision-region atlas', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.atlas, true);
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-atlas-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.routes[0].region.stripes[0].tieFrom = '49';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
+test('target horizon receipts survive portable archive replay and reject forged tie probes', async () => {
+  const db = memoryDB();
+  const receipt = readFileSync('examples/target-horizon-v6.json', 'utf8');
+  await archive.add(db, receipt, 'Inverse target horizon', checkers, crypto.webcrypto);
+  const listed = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(listed[0].result.targetHorizon.low, '17/3');
+  const exported = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(exported.format, 'inward-research-collection-v1');
+  const dir = mkdtempSync(join(tmpdir(), 'inward-horizon-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, exported.source);
+    const checked = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(checked.status, 0, checked.stderr);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const forged = JSON.parse(exported.source);
+  const altered = JSON.parse(forged.records[0].source);
+  altered.claim.targetHorizon.probe.witness.reading = '5';
+  forged.records[0].source = JSON.stringify(altered);
+  forged.records[0].digest = crypto.createHash('sha256').update(forged.records[0].source).digest('hex');
+  await assert.rejects(archive.importCollection(memoryDB(), JSON.stringify(forged),
+    checkers, crypto.webcrypto));
+});
+
+test('v2 collection preserves and independently rechecks odd, signed, and even reversal receipts', async () => {
+  const db = memoryDB();
+  await archive.add(db, source, 'Target Box', checkers, crypto.webcrypto);
+  for (const [index, receipt] of [oddSource, signedSource, evenSource].entries()) {
+    const saved = await archive.add(db, receipt, '', checkers, crypto.webcrypto);
+    assert.equal(saved.kind, 'sample-reversal');
+    assert.equal(saved.result.routes, index === 2 ? 4 : 5);
+  }
+  const items = await archive.list(db, checkers, crypto.webcrypto);
+  assert.equal(items.length, 4);
+  assert.ok(items.every(item => item.valid));
+  assert.match(items.find(item => item.record.format === 'inward-even-sample-flip-v3').label,
+    /4 readings · reversal at target 50/);
+  const bundle = await archive.exportCollection(db, checkers, crypto.webcrypto);
+  assert.equal(bundle.format, 'inward-research-collection-v2');
+  const parsed = JSON.parse(bundle.source);
+  assert.equal(parsed.records.filter(item => item.kind === 'sample-reversal').length, 3);
+  const dir = mkdtempSync(join(tmpdir(), 'inward-reversal-collection-'));
+  try {
+    const path = join(dir, 'collection.json');
+    writeFileSync(path, bundle.source);
+    const result = spawnSync('python3', ['tools/verify_research_collection.py', path],
+      {encoding: 'utf8'});
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Verified 4 research records/);
+    assert.match(result.stdout, /sample-reversal: strict-baseline/);
+  } finally {rmSync(dir, {recursive: true, force: true});}
+  const restored = memoryDB();
+  assert.deepEqual(await archive.importCollection(restored, bundle.source, checkers, crypto.webcrypto),
+    {total: 4, created: 4, duplicates: 0});
+  assert.equal((await archive.exportCollection(restored, checkers, crypto.webcrypto)).source, bundle.source);
+
+  const changed = JSON.parse(bundle.source);
+  changed.format = 'inward-research-collection-v1';
+  await assert.rejects(archive.parseCollection(JSON.stringify(changed), checkers, crypto.webcrypto),
+    /Invalid or unsorted collection entry/);
+  const forged = JSON.parse(bundle.source);
+  const reversal = forged.records.find(item => item.kind === 'sample-reversal');
+  const receipt = JSON.parse(reversal.source);
+  receipt.claim.routes[0].knots.pop();
+  reversal.source = JSON.stringify(receipt);
+  reversal.digest = crypto.createHash('sha256').update(reversal.source).digest('hex');
+  forged.records.sort((a, b) => a.digest.localeCompare(b.digest));
+  await assert.rejects(archive.parseCollection(JSON.stringify(forged), checkers, crypto.webcrypto),
+    /partition/);
 });
 
 test('collection rejects forged or damaged receipts before storage and refuses partial capacity imports', async () => {
@@ -311,7 +498,8 @@ test('page filters rechecked records and never promotes a damaged stored claim',
     {valid: false, digest: '1'.repeat(64), error: 'Fingerprint mismatch'}];
   let importedCollection = '';
   const mockArchive = {MAX_COLLECTION_BYTES: 10_000_000, open: async () => ({}), list: async () => records,
-    exportCollection: async () => ({source:'{"format":"inward-research-collection-v1"}', count:2}),
+    exportCollection: async () => ({source:'{"format":"inward-research-collection-v1"}', count:2,
+      format: records[0]?.kind === 'sample-reversal' ? 'inward-research-collection-v2' : undefined}),
     importCollection: async (_db, source) => {importedCollection=source;
       return {created:1, duplicates:1};},
     add: async () => { records = [records[0], records[1], records[2],
@@ -320,7 +508,8 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   vm.runInNewContext(readFileSync('research-archive.js', 'utf8'),
     {document: {getElementById: id => fields[id], createElement: element, body: element('body')},
       InwardResearchArchive: mockArchive, InwardTargetBoxVerifier: checker,
-      InwardConditionalClaimVerifier: claimChecker, TargetLensVerifier: {parseReceipt:strictJson},
+      InwardConditionalClaimVerifier: claimChecker, InwardOddFlipVerifier: reversalChecker,
+      TargetLensVerifier: {parseReceipt:strictJson},
       TextDecoder, crypto: crypto.webcrypto, window: {confirm: () => false},
       URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}}, Blob,
       setTimeout: callback => callback()},
@@ -364,13 +553,40 @@ test('page filters rechecked records and never promotes a damaged stored claim',
   fields['archive-filter'].value = 'all';
   fields['archive-filter'].handlers.change();
   assert.equal(fields['archive-cards'].children.length, 1);
+  const reversal = await archive.inspect(evenSource, null, checkers, crypto.webcrypto);
+  records = [{...reversal, valid: true, label: 'Even calibration', savedAt: Date.now()}];
+  fields['archive-search'].value = '';
+  fields['archive-filter'].value = 'sample-reversal';
+  await fields['refresh-button'].handlers.click();
+  assert.equal(fields['archive-cards'].children.length, 1);
+  const reversalCard = fields['archive-cards'].children[0];
+  assert.equal(reversalCard.children[0].children[2].textContent, 'Strict reversal found');
+  assert.match(reversalCard.children[1].children[1].textContent, /130\/3.*5\/3/);
+  fields['archive-filter'].value = 'strict-reversal';
+  fields['archive-filter'].handlers.change();
+  assert.equal(fields['archive-cards'].children.length, 1);
+  fields['archive-search'].value = '125/3';
+  fields['archive-search'].handlers.input();
+  assert.equal(fields['archive-cards'].children.length, 1);
+  fields['archive-search'].value = 'unfindable';
+  fields['archive-search'].handlers.input();
+  assert.equal(fields['archive-cards'].children.length, 0);
+  fields['archive-search'].value = '';
+  await fields['export-collection'].handlers.click();
+  assert.equal(downloads.at(-1), 'inward-research-collection-v2.json');
+  const v2 = '{"format":"inward-research-collection-v2","records":[]}';
+  fields['certificate-file'].files = [{size: v2.length,
+    arrayBuffer: async () => new TextEncoder().encode(v2).buffer}];
+  await fields['import-button'].handlers.click();
+  assert.equal(importedCollection, v2);
 });
 
 test('published archive scripts are content fingerprinted and use local file APIs', () => {
   const html = readFileSync('research-archive.html', 'utf8');
   const app = readFileSync('research-archive.js', 'utf8');
   const inspector = readFileSync('verify-odd-target-box.html', 'utf8');
-  for (const script of ['odd-target-box-verifier.js', 'tools/target-lens-proof-core.js',
+  for (const script of ['odd-target-box-verifier.js', 'odd-flip-verifier.js',
+    'tools/target-lens-proof-core.js',
     'tools/conditional-claim-verifier.js', 'research-archive-core.js', 'research-archive.js']) {
     const version = html.match(new RegExp(`${script.replace('.', '\\.') }\\?v=([0-9a-f]{12})`));
     assert.ok(version, `${script} needs a content fingerprint`);

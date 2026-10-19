@@ -4,6 +4,7 @@
   const archive = globalThis.InwardResearchArchive;
   const checkers = {targetBox: globalThis.InwardTargetBoxVerifier,
     conditionalClaim: globalThis.InwardConditionalClaimVerifier,
+    sampleReversal: globalThis.InwardOddFlipVerifier,
     strictJson: globalThis.TargetLensVerifier?.parseReceipt};
   let db = null, entries = [];
   function node(tag, content, className) {
@@ -31,12 +32,40 @@
         filter === result.classification?.status) &&
         (!term || searchable.includes(term));
     }
+    if (entry.kind === "sample-reversal") {
+      const bounds = record.inputs.bounds || {low: "0", high: "100"};
+      const searchable = [label, digest, record.format, record.inputs.readings.length,
+        ...record.inputs.readings, record.inputs.target, bounds.low, bounds.high,
+        result.kind, result.baseline, result.best?.threshold, result.best?.distance,
+        result.best?.witness, ...record.claim.routes.flatMap(route =>
+          [route.threshold, route.distance, route.witness, ...route.knots])]
+        .join(" ").toLocaleLowerCase();
+      const qualifies = filter === "all" || filter === "sample-reversal" ||
+        filter === result.kind || filter === "strict-reversal" && Boolean(result.best);
+      return qualifies && (!term || searchable.includes(term));
+    }
     const witnessValues = record.claim.routes.flatMap(route =>
       route.reachable.flatMap(name => [route.witnesses[name].reading, route.witnesses[name].target]));
     const searchable = [label, digest, ...record.inputs.readings,
       record.inputs.movement.low, record.inputs.movement.high,
       record.inputs.target.low, record.inputs.target.high, ...result.reachable,
-      ...witnessValues].join(" ").toLocaleLowerCase();
+      ...witnessValues, result.stability?.baseline,
+      result.stability?.nearestFailure?.distance,
+      result.stability?.nearestFailure?.reading,
+      result.stability?.nearestFailure?.target,
+      result.targetHorizon?.low, result.targetHorizon?.high,
+      result.targetHorizon?.allTargetTie?.reading,
+      result.targetHorizon?.probe?.target,
+      result.targetHorizon?.probe?.witness?.reading,
+      ...record.claim.routes.flatMap(route => route.stability ?
+        [route.stability.left.limit, route.stability.right.limit] : []),
+      ...record.claim.routes.flatMap(route => route.region ? [
+        ...route.region.verticalTies, ...route.region.stripes.flatMap(stripe =>
+          [stripe.from, stripe.to, stripe.tieFrom, stripe.tieTo, stripe.below, stripe.above])] : []),
+      ...record.claim.routes.flatMap(route => route.targetHorizon ? [
+        route.targetHorizon.atMovementLow, route.targetHorizon.atMovementHigh,
+        route.targetHorizon.allTargetTie] : [])]
+      .join(" ").toLocaleLowerCase();
     const qualifies = filter === "all" || filter === "target-box" || filter === "strict" &&
       record.claim.routes.some(route => route.guarantee) || result.reachable.includes(filter);
     return qualifies && (!term || searchable.includes(term));
@@ -53,7 +82,7 @@
   }
   function download(entry) {
     downloadJson(entry.source,
-      `inward-${entry.kind === "conditional-claim" ? "conditional-claim" : "target-box"}-${entry.digest.slice(0, 12)}.json`);
+      `inward-${entry.kind}-${entry.digest.slice(0, 12)}.json`);
   }
   async function discard(entry) {
     if (!window.confirm("Remove this device's local copy? Export its JSON first if you need a backup.")) return;
@@ -68,7 +97,8 @@
     item.dataset.valid = String(entry.valid);
     const summary = node("summary", "");
     summary.append(node("small", entry.valid ?
-      `${entry.kind === "conditional-claim" ? "Conditional claim" : "Target Box"} · independently rechecked` :
+      `${entry.kind === "conditional-claim" ? "Conditional claim" :
+        entry.kind === "sample-reversal" ? "Sample reversal" : "Target Box"} · independently rechecked` :
       "Stored item needs attention"));
     summary.append(node("h3", entry.valid ? entry.label : "Record cannot be verified"));
     const claimStatus = {"proved-by-algebra": "General algebraic proof",
@@ -76,7 +106,10 @@
       "unrefuted-on-finite-grid": "Unrefuted on finite grid"};
     const badge = entry.valid ? entry.kind === "conditional-claim" ?
       entry.result.classification?.counterexample ? "Universal claim refuted" :
-        claimStatus[entry.result.status] : entry.result.reachable.join(" · ") : "Not verified";
+        claimStatus[entry.result.status] : entry.kind === "sample-reversal" ?
+          entry.result.kind === "baseline-tie" ? "Starting tie" :
+            entry.result.best ? "Strict reversal found" : "No one-reading reversal" :
+          entry.result.reachable.join(" · ") : "Not verified";
     summary.append(node("span", badge, entry.valid ? "badge" : "badge warning"));
     item.append(summary);
     const body = node("div", "", "card-body");
@@ -97,10 +130,36 @@
         }
         else if (result.classification?.counterexample || result.counterexample) {
           const point = result.classification?.counterexample || result.counterexample;
-          body.append(node("p", `${result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
+          body.append(node("p", `${result.classification?.construction ? "Constructed endpoint counterexample" : result.classification ? "Fixed-basis universal counterexample" : "Exact counterexample"}: readings ${point.readings.join(", ")}; target ${point.target}; mean ${point.mean}; median ${point.median}. ${point.actualWinner} is closer. ${result.counterexample ? "The selected grid also found a counterexample." : "The selected grid found none."}`));
         } else body.append(node("p", "No counterexample on this finite grid. This does not prove a general claim."));
+      } else if (entry.kind === "sample-reversal") {
+        const bounds = record.inputs.bounds || {low: "0", high: "100"};
+        body.append(node("p", `${record.inputs.readings.length} exact readings · target ${record.inputs.target} · movement [${bounds.low}, ${bounds.high}]. Starting verdict: ${result.baseline}.`));
+        body.append(node("p", result.kind === "baseline-tie" ?
+          "The original mean and median tie; no strict starting winner can reverse." :
+          result.best ? `Closest route: move reading ${result.best.index + 1} to ${result.best.threshold}. The infimum distance is ${result.best.distance}; ${result.best.witness} witnesses the strict opposing winner.` :
+            "No single reading can reverse the strict starting winner inside these bounds."));
+        body.append(node("p", `${result.routes} routes independently rechecked with exact fractions. A tie threshold is usually not an attained smallest strict move. The inputs are stipulated, not authenticated measurements.`));
       } else {
-        body.append(node("p", `${record.inputs.readings.length} readings · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
+        body.append(node("p", `${record.inputs.readings.length} readings · ${record.inputs.readings.length % 2 ? "middle-reading" : "central-pair average"} median · movement [${record.inputs.movement.low}, ${record.inputs.movement.high}] · target [${record.inputs.target.low}, ${record.inputs.target.high}]`));
+        if (result.gap) body.append(node("p", `Exact attained squared-error gap D spans [${result.gap.min.value}, ${result.gap.max.value}] across all one-reading routes. Minimum at reading ${result.gap.min.index + 1}, x=${result.gap.min.reading}, t=${result.gap.min.target}; maximum at reading ${result.gap.max.index + 1}, x=${result.gap.max.reading}, t=${result.gap.max.target}. Negative favors Mean; positive favors Median.`));
+        if (result.stability) {
+          const point = result.stability.nearestFailure;
+          body.append(node("p", point ?
+            `Starting verdict across the target interval: ${result.stability.baseline || "no strict winner"}. First tie after movement ${point.distance} on reading ${point.index + 1} (${point.side}), at x=${point.reading}, t=${point.target}. The tie boundary is excluded from the strict safe region.` :
+            `Starting verdict: ${result.stability.baseline}. Every permitted one-reading movement remains strictly ${result.stability.baseline} across the target interval.`));
+        }
+        if (result.atlas) body.append(node("p",
+          "Exact decision-region atlas: every open reading strip has a linear tie target and verified Mean/Median sides. An all-target vertical tie is listed where the two estimators coincide. Colored chart areas are outcomes, not probabilities."));
+        if (result.targetHorizon) {
+          const h = result.targetHorizon;
+          body.append(node("p", h.allTargetTie ?
+            `All real targets tie if reading ${h.allTargetTie.index + 1} moves to ${h.allTargetTie.reading}; no strict global target guarantee exists. Finite midpoint span: [${h.low}, ${h.high}].` :
+            `Target horizon [${h.low}, ${h.high}]: strict ${h.below} below, strict ${h.above} above, with a reachable tie for every target inside, including its endpoints.`));
+          body.append(node("p", h.probe.witness ?
+            `Probe t=${h.probe.target}: exact tie by moving reading ${h.probe.witness.index + 1} to ${h.probe.witness.reading}.` :
+            `Probe t=${h.probe.target}: strict ${h.probe.verdict} across all one-reading routes.`));
+        }
         body.append(node("p", result.guarantee ? `Strict global guarantee: ${result.guarantee}` :
           "No strict global guarantee under these exact inputs."));
         const strict = record.claim.routes.filter(route => route.guarantee).length;
@@ -109,8 +168,21 @@
         record.claim.routes.forEach(route => {
           const witnesses = route.reachable.map(name =>
             `${name} at x=${route.witnesses[name].reading}, t=${route.witnesses[name].target}`).join("; ");
-          routes.append(node("li",
-            `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.`));
+          const item = node("li",
+            `Reading ${route.index + 1}: ${record.inputs.readings[route.index]} · ${route.reachable.join(" / ")} · ${route.guarantee ? `strict ${route.guarantee}` : "varies or ties"}. Witnesses: ${witnesses}.` +
+            (route.stability ? route.stability.baseline ?
+              ` Baseline safe region: ${route.stability.left.limit} (${route.stability.left.included ? "included" : "tie boundary"}) to ${route.stability.right.limit} (${route.stability.right.included ? "included" : "tie boundary"}).` :
+              ` No strict baseline across targets; tie at original reading with target ${route.stability.left.witness.target}.` : ""));
+          if (route.region) {
+            const rules = node("ol", "", "route-list");
+            for (const stripe of route.region.stripes) rules.append(node("li",
+              `Reading (${stripe.from}, ${stripe.to}): tie target ${stripe.tieFrom} to ${stripe.tieTo}; below ${stripe.below}, above ${stripe.above}.`));
+            item.append(rules);
+          }
+          if (route.targetHorizon) item.append(node("p",
+            `Tie-target endpoints ${route.targetHorizon.atMovementLow} to ${route.targetHorizon.atMovementHigh}; ${route.targetHorizon.allTargetTie === null ?
+              "no all-target tie" : `all-target tie at x=${route.targetHorizon.allTargetTie}`}.`));
+          routes.append(item);
         });
         body.append(routes);
       }
@@ -162,7 +234,7 @@
     $("collection-status").textContent = "Rechecking every stored record before collection export...";
     try {
       const bundle = await archive.exportCollection(db, checkers, crypto);
-      downloadJson(bundle.source, "inward-research-collection-v1.json");
+      downloadJson(bundle.source, `${bundle.format || "inward-research-collection-v1"}.json`);
       $("collection-status").textContent = `Exported ${bundle.count} independently checked records. Keep the JSON as a portable backup.`;
     } catch (error) { $("collection-status").textContent = `Collection not exported: ${error.message}`; }
     finally { $("export-collection").disabled = false; }
@@ -177,7 +249,8 @@
       if (file.size > archive.MAX_COLLECTION_BYTES) throw new Error("File exceeds the 10 MB collection limit");
       const source = new TextDecoder("utf-8", {fatal: true, ignoreBOM: true})
         .decode(await file.arrayBuffer());
-      const isCollection = JSON.parse(source)?.format === "inward-research-collection-v1";
+      const isCollection = ["inward-research-collection-v1", "inward-research-collection-v2"]
+        .includes(JSON.parse(source)?.format);
       const saved = isCollection ? await archive.importCollection(db, source, checkers, crypto) :
         await archive.add(db, source, $("certificate-label").value, checkers, crypto);
       await refresh();

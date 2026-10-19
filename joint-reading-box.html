@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Certify the exact worst-case Mean versus Median gap when several readings and the target vary independently.">
+  <title>Joint Reading Box / Exact Research Lab | INWARD Mathematics™</title>
+  <style>
+    #margin-form{margin-top:22px}#margin-threshold{display:block;min-height:46px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;width:min(100%,230px);margin-top:6px}#margin-result{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace;margin-top:14px}
+    :root{color-scheme:dark light;--bg:#071827;--panel:#102b3c;--ink:#f3f9f6;--muted:#c1d4d8;--line:#7896a3;--mint:#75e8c4;--gold:#ffd18a}
+    *{box-sizing:border-box}body{margin:0;min-width:320px;background:radial-gradient(circle at 83% 0,#204c61 0,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
+    main,header .wrap,footer .wrap{width:min(1020px,calc(100% - 36px));margin:auto}a{color:var(--mint);text-underline-offset:3px}a:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+    header,footer{border-bottom:1px solid var(--line);padding:18px 0}footer{border-bottom:0;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}header .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}header strong{font-size:.75rem;letter-spacing:.14em}
+    .hero{padding:clamp(45px,7vw,85px) 0 32px}.eyebrow{color:var(--mint);font-size:.74rem;letter-spacing:.17em;text-transform:uppercase;font-weight:800}h1{font-size:clamp(2.6rem,7vw,5.5rem);line-height:1.03;letter-spacing:-.06em;margin:12px 0 17px;max-width:820px}h2{font-size:clamp(1.5rem,3vw,2.2rem);letter-spacing:-.035em;line-height:1.12}.lede{font-size:1.1rem;max-width:780px;color:var(--muted)}.section{border-top:1px solid var(--line);padding:30px 0 43px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:22px;min-width:0}.card h2{margin-top:0}textarea{width:100%;min-height:220px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);font:13px/1.55 ui-monospace,monospace;padding:12px}input[type=file]{max-width:100%;margin:8px 0 14px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}button{font:inherit;font-weight:800;cursor:pointer;border:1px solid var(--mint);border-radius:9px;padding:10px 15px;min-height:46px;background:var(--mint);color:#082d2a}button.secondary{background:transparent;color:var(--mint)}button:disabled{opacity:.55;cursor:not-allowed}.help{color:var(--muted);font-size:.88rem}.result{font-size:clamp(1.6rem,3vw,2.6rem);line-height:1.15;letter-spacing:-.04em;color:var(--gold);margin:10px 0}.fact{border-top:1px solid var(--line);padding:11px 0}.fact span{display:block;color:var(--muted);font-size:.8rem}.fact strong{overflow-wrap:anywhere}.error{color:#ffc5be}.good{color:var(--mint)}code{font:inherit;overflow-wrap:anywhere}#fingerprint{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.muted{color:var(--muted)}
+    .setup{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:15px}.setup select,.reading input,.setup input{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-height:46px;font:inherit}.reading-list{display:grid;gap:10px}.reading{border:1px solid var(--line);border-radius:11px;padding:11px 13px}.reading strong{display:block;margin-bottom:8px}.reading-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.reading label{display:block;min-width:0;color:var(--muted);font-size:.8rem}.reading input{display:block;min-width:0;width:100%;margin-top:4px;font-size:1rem}.reading[hidden],#sweep-view[hidden]{display:none}.number-note{font-size:.84rem;color:var(--muted);margin:14px 0 0}#sweep-pieces{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:18px}.hero{padding:36px 0 20px}}@media(max-width:390px){.reading-pair{gap:7px}.reading{padding:9px}.reading input{padding:8px}}@media(prefers-color-scheme:light){:root{--bg:#f4f8f6;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}body{background:radial-gradient(circle at 83% 0,#e0f0e9 0,transparent 35%),var(--bg)}button{color:#fff}}@media print{button,textarea,input,.actions,.setup,.reading-list{display:none}body{background:#fff;color:#173341}.card{break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Back to the lab</a></div></header>
+  <main>
+    <section class="hero"><p class="eyebrow">Exact mathematics / interactive research</p><h1>Several readings can move. Does the result hold?</h1>
+      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Find an attainable tie, the exact worst-case squared-error lead, or a complete map of how both change across targets. Ask where a chosen lead is guaranteed, then check and share the exact answer.</p></section>
+    <section class="section"><p class="eyebrow">01 / Define an experiment</p><h2>What might each reading become?</h2>
+      <div class="grid"><form id="builder-form" class="card">
+        <div class="setup"><label for="reading-count">Number of readings</label><select id="reading-count"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option></select>
+          <label for="target">Target from</label><input id="target" type="text" inputmode="decimal" value="0" autocomplete="off" aria-describedby="input-help">
+          <label for="target-high">Target through (optional)</label><input id="target-high" type="text" inputmode="decimal" placeholder="Fixed target" autocomplete="off" aria-describedby="input-help"></div>
+        <div class="reading-list">
+          <div class="reading" id="row-1"><strong>Reading 1</strong><div class="reading-pair"><label for="low-1">Lowest value<input id="low-1" type="text" inputmode="decimal" value="48" autocomplete="off"></label><label for="high-1">Highest value<input id="high-1" type="text" inputmode="decimal" value="49" autocomplete="off"></label></div></div>
+          <div class="reading" id="row-2"><strong>Reading 2</strong><div class="reading-pair"><label for="low-2">Lowest value<input id="low-2" type="text" inputmode="decimal" value="49" autocomplete="off"></label><label for="high-2">Highest value<input id="high-2" type="text" inputmode="decimal" value="50" autocomplete="off"></label></div></div>
+          <div class="reading" id="row-3"><strong>Reading 3</strong><div class="reading-pair"><label for="low-3">Lowest value<input id="low-3" type="text" inputmode="decimal" value="50" autocomplete="off"></label><label for="high-3">Highest value<input id="high-3" type="text" inputmode="decimal" value="51" autocomplete="off"></label></div></div>
+          <div class="reading" id="row-4"><strong>Reading 4</strong><div class="reading-pair"><label for="low-4">Lowest value<input id="low-4" type="text" inputmode="decimal" value="51" autocomplete="off"></label><label for="high-4">Highest value<input id="high-4" type="text" inputmode="decimal" value="52" autocomplete="off"></label></div></div>
+          <div class="reading" id="row-5"><strong>Reading 5</strong><div class="reading-pair"><label for="low-5">Lowest value<input id="low-5" type="text" inputmode="decimal" value="85" autocomplete="off"></label><label for="high-5">Highest value<input id="high-5" type="text" inputmode="decimal" value="86" autocomplete="off"></label></div></div>
+        </div>
+        <p id="input-help" class="number-note">Use integers, fractions such as -3/2, or decimals up to six places. Each interval includes both endpoints. Leave “Target through” empty for one fixed target; fill it to certify every target in the closed range.</p>
+        <div class="actions"><button type="submit">Generate and verify</button><button id="sweep" type="button" class="secondary">Map every target</button><button id="download" type="button" class="secondary" disabled>Download checked JSON</button></div>
+        <p id="builder-status" class="help" role="status">Edit the example bounds or generate its receipt.</p>
+      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the receipt gives the strict winner, the exact smallest squared-error lead, and readings and target where that minimum occurs.</p><p class="muted">To map the whole target range, enter a strictly higher “Target through” value and choose “Map every target.” The map finds every tie target and each exact linear piece of the worst-case lead, with readings that attain it. Then choose a required lead to find the exact target regions that guarantee it.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
+    </section>
+    <section class="section grid">
+      <div class="card"><p class="eyebrow">02 / Independent check</p><h2>Inspect the receipt</h2><label for="receipt-file">Choose a JSON certificate</label><br><input id="receipt-file" type="file" accept="application/json,.json">
+        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1, v2, v3, or v4 receipt"></textarea>
+        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="sweep-example" class="secondary" type="button">Full target map: v4</button><button id="strict-example" class="secondary" type="button">Fixed target: v1</button><button id="tie-example" class="secondary" type="button">Fixed tie: v1</button><button id="range-strict-example" class="secondary" type="button">Exact gap: v3</button><button id="interior-example" class="secondary" type="button">Interior minimum: v3</button><button id="range-tie-example" class="secondary" type="button">Range tie: v3</button></div>
+        <p class="help">The verifier recomputes the claim without importing the constructor. You can also generate or check receipts offline using the documented Python and Node commands.</p></div>
+      <div class="card" aria-live="polite" aria-atomic="true"><p class="eyebrow">Verified result</p><p id="status" class="muted">Choose a certificate or load an example.</p><p id="verdict" class="result">—</p>
+        <div class="fact"><span>All-reading guarantee or witness</span><strong id="detail">No certificate checked yet.</strong></div>
+        <div class="fact"><span>Exact mean minus median range</span><strong id="estimate">—</strong></div>
+        <div class="fact"><span>Exact estimator-midpoint range</span><strong id="midpoint">—</strong></div>
+        <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
+    </section>
+    <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div>
+      <form id="margin-form" class="card"><h2>Where is a required lead guaranteed?</h2><p class="help">Enter a positive squared-error lead. The target regions below include their exact endpoints; the cutoff readings attain the threshold. This is a sensitivity question about your stipulated bounds.</p><label for="margin-threshold">Required lead<input id="margin-threshold" type="text" inputmode="decimal" value="100" autocomplete="off"></label><div class="actions"><button type="submit">Find exact target regions</button><button id="margin-download" type="button" class="secondary" disabled>Download checked region answer</button></div></form>
+      <div id="margin-result" class="card" role="status" aria-live="polite">Verify a v4 sweep to calculate target regions.</div></section>
+    <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
+      <p class="lede">The exact finite calculation covers every real reading and target inside the supplied intervals. A strict v3 verdict includes the exact attained minimum squared-error lead; legacy v1/v2 receipts retain their conservative bound. A v4 map can answer a required-lead query and export exact target regions linked to the checked source JSON. A tie result includes attainable readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
+      <p><a href="joint-reading-sweep-report.html">Explore the standalone, verified target-sweep report</a> · <a href="docs/JOINT_READING_BOX.md">Read the proof, limits, and reproduction commands</a></p></section>
+  </main>
+  <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
+  <script src="joint-reading-box-core.js?v=4333d1ab1d37"></script>
+  <script src="joint-reading-box-verifier.js?v=f2bfc6c05e94"></script>
+  <script src="joint-reading-threshold.js?v=a976351e5ca5"></script>
+  <script>
+    (() => {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      let rawBytes = null, generatedJSON = null, revision = 0;
+      let verifiedSweep = null, marginJSON = null;
+      function clearMargin(message = 'Verify a v4 sweep to calculate target regions.') {
+        verifiedSweep = null; marginJSON = null;
+        $('margin-download').disabled = true;
+        $('margin-result').textContent = message;
+        $('margin-result').className = 'card';
+      }
+      function invalidate(message) {
+        revision++;
+        rawBytes = null; generatedJSON = null; $('download').disabled = true;
+        clearMargin();
+        $('builder-status').textContent = 'Generate again to download a checked certificate.';
+        $('builder-status').className = 'help';
+        $('status').textContent = message; $('status').className = 'muted';
+        $('verdict').textContent = '—';
+        $('sweep-view').hidden = true;
+        for (const id of ['detail', 'estimate', 'midpoint', 'fingerprint']) $(id).textContent = '—';
+      }
+      function syncRows(clear = true) {
+        const count = Number($('reading-count').value);
+        for (let i = 1; i <= 5; i++) {
+          $('row-' + i).hidden = i > count;
+          $('low-' + i).disabled = i > count;
+          $('high-' + i).disabled = i > count;
+        }
+        if (clear) invalidate('Inputs changed. Generate and verify the new experiment.');
+      }
+      syncRows(false);
+      $('reading-count').addEventListener('change', () => syncRows());
+      for (const id of ['target', 'target-high', ...Array.from({length: 5}, (_, i) => 'low-' + (i + 1)),
+        ...Array.from({length: 5}, (_, i) => 'high-' + (i + 1))]) {
+        $(id).addEventListener('input', () => invalidate('Inputs changed. Generate and verify the new experiment.'));
+      }
+      async function generate(sweep = false) {
+        invalidate('Building and checking exact certificate…');
+        try {
+          const count = Number($('reading-count').value);
+          const intervals = Array.from({length: count}, (_, i) =>
+            [$('low-' + (i + 1)).value.trim(), $('high-' + (i + 1)).value.trim()]);
+          const targetLow = $('target').value.trim(), targetHigh = $('target-high').value.trim();
+          const receipt = sweep ? InwardJointBox.certificateSweep(intervals, targetLow, targetHigh) :
+            InwardJointBox.certificateSharp(intervals, targetLow, targetHigh || targetLow);
+          InwardJointBoxVerifier.verify(receipt);
+          const json = JSON.stringify(receipt, null, 2) + '\n';
+          if (new TextEncoder().encode(json).length > 2000000) throw new Error('Certificate exceeds 2 MB');
+          $('receipt-json').value = json;
+          rawBytes = null;
+          if (!await inspect()) {
+            if ($('status').className === 'error') {
+              $('builder-status').textContent = $('status').textContent;
+              $('builder-status').className = 'error';
+            }
+            return;
+          }
+          generatedJSON = json;
+          $('download').disabled = false;
+          $('builder-status').textContent = 'Exact certificate generated and independently checked. Download it to share or reproduce.';
+          $('builder-status').className = 'good';
+        } catch (error) {
+          rejected(error);
+          $('builder-status').textContent = error.message;
+          $('builder-status').className = 'error';
+        }
+      }
+      $('builder-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        await generate();
+      });
+      $('sweep').addEventListener('click', () => generate(true));
+      $('download').addEventListener('click', () => {
+        if (!generatedJSON) return;
+        downloadJSON(generatedJSON, generatedJSON.includes('"inward-joint-reading-box-v4"') ?
+          'joint-reading-box-v4.json' : 'joint-reading-box-v3.json');
+      });
+      function downloadJSON(content, filename) {
+        const url = URL.createObjectURL(new Blob([content], {type: 'application/json'}));
+        const link = document.createElement('a');
+        link.href = url; link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      $('margin-download').addEventListener('click', () => {
+        if (marginJSON && verifiedSweep) downloadJSON(marginJSON, 'joint-reading-margin-regions-v1.json');
+      });
+      $('margin-threshold').addEventListener('input', () => {
+        marginJSON = null; $('margin-download').disabled = true;
+        $('margin-result').textContent = 'Threshold changed. Calculate the exact target regions again.';
+        $('margin-result').className = 'card';
+      });
+      function updateMargin() {
+        marginJSON = null; $('margin-download').disabled = true;
+        if (!verifiedSweep) return;
+        try {
+          const {result, inputs, sourceSha} = verifiedSweep;
+          const calculation = InwardJointThreshold.regions(result, inputs, $('margin-threshold').value.trim());
+          const answer = {format: 'inward-joint-reading-margin-regions-v1',
+            sourceReceiptSha256: sourceSha, ...calculation};
+          marginJSON = JSON.stringify(answer, null, 2) + '\n';
+          $('margin-download').disabled = false;
+          $('margin-result').className = 'card';
+          $('margin-result').textContent = calculation.guaranteedRegions.length ?
+            calculation.guaranteedRegions.map(region =>
+              `[${region.from}, ${region.to}]: ${region.verdict} guarantees a lead ≥ ${calculation.threshold} for every permitted reading. ` +
+              (region.thresholdBoundary ?
+                `At target ${region.thresholdBoundary.target}, readings [${region.thresholdBoundary.readings.join(', ')}] attain exactly ${calculation.threshold}.` :
+                'The threshold is not tight inside this target region.')).join('\n\n') :
+            `No target in the selected range guarantees a lead of ${calculation.threshold}.`;
+        } catch (error) {
+          $('margin-result').textContent = `Cannot calculate regions: ${error.message}`;
+          $('margin-result').className = 'card error';
+        }
+      }
+      $('margin-form').addEventListener('submit', event => {event.preventDefault(); updateMargin();});
+      $('receipt-json').addEventListener('input', () => invalidate('Receipt edited. Verify its current contents.'));
+      $('receipt-file').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        invalidate('Reading certificate…');
+        const token = revision;
+        try {
+          if (file.size > 2000000) throw new Error('Certificate exceeds 2 MB');
+          const bytes = await file.arrayBuffer();
+          if (token !== revision) return;
+          rawBytes = bytes;
+          $('receipt-json').value = new TextDecoder('utf-8', {fatal: true}).decode(rawBytes);
+          await inspect();
+        } catch (error) { if (token === revision) rejected(error); }
+      });
+      function rejected(error) {
+        revision++;
+        generatedJSON = null; $('download').disabled = true;
+        clearMargin();
+        $('status').textContent = `Rejected: ${error.message}`; $('status').className = 'error';
+        $('verdict').textContent = 'Unverified';
+        $('sweep-view').hidden = true;
+        for (const id of ['detail', 'estimate', 'midpoint', 'fingerprint']) $(id).textContent = '—';
+      }
+      async function inspect() {
+        const token = ++revision;
+        clearMargin('Checking the edited receipt before calculating target regions…');
+        $('sweep-view').hidden = true;
+        try {
+          const text = $('receipt-json').value;
+          const bytes = rawBytes || new TextEncoder().encode(text);
+          const receipt = InwardJointBoxVerifier.parseReceipt(text);
+          const result = InwardJointBoxVerifier.verify(receipt);
+          const digest = await crypto.subtle.digest('SHA-256', bytes);
+          if (token !== revision) return false;
+          $('status').textContent = 'Exact receipt accepted. The claim was recalculated.';
+          $('status').className = 'good';
+          $('sweep-view').hidden = !result.isSweep;
+          if (result.isSweep) {
+            verifiedSweep = {result, inputs: receipt.inputs,
+              sourceSha: [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')};
+            $('verdict').textContent = result.tieTargetInterval ? 'Target map with ties' : 'Strict target map';
+            $('detail').textContent = `${result.strictPieces.length} exact strict piece(s); ${
+              result.tieTargetInterval ? 'ties on [' + result.tieTargetInterval.join(', ') + ']' : 'no ties in this range'}.`;
+            $('sweep-ties').textContent = result.tieTargetInterval ?
+              `Tie for every target in [${result.tieTargetInterval.join(', ')}]; witnessed at target ${result.tieWitness.target} with readings [${result.tieWitness.readings.join(', ')}].` :
+              'No target in this range permits a tie.';
+            $('sweep-pieces').textContent = result.strictPieces.map(piece =>
+              `[${piece.from}, ${piece.to}]  ${piece.verdict}  gap(t) = (${piece.slope})t + (${piece.intercept})\nAttained at readings [${piece.readings.join(', ')}]`).join('\n\n');
+            updateMargin();
+          } else {
+            $('verdict').textContent = result.verdict;
+            $('detail').textContent = result.tieWitness ?
+            `Tie attained at readings [${result.tieWitness.join(', ')}] for target ${result.tieTarget}.` :
+            result.isSharp ?
+              `Exact smallest squared-error lead = ${result.squaredGapLowerBound}; attained at readings [${result.gapWitness.readings.join(', ')}] for target ${result.gapWitness.target}.` :
+              `For every permitted configuration, squared-error lead ≥ ${result.squaredGapLowerBound} (conservative bound).`;
+          }
+          $('estimate').textContent = `[${receipt.claim.estimateRange.min.value}, ${receipt.claim.estimateRange.max.value}]`;
+          $('midpoint').textContent = `[${receipt.claim.midpointRange.min}, ${receipt.claim.midpointRange.max}]`;
+          $('fingerprint').textContent = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+          return true;
+        } catch (error) { if (token === revision) rejected(error); return false; }
+      }
+      $('verify').addEventListener('click', inspect);
+      for (const [id, path] of [['sweep-example', 'examples/joint-reading-box-sweep-v4.json'],
+        ['strict-example', 'examples/joint-reading-box-strict-v1.json'],
+        ['tie-example', 'examples/joint-reading-box-tie-v1.json'],
+        ['range-strict-example', 'examples/joint-reading-box-strict-v3.json'],
+        ['interior-example', 'examples/joint-reading-box-interior-v3.json'],
+        ['range-tie-example', 'examples/joint-reading-box-tie-v3.json']]) {
+        $(id).addEventListener('click', async () => {
+          invalidate('Loading example certificate…');
+          const token = revision;
+          try {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error('Example could not be loaded');
+            const bytes = await response.arrayBuffer();
+            if (token !== revision) return;
+            rawBytes = bytes;
+            $('receipt-json').value = new TextDecoder('utf-8', {fatal: true}).decode(rawBytes);
+            await inspect();
+          } catch (error) { if (token === revision) rejected(error); }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+{
+  "format": "inward-conditional-claim-v6",
+  "claim": {
+    "condition": "any-target",
+    "prediction": "mean-no-worse",
+    "statement": "For any 4 real readings, at any target, the mean is no farther than the median."
+  },
+  "domain": {
+    "readingCount": 4,
+    "medianRule": "central-order-statistics-v1",
+    "readingValues": [
+      "0",
+      "1",
+      "2"
+    ],
+    "targetValues": [
+      "1/4",
+      "1/2"
+    ],
+    "readingMultisets": 15
+  },
+  "search": {
+    "casesChecked": 9,
+    "status": "counterexample-found",
+    "counterexample": {
+      "readings": [
+        "0",
+        "0",
+        "1",
+        "2"
+      ],
+      "target": "1/4",
+      "mean": "3/4",
+      "median": "1/2",
+      "lower": "1/2",
+      "higher": "3/4",
+      "actualWinner": "median"
+    }
+  },
+  "proof": null,
+  "formal": null,
+  "classification": {
+    "status": "refuted-by-exact-witness",
+    "counterexample": {
+      "readings": [
+        "0",
+        "0",
+        "0",
+        "100"
+      ],
+      "target": "0",
+      "mean": "25",
+      "median": "0",
+      "lower": "0",
+      "higher": "25",
+      "actualWinner": "median"
+    },
+    "construction": {
+      "method": "endpoint-family-v1",
+      "family": "one-high",
+      "target": "0"
+    }
+  }
+}

@@ -1,0 +1,527 @@
+{
+  "format": "inward-target-box-atlas-v5",
+  "inputs": {
+    "readings": [
+      "48",
+      "49",
+      "50",
+      "51",
+      "85"
+    ],
+    "movement": {
+      "low": "0",
+      "high": "100"
+    },
+    "target": {
+      "low": "48",
+      "high": "52"
+    }
+  },
+  "claim": {
+    "routes": [
+      {
+        "index": 0,
+        "knots": [
+          "0",
+          "15",
+          "35",
+          "50",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "52"
+          },
+          "Tie": {
+            "reading": "0",
+            "target": "97/2"
+          }
+        },
+        "region": {
+          "stripes": [
+            {
+              "from": "0",
+              "to": "15",
+              "tieFrom": "97/2",
+              "tieTo": "50",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "15",
+              "to": "35",
+              "tieFrom": "50",
+              "tieTo": "52",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "35",
+              "to": "50",
+              "tieFrom": "52",
+              "tieTo": "107/2",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "50",
+              "to": "51",
+              "tieFrom": "107/2",
+              "tieTo": "541/10",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "51",
+              "to": "100",
+              "tieFrom": "541/10",
+              "tieTo": "59",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            }
+          ],
+          "verticalTies": [
+            "15"
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "knots": [
+          "0",
+          "16",
+          "36",
+          "50",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "52"
+          },
+          "Tie": {
+            "reading": "0",
+            "target": "242/5"
+          }
+        },
+        "region": {
+          "stripes": [
+            {
+              "from": "0",
+              "to": "16",
+              "tieFrom": "242/5",
+              "tieTo": "50",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "16",
+              "to": "36",
+              "tieFrom": "50",
+              "tieTo": "52",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "36",
+              "to": "50",
+              "tieFrom": "52",
+              "tieTo": "267/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "50",
+              "to": "51",
+              "tieFrom": "267/5",
+              "tieTo": "54",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "51",
+              "to": "100",
+              "tieFrom": "54",
+              "tieTo": "589/10",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            }
+          ],
+          "verticalTies": [
+            "16"
+          ]
+        }
+      },
+      {
+        "index": 2,
+        "knots": [
+          "0",
+          "2",
+          "12",
+          "42",
+          "49",
+          "51",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "7",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "2",
+            "target": "48"
+          }
+        },
+        "region": {
+          "stripes": [
+            {
+              "from": "0",
+              "to": "2",
+              "tieFrom": "239/5",
+              "tieTo": "48",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "2",
+              "to": "12",
+              "tieFrom": "48",
+              "tieTo": "49",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "12",
+              "to": "42",
+              "tieFrom": "49",
+              "tieTo": "52",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "42",
+              "to": "49",
+              "tieFrom": "52",
+              "tieTo": "527/10",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "49",
+              "to": "51",
+              "tieFrom": "527/10",
+              "tieTo": "539/10",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "51",
+              "to": "100",
+              "tieFrom": "539/10",
+              "tieTo": "294/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            }
+          ],
+          "verticalTies": [
+            "12"
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "knots": [
+          "0",
+          "3",
+          "13",
+          "43",
+          "49",
+          "50",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "8",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "3",
+            "target": "48"
+          }
+        },
+        "region": {
+          "stripes": [
+            {
+              "from": "0",
+              "to": "3",
+              "tieFrom": "477/10",
+              "tieTo": "48",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "3",
+              "to": "13",
+              "tieFrom": "48",
+              "tieTo": "49",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "13",
+              "to": "43",
+              "tieFrom": "49",
+              "tieTo": "52",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "43",
+              "to": "49",
+              "tieFrom": "52",
+              "tieTo": "263/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "49",
+              "to": "50",
+              "tieFrom": "263/5",
+              "tieTo": "266/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "50",
+              "to": "100",
+              "tieFrom": "266/5",
+              "tieTo": "291/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            }
+          ],
+          "verticalTies": [
+            "13"
+          ]
+        }
+      },
+      {
+        "index": 4,
+        "knots": [
+          "0",
+          "37",
+          "47",
+          "49",
+          "99/2",
+          "50",
+          "52",
+          "72",
+          "100"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "42",
+            "target": "48"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "48"
+          },
+          "Tie": {
+            "reading": "37",
+            "target": "48"
+          }
+        },
+        "region": {
+          "stripes": [
+            {
+              "from": "0",
+              "to": "37",
+              "tieFrom": "443/10",
+              "tieTo": "48",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "37",
+              "to": "47",
+              "tieFrom": "48",
+              "tieTo": "49",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "47",
+              "to": "49",
+              "tieFrom": "49",
+              "tieTo": "246/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "49",
+              "to": "99/2",
+              "tieFrom": "246/5",
+              "tieTo": "99/2",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "99/2",
+              "to": "50",
+              "tieFrom": "99/2",
+              "tieTo": "249/5",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "50",
+              "to": "52",
+              "tieFrom": "249/5",
+              "tieTo": "50",
+              "below": "Mean",
+              "above": "Median",
+              "atTargetLow": "Mean",
+              "atTargetHigh": "Median"
+            },
+            {
+              "from": "52",
+              "to": "72",
+              "tieFrom": "50",
+              "tieTo": "52",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Mean"
+            },
+            {
+              "from": "72",
+              "to": "100",
+              "tieFrom": "52",
+              "tieTo": "274/5",
+              "below": "Median",
+              "above": "Mean",
+              "atTargetLow": "Median",
+              "atTargetHigh": "Median"
+            }
+          ],
+          "verticalTies": [
+            "47",
+            "99/2",
+            "52"
+          ]
+        }
+      }
+    ],
+    "reachable": [
+      "Mean",
+      "Median",
+      "Tie"
+    ],
+    "guarantee": null
+  }
+}

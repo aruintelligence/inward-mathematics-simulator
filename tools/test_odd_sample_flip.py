@@ -1,4 +1,4 @@
-"""Exact optimality and tamper checks for arbitrary odd sample sizes."""
+"""Exact optimality, tamper, and unit-invariance checks for odd/even samples."""
 import copy
 import base64
 from fractions import Fraction
@@ -19,6 +19,32 @@ EXAMPLE = ROOT / "examples/odd-sample-flip-v1.json"
 REPORT = ROOT / "odd-flip-report.html"
 SIGNED_EXAMPLE = ROOT / "examples/odd-sample-flip-v2.json"
 SIGNED_REPORT = ROOT / "odd-flip-signed-report.html"
+EVEN_EXAMPLE = ROOT / "examples/even-sample-flip-v3.json"
+EVEN_REPORT = ROOT / "even-flip-report.html"
+
+
+def affine_image(record, scale, shift):
+    """Independent expected image of every exact field under y = scale*x + shift."""
+    image = copy.deepcopy(record)
+    moved = lambda raw: str(scale * Fraction(raw) + shift)
+    distance = lambda raw: str(scale * Fraction(raw))
+    inputs = image["inputs"]
+    inputs["readings"] = list(map(moved, inputs["readings"]))
+    inputs["target"] = moved(inputs["target"])
+    if "bounds" in inputs:
+        inputs["bounds"] = {key: moved(value) for key, value in inputs["bounds"].items()}
+    for route in image["claim"]["routes"]:
+        route["knots"] = list(map(moved, route["knots"]))
+        if route["threshold"] is not None:
+            route["threshold"] = moved(route["threshold"])
+            route["witness"] = moved(route["witness"])
+            route["distance"] = distance(route["distance"])
+    best = image["claim"]["best"]
+    if best is not None:
+        best["threshold"] = moved(best["threshold"])
+        best["witness"] = moved(best["witness"])
+        best["distance"] = distance(best["distance"])
+    return image
 
 
 class OddFlipTests(unittest.TestCase):
@@ -87,6 +113,74 @@ class OddFlipTests(unittest.TestCase):
                             self.assertIsNotNone(route["distance"])
                             self.assertGreater(abs(moved-values[route["index"]]),
                                                Fraction(route["distance"]))
+
+    def test_even_median_certificate_exact_threshold_and_independent_replay(self):
+        record = certificate(["40", "45", "50", "80"], "50")
+        self.assertEqual(record, json.loads(EVEN_EXAMPLE.read_bytes()))
+        self.assertEqual(EVEN_REPORT.read_text(encoding="utf-8"), render(EVEN_EXAMPLE.read_bytes()))
+        self.assertEqual(record["format"], "inward-even-sample-flip-v3")
+        self.assertEqual(record["inputs"]["bounds"], {"low": "0", "high": "100"})
+        self.assertEqual(record["claim"]["best"],
+                         {"index": 1, "threshold": "130/3", "distance": "5/3", "witness": "125/3"})
+        self.assertEqual(verify(record)["routes"], 4)
+        self.assertEqual(winner(list(map(Fraction, ["40", "130/3", "50", "80"])), Fraction(50)), "Tie")
+        self.assertEqual(winner(list(map(Fraction, ["40", "125/3", "50", "80"])), Fraction(50)), "Mean")
+        report = render(json.dumps(record).encode())
+        self.assertIn("certificate v3", report)
+        self.assertIn("even-sized sample", report)
+
+        tied = certificate(["40", "45", "55", "60"], "50")
+        self.assertEqual(verify(tied)["kind"], "baseline-tie")
+        with self.assertRaises(ValueError):
+            verify({**record, "format": "inward-odd-sample-flip-v2"})
+        forged = copy.deepcopy(record)
+        forged["claim"]["routes"][1]["knots"].pop(1)
+        with self.assertRaises(ValueError):
+            verify(forged)
+
+    def test_even_signed_repeated_and_boundary_samples_cover_grid(self):
+        rng = random.Random(20261016)
+        for n in (4, 6, 12, 20):
+            for case in range(12):
+                low, high = Fraction(-20), Fraction(40)
+                values = [low + (high - low) * Fraction(rng.randrange(0, 13), 12)
+                          for _ in range(n)]
+                target = Fraction(rng.randrange(-40, 61), 3)
+                record = certificate(list(map(str, values)), str(target), str(low), str(high))
+                self.assertEqual(verify(record)["kind"], record["claim"]["kind"])
+                if record["claim"]["kind"] != "strict-baseline":
+                    continue
+                baseline = record["claim"]["baseline"]
+                for route in record["claim"]["routes"]:
+                    fixed = values[:route["index"]] + values[route["index"] + 1:]
+                    for step in range(25):
+                        moved = low + (high - low) * Fraction(step, 24)
+                        if winner([*fixed, moved], target) not in (baseline, "Tie"):
+                            self.assertIsNotNone(route["distance"], f"n={n} case={case}")
+                            self.assertGreater(abs(moved - values[route["index"]]),
+                                               Fraction(route["distance"]))
+
+    def test_positive_affine_unit_change_preserves_complete_certificate(self):
+        rng = random.Random(20261017)
+        low, high = Fraction(-20), Fraction(40)
+        scales = (Fraction(3, 2), Fraction(2, 3), Fraction(5, 4))
+        shifts = (Fraction(-7, 3), Fraction(11, 5), Fraction(-8))
+        for n in (3, 4, 5, 6, 9, 10, 20, 21):
+            for case, (scale, shift) in enumerate(zip(scales, shifts)):
+                values = [Fraction(rng.randrange(-30, 81), 2) for _ in range(n)]
+                target = Fraction(rng.randrange(-60, 101), 3)
+                original = certificate(list(map(str, values)), str(target), str(low), str(high))
+                affine = lambda value: str(scale * value + shift)
+                changed = certificate([affine(value) for value in values], affine(target),
+                                      affine(low), affine(high))
+                with self.subTest(n=n, case=case):
+                    self.assertEqual(verify(original)["kind"], original["claim"]["kind"])
+                    self.assertEqual(verify(changed)["kind"], changed["claim"]["kind"])
+                    self.assertEqual(changed, affine_image(original, scale, shift))
+        tied = certificate(["0", "50", "100"], "25", "0", "100")
+        self.assertEqual(tied["claim"]["kind"], "baseline-tie")
+        self.assertEqual(affine_image(tied, Fraction(3, 2), Fraction(-7, 3)),
+                         certificate(["-7/3", "218/3", "443/3"], "211/6", "-7/3", "443/3"))
 
     def test_bounded_validation_and_forged_bounds(self):
         for low, high in (("2", "2"), ("3", "2"), ("-1000001", "100"), ("0", "1000001")):

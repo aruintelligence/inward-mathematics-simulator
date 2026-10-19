@@ -1,0 +1,69 @@
+{
+  "format": "inward-joint-reading-box-v2",
+  "inputs": {
+    "intervals": [
+      [
+        "48",
+        "49"
+      ],
+      [
+        "49",
+        "50"
+      ],
+      [
+        "50",
+        "51"
+      ],
+      [
+        "51",
+        "52"
+      ],
+      [
+        "85",
+        "86"
+      ]
+    ],
+    "targetInterval": [
+      "54",
+      "55"
+    ]
+  },
+  "claim": {
+    "estimateRange": {
+      "min": {
+        "value": "29/5",
+        "readings": [
+          "48",
+          "49",
+          "51",
+          "51",
+          "85"
+        ]
+      },
+      "max": {
+        "value": "37/5",
+        "readings": [
+          "49",
+          "50",
+          "50",
+          "52",
+          "86"
+        ]
+      }
+    },
+    "midpointRange": {
+      "min": "533/10",
+      "max": "543/10"
+    },
+    "verdict": "Tie possible",
+    "squaredGapLowerBound": null,
+    "tieWitness": [
+      "487/10",
+      "497/10",
+      "507/10",
+      "517/10",
+      "857/10"
+    ],
+    "tieTarget": "54"
+  }
+}

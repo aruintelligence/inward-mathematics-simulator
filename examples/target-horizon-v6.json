@@ -1,0 +1,228 @@
+{
+  "format": "inward-target-horizon-v6",
+  "inputs": {
+    "readings": [
+      "8",
+      "6",
+      "8",
+      "7",
+      "0",
+      "8"
+    ],
+    "movement": {
+      "low": "0",
+      "high": "10"
+    },
+    "target": {
+      "low": "6",
+      "high": "6"
+    }
+  },
+  "claim": {
+    "routes": [
+      {
+        "index": 0,
+        "knots": [
+          "0",
+          "4",
+          "6",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "5",
+            "target": "6"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "6"
+          },
+          "Tie": {
+            "reading": "4",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "17/3",
+          "atMovementHigh": "7",
+          "allTargetTie": null
+        }
+      },
+      {
+        "index": 1,
+        "knots": [
+          "0",
+          "7",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean"
+        ],
+        "guarantee": "Mean",
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "19/3",
+          "atMovementHigh": "89/12",
+          "allTargetTie": null
+        }
+      },
+      {
+        "index": 2,
+        "knots": [
+          "0",
+          "4",
+          "6",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "5",
+            "target": "6"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "6"
+          },
+          "Tie": {
+            "reading": "4",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "17/3",
+          "atMovementHigh": "7",
+          "allTargetTie": null
+        }
+      },
+      {
+        "index": 3,
+        "knots": [
+          "0",
+          "6",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "3",
+            "target": "6"
+          },
+          "Tie": {
+            "reading": "0",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "6",
+          "atMovementHigh": "22/3",
+          "allTargetTie": null
+        }
+      },
+      {
+        "index": 4,
+        "knots": [
+          "0",
+          "7",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean"
+        ],
+        "guarantee": "Mean",
+        "witnesses": {
+          "Mean": {
+            "reading": "0",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "41/6",
+          "atMovementHigh": "95/12",
+          "allTargetTie": null
+        }
+      },
+      {
+        "index": 5,
+        "knots": [
+          "0",
+          "4",
+          "6",
+          "8",
+          "10"
+        ],
+        "reachable": [
+          "Mean",
+          "Median",
+          "Tie"
+        ],
+        "guarantee": null,
+        "witnesses": {
+          "Mean": {
+            "reading": "5",
+            "target": "6"
+          },
+          "Median": {
+            "reading": "0",
+            "target": "6"
+          },
+          "Tie": {
+            "reading": "4",
+            "target": "6"
+          }
+        },
+        "targetHorizon": {
+          "atMovementLow": "17/3",
+          "atMovementHigh": "7",
+          "allTargetTie": null
+        }
+      }
+    ],
+    "reachable": [
+      "Mean",
+      "Median",
+      "Tie"
+    ],
+    "guarantee": null,
+    "targetHorizon": {
+      "low": "17/3",
+      "high": "95/12",
+      "allTargetTie": null,
+      "below": "Mean",
+      "above": "Median",
+      "probe": {
+        "target": "6",
+        "verdict": "Tie",
+        "witness": {
+          "index": 0,
+          "reading": "4"
+        }
+      }
+    }
+  }
+}

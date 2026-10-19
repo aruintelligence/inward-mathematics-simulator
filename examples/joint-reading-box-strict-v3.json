@@ -1,0 +1,73 @@
+{
+  "format": "inward-joint-reading-box-v3",
+  "inputs": {
+    "intervals": [
+      [
+        "48",
+        "49"
+      ],
+      [
+        "49",
+        "50"
+      ],
+      [
+        "50",
+        "51"
+      ],
+      [
+        "51",
+        "52"
+      ],
+      [
+        "85",
+        "86"
+      ]
+    ],
+    "targetInterval": [
+      "0",
+      "45"
+    ]
+  },
+  "claim": {
+    "estimateRange": {
+      "min": {
+        "value": "29/5",
+        "readings": [
+          "48",
+          "49",
+          "51",
+          "51",
+          "85"
+        ]
+      },
+      "max": {
+        "value": "37/5",
+        "readings": [
+          "49",
+          "50",
+          "50",
+          "52",
+          "86"
+        ]
+      }
+    },
+    "midpointRange": {
+      "min": "533/10",
+      "max": "543/10"
+    },
+    "verdict": "Median",
+    "squaredGapLowerBound": "2581/25",
+    "tieWitness": null,
+    "tieTarget": null,
+    "gapWitness": {
+      "readings": [
+        "48",
+        "49",
+        "51",
+        "51",
+        "85"
+      ],
+      "target": "45"
+    }
+  }
+}

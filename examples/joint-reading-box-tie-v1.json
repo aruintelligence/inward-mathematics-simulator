@@ -1,0 +1,51 @@
+{
+  "format": "inward-joint-reading-box-v1",
+  "inputs": {
+    "intervals": [
+      [
+        "-4",
+        "-3"
+      ],
+      [
+        "-1",
+        "4"
+      ],
+      [
+        "1",
+        "2"
+      ]
+    ],
+    "target": "-2"
+  },
+  "claim": {
+    "estimateRange": {
+      "min": {
+        "value": "-2",
+        "readings": [
+          "-4",
+          "2",
+          "2"
+        ]
+      },
+      "max": {
+        "value": "1/3",
+        "readings": [
+          "-3",
+          "-1",
+          "2"
+        ]
+      }
+    },
+    "midpointRange": {
+      "min": "-7/6",
+      "max": "3/2"
+    },
+    "verdict": "Tie possible",
+    "squaredGapLowerBound": null,
+    "tieWitness": [
+      "-22/7",
+      "-4/7",
+      "2"
+    ]
+  }
+}

@@ -13,8 +13,9 @@
     ["target-independent", "Changing the target cannot reverse a strict winner for fixed readings."],
     ["midpoint-tie", "For distinct estimates, their exact midpoint is an equal-error target."],
   ];
-  const CLAIM_FORMAT = "inward-conditional-claim-v4";
-  const READING_COUNTS = [3, 5, 7];
+  const CLAIM_FORMAT = "inward-conditional-claim-v6";
+  const READING_COUNTS = [3, 4, 5, 6, 7];
+  const MEDIAN_RULE = "central-order-statistics-v1";
   // Immutable source revision containing the four Lean declarations below.
   const FORMAL_COMMIT = "59a7e9dccd3cc328f855fc1fce1d6b6d55fdd705";
   const FORMAL_THEOREMS = {
@@ -70,10 +71,13 @@
     }
     return values;
   }
-  // A sorted odd sample has a unique middle reading. Keep its mean exact.
+  // For even samples the median is the exact average of the central pair.
   function pair(readings) {
     const sum = readings.reduce((total, x) => add(total, x), rat(0n));
-    return [rat(sum.n, sum.d * BigInt(readings.length)), readings[Math.floor(readings.length / 2)]];
+    const middle = readings.length / 2;
+    const median = readings.length % 2 ? readings[Math.floor(middle)] :
+      half(add(readings[middle - 1], readings[middle]));
+    return [rat(sum.n, sum.d * BigInt(readings.length)), median];
   }
   function winner(meanValue, medianValue, target) {
     const m = rat(abs(meanValue.n * target.d - target.n * meanValue.d), meanValue.d * target.d);
@@ -188,9 +192,37 @@
     }
     return {readingMultisets, casesChecked, counterexample};
   }
+  // For n >= 3 these sorted families have medians 0 and 100 respectively.
+  // Their means lie strictly between the endpoints. Endpoint targets give
+  // constructive refutations without exhausting an arbitrary witness grid.
+  function endpointWitness(condition, prediction, readingCount) {
+    const below = condition.endsWith("below-midpoint") || condition.endsWith("below-both");
+    const above = condition.endsWith("above-midpoint") || condition.endsWith("above-both");
+    const family = below && prediction === "median-no-worse" ||
+      above && prediction === "mean-no-worse" ? "one-low" : "one-high";
+    const target = above || condition === "any-target" &&
+      (prediction === "lower-no-worse" || prediction === "median-no-worse") ? rat(100n) : rat(0n);
+    const low = rat(0n), high = rat(100n);
+    const readings = Array.from({length: readingCount}, (_, i) => family === "one-high" ?
+      (i === readingCount - 1 ? high : low) : (i === 0 ? low : high));
+    const [meanValue, medianValue] = pair(readings);
+    const actualWinner = winner(meanValue, medianValue, target);
+    const expected = prediction === "lower-no-worse" ?
+      (compare(meanValue, medianValue) <= 0 ? "mean" : "median") :
+      prediction === "higher-no-worse" ?
+        (compare(meanValue, medianValue) >= 0 ? "mean" : "median") :
+        prediction === "mean-no-worse" ? "mean" : "median";
+    if (readingCount < 3 || !conditionHolds(condition, meanValue, medianValue, target) ||
+        actualWinner === "tie" || actualWinner === expected) fail("Invalid endpoint construction");
+    return {construction: {method: "endpoint-family-v1", family, target: notation(target)},
+      counterexample: {readings: readings.map(notation), target: notation(target),
+        mean: notation(meanValue), median: notation(medianValue),
+        lower: notation(compare(meanValue, medianValue) <= 0 ? meanValue : medianValue),
+        higher: notation(compare(meanValue, medianValue) >= 0 ? meanValue : medianValue), actualWinner}};
+  }
   function compose(readingGrid, targetGrid, condition, prediction, readingCount = 5) {
     if (!Object.hasOwn(CONDITIONS, condition) || !Object.hasOwn(PREDICTIONS, prediction)) fail("Unknown claim choice");
-    if (!READING_COUNTS.includes(readingCount)) fail("Reading count must be 3, 5, or 7");
+    if (!READING_COUNTS.includes(readingCount)) fail("Reading count must be between 3 and 7");
     const values = parseGrid(readingGrid, 6, "Reading grid");
     const targets = parseGrid(targetGrid, 12, "Target grid");
     const claim = {condition, prediction,
@@ -198,17 +230,14 @@
     const {readingMultisets, casesChecked, counterexample} = searchCases(values, targets, condition, prediction, readingCount);
     const proof = proofFor(condition, prediction);
     if (proof && counterexample) fail("An algebraic theorem disagrees with exact enumeration");
-    // A fixed, independent search basis settles the other 16 universal statements.
-    // One exact counterexample is valid regardless of the visitor's chosen grid.
-    const basis = [rat(0n), rat(50n), rat(100n)];
-    const witness = proof ? null : searchCases(basis, basis, condition, prediction, readingCount).counterexample;
-    if (!proof && !witness) fail("Claim language classification is incomplete");
+    const refutation = proof ? null : endpointWitness(condition, prediction, readingCount);
     const classification = {status: proof ? "proved-by-algebra" : "refuted-by-exact-witness",
-      counterexample: witness};
+      counterexample: refutation?.counterexample || null, construction: refutation?.construction || null};
     const formal = proof ? {system: "Lean 4/Mathlib", declaration: FORMAL_THEOREMS[condition],
       sourceCommit: FORMAL_COMMIT} : null;
     return {format: CLAIM_FORMAT, claim,
-      domain: {readingCount, readingValues: values.map(notation), targetValues: targets.map(notation), readingMultisets},
+      domain: {readingCount, medianRule: MEDIAN_RULE, readingValues: values.map(notation),
+        targetValues: targets.map(notation), readingMultisets},
       search: {casesChecked, status: counterexample ? "counterexample-found" :
         proof ? "proved-by-algebra" : "unrefuted-on-finite-grid", counterexample}, proof, formal,
       classification};
