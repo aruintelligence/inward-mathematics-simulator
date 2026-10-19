@@ -40,6 +40,7 @@ node tools/verify-joint-reading-box.cjs examples/joint-reading-box-interior-v3.j
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=80 --target-sweep > joint-sweep.json
 node tools/verify-joint-reading-box.cjs joint-sweep.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-sweep-v4.json
+python3 tools/render_joint_reading_sweep_report.py --check
 ```
 
 The browser constructor and Python generator produce the same versioned
@@ -233,6 +234,29 @@ at $979/20$, and the strict Mean region changes them at $286/5$. These are
 rational line intersections computed from the readings, not rounded plot
 coordinates. At the tie-band endpoints, the adjacent gap formula equals
 zero; the strict winner applies to the open part of each exterior piece.
+
+The [standalone research report](../joint-reading-sweep-report.html) shows
+these exact pieces, their witnesses, and a piecewise-line plot. Enter a
+target as an integer, fraction, or six-place decimal to query its exact
+winner and attained lead. For a tie target, it reports attainability and
+the receipt's checked example tie; it does not imply that the example
+readings tie at every other target in the band. The SVG uses approximate
+screen coordinates, while its rational labels and query results are exact.
+The renderer invokes the independent Node verifier on the original JSON
+bytes before writing HTML, embeds those bytes and verifier in the output,
+and checks their SHA-256 against the rendered report before independently
+rechecking the claim on open. This requires a browser with WebCrypto in a
+secure local context. Download the original checked JSON from
+the report to replay its claim. SHA-256 identifies bytes, not their author.
+For another v4 receipt, render a portable report with:
+
+```sh
+python3 tools/render_joint_reading_sweep_report.py receipt.json --output report.html
+```
+
+The checked-in example report has a CI regeneration gate. Its HTML is
+self-contained for offline inspection, although a link to the repository's
+proof notes requires an internet connection when the file is moved elsewhere.
 
 ## Why corners alone are insufficient
 

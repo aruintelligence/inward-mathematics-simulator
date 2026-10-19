@@ -14,6 +14,8 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/joint-reading-box.test.cjs
+      - run: node --test tests/joint-reading-sweep-report.test.cjs
+      - run: python3 tools/render_joint_reading_sweep_report.py --check
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v1.json
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
       - run: node tools/verify-joint-reading-box.cjs examples/joint-reading-box-strict-v2.json
