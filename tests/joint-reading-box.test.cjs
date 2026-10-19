@@ -70,7 +70,7 @@ test('even-sample central-pair median and singleton tie boundaries are exact', (
   assert.deepEqual(coincident.claim.tieWitness, ['0', '1', '2', '3']);
 });
 
-test('seeded odd and even rational boxes agree with a separate integer-grid oracle', () => {
+test('seeded odd and even integer boxes agree with a separate integer-grid oracle', () => {
   let seed = 0x6194ad7;
   const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
   for (let k = 0; k < 22; k++) {
@@ -80,8 +80,7 @@ test('seeded odd and even rational boxes agree with a separate integer-grid orac
       return [low, low + next() % 4];
     });
     const target = -4 + next() % 11;
-    const receipt = generate(intervals.map(([a, b], i) => i === 1 ?
-      [`${2 * a}/2`, `${2 * b}/2`] : [String(a), String(b)]), String(target));
+    const receipt = generate(intervals.map(([a, b]) => [String(a), String(b)]), String(target));
     const samples = [];
     function visit(index, values) {
       if (index === n) { samples.push([...values]); return; }
@@ -96,6 +95,21 @@ test('seeded odd and even rational boxes agree with a separate integer-grid orac
     const tie = min <= 0 && max >= 0 || hmin <= target && target <= hmax;
     assert.equal(receipt.claim.verdict === 'Tie possible', tie);
   }
+});
+
+test('signed fractions, decimals, and an even median agree with a rational-grid oracle', () => {
+  const receipt = generate([['0.5', '1'], ['1/3', '2/3'], ['-1/2', '0'],
+    ['2/3', '5/6']], '1/3');
+  const grid = [[3, 4, 5, 6], [2, 3, 4], [-3, -2, -1, 0], [4, 5]];
+  const values = [];
+  for (const a of grid[0]) for (const b of grid[1]) {
+    for (const c of grid[2]) for (const d of grid[3]) {
+      values.push(at([a, b, c, d].map(x => x / 6))[0]);
+    }
+  }
+  assert.ok(Math.abs(numeric(receipt.claim.estimateRange.min.value) - Math.min(...values)) < 1e-10);
+  assert.ok(Math.abs(numeric(receipt.claim.estimateRange.max.value) - Math.max(...values)) < 1e-10);
+  assert.ok(receipt.inputs.intervals.some(pair => pair.some(value => value.includes('/'))));
 });
 
 test('five-reading uniform drift agrees with the existing Target Lens factor optimizer', () => {
