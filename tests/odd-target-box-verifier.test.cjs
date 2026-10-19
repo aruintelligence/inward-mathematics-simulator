@@ -244,6 +244,40 @@ test('a checked v6 receipt solves fresh exact targets beyond its original interv
   } finally {rmSync(dir, {recursive: true, force: true});}
 });
 
+test('exact target margin has an attained boundary tie and reversed-order coverage', () => {
+  const record = verifier.parseReceipt(readFileSync('examples/target-horizon-v6.json', 'utf8'));
+  const expected = [
+    ['5', {target: '5', verdict: 'Mean', witness: null, margin: {
+      radius: '2/3', toward: 'higher',
+      boundary: {target: '17/3', witness: {index: 0, reading: '0'}}}}],
+    ['8', {target: '8', verdict: 'Median', witness: null, margin: {
+      radius: '1/12', toward: 'lower',
+      boundary: {target: '95/12', witness: {index: 4, reading: '10'}}}}]
+  ];
+  const dir = mkdtempSync(join(tmpdir(), 'target-margin-'));
+  try {
+    for (const [target, result] of expected) {
+      assert.deepEqual(verifier.queryTargetMargin(record, target), result);
+      const python = queryPython(record, dir, target);
+      assert.equal(python.status, 0, python.stderr);
+      assert.match(python.stdout, new RegExp(`Maximal open target radius ${result.margin.radius.replace('/', '\\/')}`));
+      assert.match(python.stdout, new RegExp(`at boundary t=${result.margin.boundary.target.replace('/', '\\/')}`));
+    }
+    for (const target of ['17/3', '6', '95/12']) {
+      assert.equal(verifier.queryTargetMargin(record, target).margin, null);
+    }
+    const reversed = core.horizonCertificate(['0', '0', '0', '0', '0', '10', '10'],
+      '0', '10', '0', '0');
+    assert.equal(verifier.queryTargetMargin(reversed, '0').verdict, 'Median');
+    assert.equal(verifier.queryTargetMargin(reversed, '0').margin.radius, '5/7');
+    const blocked = core.horizonCertificate(['48', '49', '50', '51', '85'],
+      '0', '100', '48', '52');
+    assert.equal(verifier.queryTargetMargin(blocked, '-2000000').margin, null);
+    const forged = clone(record); forged.claim.targetHorizon.low = '6';
+    assert.throws(() => verifier.queryTargetMargin(forged, '5'));
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
 test('forged partitions, guarantees, outcomes, and witnesses are rejected by both checkers', () => {
   const forgeries = [
     x => { x.claim.routes[0].knots.splice(1, 1); },
@@ -362,6 +396,8 @@ test('browser inspector renders checked routes, fingerprints bytes, and clears r
   elements['query-target'].value = '8';
   elements['query-button'].handlers.click();
   assert.match(elements['query-result'].textContent, /Median is strictly closer for every/);
+  assert.match(elements['query-result'].textContent, /maximal open target margin is 1\/12/);
+  assert.match(elements['query-result'].textContent, /move reading 5 to 10 for an exact tie/);
   elements['query-target'].value = '2/4';
   elements['query-button'].handlers.click();
   assert.equal(elements['query-result'].classList.contains('error'), true);

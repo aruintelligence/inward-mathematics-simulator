@@ -984,6 +984,44 @@ theorem strict_outside_horizon (Route : Type*)
     have h := hupper r
     linarith
 
+/-- An exact open radius around a target outside the horizon preserves the
+universal strict result. The estimator called `mean` here is the lower one;
+swapping the functions covers the opposite ordering. -/
+theorem strict_outside_horizon_open_margin (Route : Type*)
+    (mean median : Route → ℝ) (lower upper base : ℝ)
+    (horder : ∀ r, mean r < median r)
+    (hlower : ∀ r, lower ≤ (mean r + median r) / 2)
+    (hupper : ∀ r, (mean r + median r) / 2 ≤ upper) :
+    (base < lower → 0 < lower - base ∧
+      ∀ u, |u - base| < lower - base →
+        ∀ r, |mean r - u| < |median r - u|) ∧
+    (upper < base → 0 < base - upper ∧
+      ∀ u, |u - base| < base - upper →
+        ∀ r, |median r - u| < |mean r - u|) := by
+  constructor
+  · intro hbase
+    constructor
+    · linarith
+    · intro u hu r
+      have hright := (abs_lt.mp hu).2
+      exact (strict_outside_horizon Route mean median lower upper u
+        horder hlower hupper).1 (by linarith) r
+  · intro hbase
+    constructor
+    · linarith
+    · intro u hu r
+      have hleft := (abs_lt.mp hu).1
+      exact (strict_outside_horizon Route mean median lower upper u
+        horder hlower hupper).2 (by linarith) r
+
+/-- If the boundary midpoint is attained, the reported open margin is sharp:
+the boundary itself is an exact tie. -/
+theorem target_margin_boundary_tie (m d boundary : ℝ)
+    (hmid : (m + d) / 2 = boundary) :
+    |m - boundary| = |d - boundary| := by
+  apply midpoint_tie m d boundary
+  linarith
+
 /-- The same outside-horizon guarantee with the median below the mean. -/
 theorem strict_outside_horizon_reverse (Route : Type*)
     (mean median : Route → ℝ) (lower upper t : ℝ)

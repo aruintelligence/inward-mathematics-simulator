@@ -537,5 +537,31 @@
     }
     fail("No exact tie witness in the checked target horizon");
   }
-  return {parseReceipt, verify, queryTargetHorizon};
+  // The first reached horizon endpoint is an attained tie, making this open
+  // radius sharp. queryTargetHorizon has already rechecked the whole receipt.
+  function queryTargetMargin(record, rawTarget) {
+    const answer = queryTargetHorizon(record, rawTarget);
+    if (answer.verdict === "Tie") return {...answer, margin: null};
+    const horizon = record.claim.targetHorizon;
+    const target = rational(answer.target, "exact query target");
+    const lower = compare(target, rational(horizon.low, "horizon lower")) < 0;
+    const side = lower ? "atMovementLow" : "atMovementHigh";
+    const boundary = rational(lower ? horizon.low : horizon.high, "target margin boundary");
+    const radius = lower ? subtract(boundary, target) : subtract(target, boundary);
+    const movedRaw = record.inputs.movement[lower ? "low" : "high"];
+    const readings = record.inputs.readings.map(value => rational(value, "reading"));
+    for (const route of record.claim.routes) {
+      if (compare(rational(route.targetHorizon[side], "route midpoint"), boundary) !== 0) continue;
+      const fixed = readings.filter((_, index) => index !== route.index);
+      if (compare(radius, ZERO) <= 0 ||
+          outcome(fixed, rational(movedRaw, "movement endpoint"), boundary) !== "Tie") {
+        fail("Target margin boundary is not an attained tie");
+      }
+      return {...answer, margin: {radius: notation(radius), toward: lower ? "higher" : "lower",
+        boundary: {target: notation(boundary),
+          witness: {index: route.index, reading: movedRaw}}}};
+    }
+    fail("No attaining route for target margin boundary");
+  }
+  return {parseReceipt, verify, queryTargetHorizon, queryTargetMargin};
 });

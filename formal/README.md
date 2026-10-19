@@ -132,6 +132,13 @@ also checks the mean, median, and target-6 tie for the six-reading v6 example,
 both exhibited endpoint midpoint values `17/3` and `95/12`, and the
 five-reading all-target equality example. It now builds explicit affine-cell
 paths for the two six-reading routes attaining those endpoint values.
+`strict_outside_horizon_open_margin` proves an exact symmetric open radius
+for any target outside supplied global midpoint bounds, under strict
+estimate ordering. The same theorem applies when Median is the lower estimate
+by swapping its function arguments. `target_margin_boundary_tie` proves that
+an attained midpoint endpoint is an actual equal-error boundary, making that
+radius maximal. These lemmas justify the independently rechecked target-margin
+answers in the browser and Python inspector; they do not parse certificates.
 `six_reading_inner_horizon_tie` proves that **every real target** in
 `[17/3,95/12]` has an exact equal-error reading on one of those two routes,
 even though the lower and upper endpoint routes differ. This extends the

@@ -478,6 +478,37 @@ def query_target_horizon(record, raw_target):
     raise ArithmeticError("No exact tie witness in the checked target horizon")
 
 
+def query_target_margin(record, raw_target):
+    """Largest open target radius preserving a strict global winner, if any.
+
+    The query independently rechecks the receipt. Its boundary is an attained
+    tie, checked again by direct exact-error comparison on the endpoint route.
+    """
+    answer = query_target_horizon(record, raw_target)
+    if answer["verdict"] == "Tie":
+        return {**answer, "margin": None}
+    horizon = record["claim"]["targetHorizon"]
+    target = Fraction(answer["target"])
+    lower = target < Fraction(horizon["low"])
+    side = "atMovementLow" if lower else "atMovementHigh"
+    boundary = Fraction(horizon["low"] if lower else horizon["high"])
+    radius = boundary - target if lower else target - boundary
+    moved_raw = record["inputs"]["movement"]["low" if lower else "high"]
+    readings = list(map(Fraction, record["inputs"]["readings"]))
+    for route in record["claim"]["routes"]:
+        if Fraction(route["targetHorizon"][side]) != boundary:
+            continue
+        index = route["index"]
+        fixed = readings[:index] + readings[index + 1:]
+        if radius <= 0 or outcome(fixed, Fraction(moved_raw), boundary) != "Tie":
+            raise ArithmeticError("Target margin boundary is not an attained tie")
+        return {**answer, "margin": {
+            "radius": str(radius), "toward": "higher" if lower else "lower",
+            "boundary": {"target": str(boundary),
+                         "witness": {"index": index, "reading": moved_raw}}}}
+    raise ArithmeticError("No attaining route for target margin boundary")
+
+
 def main():
     try:
         if len(sys.argv) not in (2, 4) or len(sys.argv) == 4 and sys.argv[2] != "--query-target":
@@ -513,12 +544,18 @@ def main():
                    f"strict {h['below']} below, strict {h['above']} above; "
                    f"probe t={h['probe']['target']}: {h['probe']['verdict']}"))
         if len(sys.argv) == 4:
-            query = query_target_horizon(record, sys.argv[3])
+            query = query_target_margin(record, sys.argv[3])
             witness = query["witness"]
             print(f"Exact target query t={query['target']}: " +
                   (f"Tie; move reading {witness['index'] + 1} to {witness['reading']}"
                    if witness is not None else
                    f"strict {query['verdict']} across every permitted one-reading move"))
+            if query["margin"] is not None:
+                margin = query["margin"]
+                point = margin["boundary"]
+                print(f"Maximal open target radius {margin['radius']}; "
+                      f"at boundary t={point['target']}, move reading "
+                      f"{point['witness']['index'] + 1} to {point['witness']['reading']} for a tie")
         print("Certificate SHA-256: " + hashlib.sha256(data).hexdigest())
     except (OSError, ValueError, TypeError, KeyError, ArithmeticError, RecursionError, UnicodeError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)

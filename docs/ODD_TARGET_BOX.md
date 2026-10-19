@@ -144,6 +144,23 @@ receipt with an all-target equal-estimate route returns that tie for every
 queried target. Each answer remains conditional on the stated readings and
 one-reading movement range.
 
+For a strict query, both inspectors also calculate the **maximal open target
+margin**. If the target is below $h_-$, its radius is $h_--t$; if above
+$h_+$, it is $t-h_+$. Every target $u$ with $|u-t|$ strictly less than that
+radius retains the same universal strict winner. At the exact boundary the
+margin is exhausted: the result is a tie, with an independently checked
+endpoint route and moved-reading witness. For example, target `5` has radius
+`2/3` and a tie at `17/3` after moving reading 1 to `0`; target `8` has radius
+`1/12` and a tie at `95/12` after moving reading 5 to `10`. A query already
+at a tie returns no strict margin. The radius concerns uncertainty in the
+*chosen target* under fixed readings and permitted movement; it is not a
+measurement confidence interval, probability, or protection against changing
+the readings outside that model. The Lean `strict_outside_horizon_open_margin`
+lemma proves the open-radius rule from global midpoint bounds and strict
+ordering; `target_margin_boundary_tie` proves sharpness when an endpoint is
+attained. Arbitrary receipt parsing and its endpoints remain independently
+checked by the Python and JavaScript verifiers, not by Lean.
+
 ## Why every real outcome is covered
 
 For $n=2k+1$ readings, let $s_1\le\cdots\le s_{2k}$ be the fixed ones, $S$ their sum, $x$ the moved reading, and $t$ the target. Then

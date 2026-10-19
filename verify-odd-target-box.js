@@ -148,10 +148,14 @@
   $("query-button").addEventListener("click", () => {
     if (!lastValid || lastValid.record.format !== "inward-target-horizon-v6") return;
     try {
-      const answer = checker.queryTargetHorizon(lastValid.record, $("query-target").value);
+      const answer = checker.queryTargetMargin(lastValid.record, $("query-target").value);
       $("query-result").textContent = answer.witness ?
         `Exact target ${answer.target}: a tie is reachable. Move reading ${answer.witness.index + 1} to ${answer.witness.reading}.` :
-        `Exact target ${answer.target}: ${answer.verdict} is strictly closer for every permitted one-reading move.`;
+        `Exact target ${answer.target}: ${answer.verdict} is strictly closer for every permitted one-reading move. ` +
+        `The maximal open target margin is ${answer.margin.radius}: this strict result holds while ` +
+        `|new target − ${answer.target}| < ${answer.margin.radius}. At target ${answer.margin.boundary.target}, ` +
+        `move reading ${answer.margin.boundary.witness.index + 1} to ` +
+        `${answer.margin.boundary.witness.reading} for an exact tie.`;
       $("query-result").classList.remove("error");
     } catch (error) {
       $("query-result").textContent = error.message;

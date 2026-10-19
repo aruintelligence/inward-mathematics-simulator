@@ -11,12 +11,50 @@ import unittest
 
 from odd_target_box import (certificate, gap_certificate, stability_certificate,
                             atlas_certificate, horizon_certificate, winner)
-from verify_odd_target_box import verify, query_target_horizon
+from verify_odd_target_box import verify, query_target_horizon, query_target_margin
 from render_target_horizon_report import render
 from export_target_horizon_lean import render as lean_export
 
 
 class TargetBoxTests(unittest.TestCase):
+    def test_exact_target_margin_is_open_sharp_and_handles_reversed_order(self):
+        record = json.loads(Path("examples/target-horizon-v6.json").read_text())
+        self.assertEqual(query_target_margin(record, "5"), {
+            "target": "5", "verdict": "Mean", "witness": None,
+            "margin": {"radius": "2/3", "toward": "higher",
+                       "boundary": {"target": "17/3", "witness": {"index": 0, "reading": "0"}}}})
+        self.assertEqual(query_target_margin(record, "8"), {
+            "target": "8", "verdict": "Median", "witness": None,
+            "margin": {"radius": "1/12", "toward": "lower",
+                       "boundary": {"target": "95/12", "witness": {"index": 4, "reading": "10"}}}})
+        for target in ("17/3", "6", "95/12"):
+            self.assertIsNone(query_target_margin(record, target)["margin"])
+        readings = list(map(Fraction, record["inputs"]["readings"]))
+        for base, near, verdict in ((Fraction(5), Fraction(11, 2), "Mean"),
+                                    (Fraction(8), Fraction(191, 24), "Median")):
+            for index in range(len(readings)):
+                fixed = readings[:index] + readings[index + 1:]
+                for step in range(11):
+                    self.assertEqual(winner(fixed, Fraction(step), near), verdict)
+
+        reversed_order = horizon_certificate(["0", "0", "0", "0", "0", "10", "10"],
+                                              "0", "10", "0", "0")
+        answer = query_target_margin(reversed_order, "0")
+        self.assertEqual(answer["verdict"], "Median")
+        self.assertEqual(answer["margin"]["radius"], "5/7")
+        boundary = answer["margin"]["boundary"]
+        fixed = [Fraction(x) for i, x in enumerate(reversed_order["inputs"]["readings"])
+                 if i != boundary["witness"]["index"]]
+        self.assertEqual(winner(fixed, Fraction(boundary["witness"]["reading"]),
+                                Fraction(boundary["target"])), "Tie")
+        blocked = horizon_certificate(["48", "49", "50", "51", "85"],
+                                      "0", "100", "48", "52")
+        self.assertIsNone(query_target_margin(blocked, "-2000000")["margin"])
+        forged = copy.deepcopy(record)
+        forged["claim"]["targetHorizon"]["low"] = "6"
+        with self.assertRaises(ValueError):
+            query_target_margin(forged, "5")
+
     def test_v6_lean_specialization_is_reproducible_and_rejects_other_models(self):
         raw = Path("examples/target-horizon-v6.json").read_bytes()
         source = lean_export(raw)
