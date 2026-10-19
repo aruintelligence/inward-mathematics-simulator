@@ -9,6 +9,7 @@ from odd_sample_flip import LIMIT, exact
 
 FORMAT = "inward-joint-reading-box-v1"
 RANGE_FORMAT = "inward-joint-reading-box-v2"
+SHARP_FORMAT = "inward-joint-reading-box-v3"
 MAX_CANDIDATES = 100_000
 
 
@@ -23,7 +24,7 @@ def factors(readings):
     return mean - median, (mean + median) / 2
 
 
-def exact_extrema(intervals):
+def exact_extrema(intervals, gap_target=None):
     """A vertex of each ordering cell uses only original interval endpoints.
 
     Within a fixed weak ordering, mean-minus-median is affine. At a vertex,
@@ -38,14 +39,18 @@ def exact_extrema(intervals):
         count *= len(values)
     if count > MAX_CANDIDATES:
         raise ValueError("Joint box exceeds exact candidate budget")
-    smallest = largest = None
+    smallest = largest = sharp_gap = None
     for readings in product(*choices):
-        difference, _ = factors(readings)
+        difference, midpoint = factors(readings)
         if smallest is None or difference < smallest[0]:
             smallest = (difference, readings)
         if largest is None or difference > largest[0]:
             largest = (difference, readings)
-    return smallest, largest
+        if gap_target is not None:
+            gap = 2 * abs(difference * (midpoint - gap_target))
+            if sharp_gap is None or gap < sharp_gap[0]:
+                sharp_gap = (gap, readings)
+    return smallest, largest, sharp_gap
 
 
 def interpolate_root(start, end, factor, target=Fraction(0)):
@@ -81,7 +86,7 @@ def interpolate_root(start, end, factor, target=Fraction(0)):
     raise ArithmeticError("A bracketed continuous factor has no root")
 
 
-def certificate(raw_intervals, raw_target, raw_target_high=None):
+def certificate(raw_intervals, raw_target, raw_target_high=None, exact_gap=False):
     if type(raw_intervals) is not list or not 3 <= len(raw_intervals) <= 5:
         raise ValueError("Supply 3 through 5 independent reading intervals")
     intervals = []
@@ -97,11 +102,13 @@ def certificate(raw_intervals, raw_target, raw_target_high=None):
                    if raw_target_high is not None else target)
     if target > target_high:
         raise ValueError("Target bounds must be ordered")
-    ranged = raw_target_high is not None
-    minimum, maximum = exact_extrema(intervals)
+    ranged = raw_target_high is not None or exact_gap
     lower = tuple(pair[0] for pair in intervals)
     upper = tuple(pair[1] for pair in intervals)
     hlow, hhigh = factors(lower)[1], factors(upper)[1]
+    gap_target = (target_high if hlow > target_high else target
+                  if hhigh < target else None)
+    minimum, maximum, sharp = exact_extrema(intervals, gap_target if exact_gap else None)
     if minimum[0] <= 0 <= maximum[0]:
         witness = interpolate_root(minimum[1], maximum[1], "estimate")
         tie_target = target
@@ -118,9 +125,12 @@ def certificate(raw_intervals, raw_target, raw_target_high=None):
         verdict, margin = "Tie possible", None
     else:
         verdict = "Mean" if minimum[0] * (hlow - target) < 0 else "Median"
-        distance_d = min(abs(minimum[0]), abs(maximum[0]))
-        distance_h = hlow - target_high if hlow > target_high else target - hhigh
-        margin = str(2 * distance_d * distance_h)
+        if exact_gap:
+            margin = str(sharp[0])
+        else:
+            distance_d = min(abs(minimum[0]), abs(maximum[0]))
+            distance_h = hlow - target_high if hlow > target_high else target - hhigh
+            margin = str(2 * distance_d * distance_h)
 
     extremum = lambda item: {"value": str(item[0]),
                              "readings": list(map(str, item[1]))}
@@ -133,7 +143,11 @@ def certificate(raw_intervals, raw_target, raw_target_high=None):
              "tieWitness": list(map(str, witness)) if witness is not None else None}
     if ranged:
         claim["tieTarget"] = str(tie_target) if tie_target is not None else None
-    return {"format": RANGE_FORMAT if ranged else FORMAT, "inputs": inputs, "claim": claim}
+    if exact_gap:
+        claim["gapWitness"] = ({"readings": list(map(str, sharp[1])),
+                                "target": str(gap_target)} if witness is None else None)
+    return {"format": SHARP_FORMAT if exact_gap else RANGE_FORMAT if ranged else FORMAT,
+            "inputs": inputs, "claim": claim}
 
 
 def main():
@@ -141,11 +155,14 @@ def main():
     parser.add_argument("--intervals", required=True,
                         help="comma-separated LOW:HIGH pairs, e.g. -4:-3,-1:4,1:2")
     parser.add_argument("--target", required=True, help="fixed target or lower target bound")
-    parser.add_argument("--target-high", help="upper target bound; enables v2 interval receipt")
+    parser.add_argument("--target-high", help="upper target bound; enables interval receipt")
+    parser.add_argument("--exact-gap", action="store_true",
+                        help="emit v3 receipt with attained exact worst-case squared-error gap")
     args = parser.parse_args()
     try:
         intervals = [item.split(":") for item in args.intervals.split(",")]
-        print(json.dumps(certificate(intervals, args.target, args.target_high),
+        print(json.dumps(certificate(intervals, args.target, args.target_high,
+                                     exact_gap=args.exact_gap),
                          indent=2, ensure_ascii=False))
     except (ValueError, TypeError, ArithmeticError, ZeroDivisionError) as error:
         parser.exit(1, f"Joint reading box failed: {error}\n")

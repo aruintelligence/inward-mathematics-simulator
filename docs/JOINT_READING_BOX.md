@@ -8,6 +8,8 @@ supplies exact rational readings and a target that attain it. This extends the
 original Target Lens five-reading uniform-drift model to heterogeneous,
 signed rational intervals and includes the central-pair median
 for even samples. It does not replace the one-reading-at-a-time Target Box.
+New v3 receipts also find the **exact attained minimum squared-error lead**
+when one estimator wins throughout the box.
 
 ## Reproduce and inspect
 
@@ -29,6 +31,9 @@ node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 > joint-range.json
 node tools/verify-joint-reading-box.cjs joint-range.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v2.json
+python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 --exact-gap > joint-sharp.json
+node tools/verify-joint-reading-box.cjs joint-sharp.json
+node tools/verify-joint-reading-box.cjs examples/joint-reading-box-interior-v3.json
 ```
 
 The browser constructor and Python generator produce the same versioned
@@ -37,10 +42,14 @@ recompute the claim without importing either constructor. GitHub Actions
 checks the examples and runs seeded odd/even cases against an integer-grid
 oracle. These finite checks are distinct from the proof below.
 
-The v1 receipt has one fixed `inputs.target`. The v2 receipt has
+The v1 receipt has one fixed `inputs.target`. The v2 and v3 receipts have
 `inputs.targetInterval: [low, high]` and a `claim.tieTarget` when a tie is
-possible. Equal target bounds are allowed. The verifier accepts both versions
-and rejects a v2 tie target outside the supplied interval. The range model
+possible. Equal target bounds are allowed. The verifier accepts all three
+versions, rejects tie targets outside the supplied interval, and independently
+recomputes a v3 exact minimum and its `claim.gapWitness`. In v1/v2,
+`squaredGapLowerBound` is conservative; in v3 it is the attained exact minimum
+for a strict verdict. A tie receipt has a zero minimum, represented by its
+`tieWitness`, and leaves the strict-gap fields null. The range model
 allows **every** combination of readings and target in the Cartesian product;
 it does not describe correlated motion or a probability distribution.
 
@@ -83,7 +92,7 @@ the line segment at every pairwise reading crossing, where the median's
 affine formula can change, and solves an exact linear equation on the
 bracketing piece. The verifier checks the resulting readings independently.
 
-For a strict winner, the receipt also reports a conservative lower bound on
+For a strict winner, legacy v1/v2 receipts report a conservative lower bound on
 the **absolute squared-error difference**. Let
 $\delta_D=\operatorname{dist}(0,[D_{\min},D_{\max}])$ and
 $\delta_H=\operatorname{dist}(t,[H(L),H(U)])$. Both are positive in a strict
@@ -131,6 +140,50 @@ readings $(487/10,497/10,507/10,517/10,857/10)$. Both claims can be
 reproduced from the [strict](../examples/joint-reading-box-strict-v2.json)
 and [tie](../examples/joint-reading-box-tie-v2.json) v2 receipts.
 
+## Exact attained squared-error lead (v3)
+
+When the verdict is strict, $I_H$ and $T$ are disjoint. For every reading
+vector $x$, the target that minimizes the absolute squared-error difference
+is the endpoint of $T$ closest to $I_H$: $t_*=b$ if $H(L)>b$, and $t_*=a$
+if $H(U)<a$. Let $C$ be the endpoint-valued feasible vectors enumerated
+for the $D$ extrema. The exact minimum over the **entire continuum** is
+
+$$
+G_{\min}=2\min_{c\in C}|D(c)|\,|H(c)-t_*|.
+$$
+
+To see why, fix any closed ordering cell. Since the verdict is strict,
+the two factors $A(x)=|D(x)|$ and $B(x)=|H(x)-t_*|$ have fixed signs before
+the absolute values and are therefore positive affine functions on this
+convex cell. Express any point as a convex combination of the cell's
+vertices, $x=\sum_i\lambda_i v_i$. The Cauchy–Schwarz inequality gives
+
+$$
+A(x)B(x)
+=\left(\sum_i\lambda_i A(v_i)\right)
+ \left(\sum_i\lambda_i B(v_i)\right)
+\ge\left(\sum_i\lambda_i\sqrt{A(v_i)B(v_i)}\right)^2
+\ge\min_i A(v_i)B(v_i).
+$$
+
+Each cell vertex is endpoint-valued by the earlier argument, so $C$
+contains a global minimizer. Every candidate is feasible, so this is an
+**attained equality**, not merely a safe bound. The v3 `gapWitness`
+records its readings and $t_*$. The separate verifier enumerates candidates
+again, checks the exact minimum, and confirms the witness attains it. It
+does not trust the generator's extremum or witness.
+
+For the readings around $48,49,50,51,85$ and target interval $[0,45]$,
+the conservative v2 bound is $2407/25$; the exact v3 minimum is $2581/25$,
+attained at readings $(48,49,51,51,85)$ and target $45$.
+
+Box corners alone still fail. With reading intervals
+$[-2,-2],[-4,-4],[8,12],[-2,0],[-3,2]$ and fixed target $-20$, the exact
+minimum is $404/25$ at $(-2,-4,8,0,0)$. The final zero is **inside**
+$[-3,2]$, while the best of all box corners gives $816/25$. The
+[independently checkable receipt](../examples/joint-reading-box-interior-v3.json)
+records this interior ordering-cell vertex.
+
 ## Why corners alone are insufficient
 
 For the intervals $[-4,-3],[-1,4],[1,2]$, the true minimum of $D$ is
@@ -142,7 +195,7 @@ records the exact extremum and an attained tie at target $-2$.
 
 Input is 3–5 intervals, rational or at most six-place decimal bounds within
 $[-1{,}000{,}000,1{,}000{,}000]$, and a fixed target (v1) or target interval
-(v2) in that range.
+(v2/v3, including equal bounds) in that range.
 Every interval may have zero width. At most 100,000 feasible endpoint-valued
 vectors may be enumerated; a larger case fails explicitly. Imported input
 fractions are canonical and limited to 18 digits per part, computed claim
@@ -151,8 +204,8 @@ real values inside the accepted intervals, not just input-grid readings.
 
 The proof is an elementary argument recorded here, with separate Python and
 browser constructors, an independent exact verifier, and finite regression
-checks. There is **no Lean
-formalization of the arbitrary-interval vertex argument** in this release.
+checks. There is **no Lean formalization of the arbitrary-interval vertex
+argument or the v3 sharp-gap argument** in this release.
 The receipt cannot verify the provenance or suitability of supplied data,
 the target choice, correlation assumptions, or market demand. Attribution
 and licensing remain in the repository's `LICENSE` and `CITATION.cff`.

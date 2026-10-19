@@ -12,7 +12,10 @@ try {
   const result = verify(parseReceipt(text));
   console.log(`Verified conditional verdict: ${result.verdict}`);
   if (result.squaredGapLowerBound !== null) {
-    console.log(`Conservative squared-error lead: at least ${result.squaredGapLowerBound}`);
+    if (result.isSharp) {
+      console.log(`Exact worst-case squared-error lead: ${result.squaredGapLowerBound}`);
+      console.log(`Attained at readings: ${result.gapWitness.readings.join(', ')}; target: ${result.gapWitness.target}`);
+    } else console.log(`Conservative squared-error lead: at least ${result.squaredGapLowerBound}`);
   } else {
     console.log(`Exact tie readings: ${result.tieWitness.join(', ')}`);
     console.log(`Exact tie target: ${result.tieTarget}`);

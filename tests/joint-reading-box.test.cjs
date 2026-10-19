@@ -16,10 +16,11 @@ test('browser lab pins constructor and verifier assets to their SHA-256 versions
   }
 });
 
-function generate(intervals, target, targetHigh = null) {
+function generate(intervals, target, targetHigh = null, sharp = false) {
   const command = spawnSync('python3', ['tools/joint_reading_box.py',
     `--intervals=${intervals.map(pair => pair.join(':')).join(',')}`, `--target=${target}`,
-    ...(targetHigh === null ? [] : [`--target-high=${targetHigh}`])],
+    ...(targetHigh === null ? [] : [`--target-high=${targetHigh}`]),
+    ...(sharp ? ['--exact-gap'] : [])],
   {encoding: 'utf8'});
   assert.equal(command.status, 0, command.stderr);
   const receipt = verifier.parseReceipt(command.stdout);
@@ -205,6 +206,110 @@ test('v2 verifier rejects forged target witnesses, bounds, verdicts, and schemas
   }
 });
 
+test('v3 proves and attains an exact gap stronger than the legacy bound', () => {
+  const intervals = [['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']];
+  const strict = generate(intervals, '0', '45', true);
+  assert.deepEqual(strict, JSON.parse(readFileSync('examples/joint-reading-box-strict-v3.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateSharp(intervals, '0', '45'), strict);
+  assert.equal(strict.claim.squaredGapLowerBound, '2581/25');
+  assert.deepEqual(strict.claim.gapWitness,
+    {readings: ['48', '49', '51', '51', '85'], target: '45'});
+  assert.equal(verifier.verify(strict).isSharp, true);
+  assert.ok(numeric(strict.claim.squaredGapLowerBound) >
+    numeric(generate(intervals, '0', '45').claim.squaredGapLowerBound));
+  const fixed = generate(intervals, '0', null, true);
+  assert.deepEqual(browserCore.certificateSharp(intervals, '0'), fixed);
+  assert.deepEqual(fixed.inputs.targetInterval, ['0', '0']);
+  const tied = generate(intervals, '54', '55', true);
+  assert.deepEqual(tied, JSON.parse(readFileSync('examples/joint-reading-box-tie-v3.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateSharp(intervals, '54', '55'), tied);
+  assert.equal(tied.claim.verdict, 'Tie possible');
+  assert.equal(tied.claim.gapWitness, null);
+  assert.equal(tied.claim.tieTarget, '54');
+  const coincident = generate([['-4', '-3'], ['-1', '4'], ['1', '2']], '-100', '-99', true);
+  assert.equal(coincident.claim.verdict, 'Tie possible');
+  assert.equal(coincident.claim.squaredGapLowerBound, null);
+  assert.equal(coincident.claim.gapWitness, null);
+  assert.equal(verifier.verify(coincident).tieTarget, '-100');
+  const evenSingleton = generate([['0', '0'], ['0', '0'], ['0', '0'], ['10', '10']], '1', null, true);
+  assert.equal(evenSingleton.claim.squaredGapLowerBound, '5/4');
+  assert.deepEqual(evenSingleton.claim.gapWitness,
+    {readings: ['0', '0', '0', '10'], target: '1'});
+  const fractional = [['1/3', '2/5'], ['1/2', '3/5'], ['2/3', '7/10'],
+    ['3/4', '4/5'], ['5/3', '7/4']];
+  const fractionReceipt = generate(fractional, '-2', '-1', true);
+  assert.equal(fractionReceipt.claim.verdict, 'Median');
+  assert.equal(fractionReceipt.claim.squaredGapLowerBound, '3141/10000');
+  assert.deepEqual(browserCore.certificateSharp(fractional, '-2', '-1'), fractionReceipt);
+});
+
+test('v3 catches an exact worst case that all box corners miss', () => {
+  const intervals = [[-2, -2], [-4, -4], [8, 12], [-2, 0], [-3, 2]];
+  const receipt = generate(intervals, '-20', null, true);
+  assert.deepEqual(receipt, JSON.parse(readFileSync('examples/joint-reading-box-interior-v3.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateSharp(intervals.map(pair => pair.map(String)), '-20'), receipt);
+  assert.equal(receipt.claim.squaredGapLowerBound, '404/25');
+  assert.deepEqual(receipt.claim.gapWitness.readings, ['-2', '-4', '8', '0', '0']);
+  const corners = [];
+  for (const a of intervals[2]) for (const b of intervals[3]) for (const c of intervals[4]) {
+    const [difference, midpoint] = at([-2, -4, a, b, c]);
+    corners.push(2 * Math.abs(difference * (midpoint + 20)));
+  }
+  assert.ok(Math.abs(Math.min(...corners) - 816 / 25) < 1e-9);
+  assert.ok(numeric(receipt.claim.squaredGapLowerBound) < Math.min(...corners));
+});
+
+test('v3 sharp gaps agree with independent exhaustive integer-grid calculations', () => {
+  let seed = 0x23add61;
+  const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  for (let k = 0; k < 24; k++) {
+    const n = 3 + k % 3;
+    const intervals = Array.from({length: n}, () => {
+      const low = -5 + next() % 10;
+      return [low, low + next() % 4];
+    });
+    const targetLow = -8 + next() % 17, targetHigh = targetLow + next() % 5;
+    const receipt = generate(intervals, targetLow, targetHigh, true);
+    assert.deepEqual(browserCore.certificateSharp(intervals.map(pair => pair.map(String)),
+      String(targetLow), String(targetHigh)), receipt);
+    const grid = [];
+    function walk(index, values) {
+      if (index === n) { grid.push(at(values)); return; }
+      for (let value = intervals[index][0]; value <= intervals[index][1]; value++) {
+        walk(index + 1, [...values, value]);
+      }
+    }
+    walk(0, []);
+    if (receipt.claim.verdict === 'Tie possible') {
+      assert.equal(receipt.claim.gapWitness, null);
+      assert.equal(receipt.claim.squaredGapLowerBound, null);
+    } else {
+      const observed = Math.min(...grid.flatMap(([d, h]) =>
+        [targetLow, targetHigh].map(t => 2 * Math.abs(d * (h - t)))));
+      assert.ok(Math.abs(numeric(receipt.claim.squaredGapLowerBound) - observed) < 1e-9);
+      assert.equal(verifier.verify(receipt).isSharp, true);
+    }
+  }
+});
+
+test('v3 independently rejects forged minima and unattained witnesses', () => {
+  const strict = generate([['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']], '0', '45', true);
+  const tie = generate([['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']], '54', '55', true);
+  for (const [original, change] of [
+    [strict, x => { x.claim.squaredGapLowerBound = '2407/25'; }],
+    [strict, x => { x.claim.squaredGapLowerBound = '2582/25'; }],
+    [strict, x => { x.claim.gapWitness.readings[0] = '49'; }],
+    [strict, x => { x.claim.gapWitness.target = '0'; }],
+    [strict, x => { x.claim.gapWitness = null; }],
+    [tie, x => { x.claim.gapWitness = {readings: x.claim.tieWitness, target: '54'}; }],
+    [tie, x => { x.claim.squaredGapLowerBound = '0'; }],
+    [strict, x => { x.format = 'inward-joint-reading-box-v2'; }]
+  ]) {
+    const forged = clone(original); change(forged);
+    assert.throws(() => verifier.verify(forged));
+  }
+});
+
 test('even-sample central-pair median and singleton tie boundaries are exact', () => {
   const intervals = [[0, 0], [0, 0], [0, 0], [10, 10]];
   const tie = generate(intervals, '5/4');
@@ -347,12 +452,14 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(submitted, true);
   assert.equal(node('verdict').textContent, 'Median');
   assert.equal(node('download').disabled, false);
+  const defaultSharp = browserCore.certificateSharp(defaults.map(pair => pair.map(String)), '0');
   assert.deepEqual(verifier.parseReceipt(node('receipt-json').value),
-    JSON.parse(readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8')));
+    defaultSharp);
+  assert.match(node('detail').textContent, /Exact smallest squared-error lead = 15631\/25/);
   node('download').handlers.click();
   assert.equal(clicked, true);
   assert.deepEqual(verifier.parseReceipt(await exported.text()),
-    JSON.parse(readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8')));
+    defaultSharp);
   assert.equal(node('fingerprint').textContent,
     createHash('sha256').update(Buffer.from(await exported.arrayBuffer())).digest('hex'));
   node('reading-count').value = '4';
@@ -379,10 +486,16 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.match(node('detail').textContent, /-22\/7/);
   await node('range-strict-example').handlers.click();
   assert.equal(node('verdict').textContent, 'Median');
-  assert.match(node('detail').textContent, /2407\/25/);
+  assert.match(node('detail').textContent, /2581\/25/);
+  await node('interior-example').handlers.click();
+  assert.match(node('detail').textContent, /404\/25/);
   await node('range-tie-example').handlers.click();
   assert.equal(node('verdict').textContent, 'Tie possible');
   assert.match(node('detail').textContent, /target 54/);
+  node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8');
+  node('receipt-json').handlers.input();
+  await node('verify').handlers.click();
+  assert.match(node('detail').textContent, /2407\/25.*conservative bound/);
   node('target-high').value = '45';
   node('target-high').handlers.input();
   assert.equal(node('download').disabled, true);
@@ -391,7 +504,8 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('low-1').value = '48';
   await node('builder-form').handlers.submit({preventDefault() {}});
   assert.equal(node('verdict').textContent, 'Median');
-  assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v2');
+  assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v3');
+  assert.match(node('detail').textContent, /2581\/25/);
   assert.equal(node('download').disabled, false);
   node('target-high').value = '55';
   node('target-high').handlers.input();
