@@ -1213,13 +1213,13 @@ private theorem six_high_base_permutation (x : ℝ) :
   have moveX : [8, 6, 8, 7, x, 8].Perm [x, 8, 6, 8, 7, 8] := by
     simpa using (List.perm_middle (a := x)
       (l₁ := [8, 6, 8, 7]) (l₂ := [8]))
-  have moveSix : [8, 6, 8, 7, 8].Perm [6, 8, 8, 7, 8] := by
+  have moveSix : [(8 : ℝ), 6, 8, 7, 8].Perm [6, 8, 8, 7, 8] := by
     simpa using (List.perm_middle (a := (6 : ℝ))
       (l₁ := [8]) (l₂ := [8, 7, 8]))
-  have moveSeven : [8, 8, 7, 8].Perm [7, 8, 8, 8] := by
+  have moveSeven : [(8 : ℝ), 8, 7, 8].Perm [7, 8, 8, 8] := by
     simpa using (List.perm_middle (a := (7 : ℝ))
       (l₁ := [8, 8]) (l₂ := [8]))
-  have sortFixed : [8, 6, 8, 7, 8].Perm [6, 7, 8, 8, 8] :=
+  have sortFixed : [(8 : ℝ), 6, 8, 7, 8].Perm [6, 7, 8, 8, 8] :=
     moveSix.trans (List.Perm.cons 6 moveSeven)
   exact (moveX.trans (List.Perm.cons x sortFixed)).symm
 
@@ -1252,7 +1252,7 @@ theorem six_low_route_sorted_median (x : ℝ) (hx0 : 0 ≤ x) (hx8 : x ≤ 8) :
         q.symm.trans (p.symm.trans (six_low_base_permutation x)),
         six_entries_sorted 0 6 7 x 8 8 (by norm_num) (by norm_num)
           hx7le hx8 (by norm_num), ?_⟩
-      simp [orderedMedian, sixLowRouteMedian, hx6, hx8]
+      simp [orderedMedian, sixLowRouteMedian, hx6, hx8] <;> ring
 
 /-- The high-end route's median comes from a sorted permutation after
 moving the original sample's fifth reading to any `x ∈ [0,10]`. -/
