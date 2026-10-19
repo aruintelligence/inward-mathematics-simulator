@@ -135,17 +135,21 @@ paths for the two six-reading routes attaining those endpoint values.
 `six_reading_inner_horizon_tie` proves that **every real target** in
 `[17/3,95/12]` has an exact equal-error reading on one of those two routes,
 even though the lower and upper endpoint routes differ. This extends the
-example beyond the single target-6 probe in its JSON receipt.
+example beyond the single target-6 probe in its JSON receipt. The
+`six_*_route_sorted_median` theorems exhibit sorted permutations of the
+original six readings after each permitted one-reading move and prove that
+their order-statistic medians equal the route formulas on every cell.
+`six_reading_sorted_sample_horizon_tie` states the full inner tie result
+using `sampleMean` and `orderedMedian` of those concrete lists.
 
 These proofs take agreement between each route and its affine cell formula,
 adjacent cell boundaries, endpoint attainment, common anchor, global bounds,
 and route ordering as hypotheses where used. The path theorem proves that
 the supplied cells compose without a target gap; it does not construct the
-paths from a concrete receipt. They do not prove that a JSON record enumerates
-every median cell, that its endpoint values are global extrema, or that a
-supplied list was obtained by moving one input reading and sorting it. The
-two explicit example route formulas are modeled directly in Lean; there is
-no machine-checked bridge from a JSON route to those Lean definitions. The
+paths from a concrete receipt. The two explicit example routes have checked
+sorted-permutation witnesses; the proofs do not establish that a JSON record
+enumerates every route or cell or that its endpoint values are global extrema.
+There is no machine-checked bridge from a JSON route to the Lean definitions. The
 independently implemented browser and Python receipt verifiers check their
 own concrete calculations from the supplied readings. No v6 JSON file is
 parsed or checked by Lean.

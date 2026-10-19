@@ -1182,6 +1182,141 @@ theorem six_reading_inner_horizon_tie (t : ℝ)
     apply midpoint_tie (sixHighRouteMean x) (sixHighRouteMedian x) t
     linarith
 
+/-!
+Each route function above agrees with the median of the moved six-element
+sample. The witnesses below exhibit an ordered permutation on each cell,
+including the cell boundaries; no sorting routine is assumed by the proof.
+-/
+private theorem six_entries_sorted (a b c d e f : ℝ)
+    (hab : a ≤ b) (hbc : b ≤ c) (hcd : c ≤ d)
+    (hde : d ≤ e) (hef : e ≤ f) :
+    List.Pairwise (· ≤ ·) [a, b, c, d, e, f] := by
+  apply List.Pairwise.cons_cons_of_trans hab
+  apply List.Pairwise.cons_cons_of_trans hbc
+  apply List.Pairwise.cons_cons_of_trans hcd
+  apply List.Pairwise.cons_cons_of_trans hde
+  apply List.Pairwise.cons_cons_of_trans hef
+  simp
+
+private theorem six_low_base_permutation (x : ℝ) :
+    [0, x, 6, 7, 8, 8].Perm [x, 6, 8, 7, 0, 8] := by
+  have moveZero : [x, 6, 8, 7, 0, 8].Perm [0, x, 6, 8, 7, 8] := by
+    simpa using (List.perm_middle (a := (0 : ℝ))
+      (l₁ := [x, 6, 8, 7]) (l₂ := [8]))
+  have swapMiddle : [0, x, 6, 8, 7, 8].Perm [0, x, 6, 7, 8, 8] := by
+    exact List.Perm.cons 0 (List.Perm.cons x
+      (List.Perm.cons 6 (List.Perm.swap 7 8 [8])))
+  exact (moveZero.trans swapMiddle).symm
+
+private theorem six_high_base_permutation (x : ℝ) :
+    [x, 6, 7, 8, 8, 8].Perm [8, 6, 8, 7, x, 8] := by
+  have moveX : [8, 6, 8, 7, x, 8].Perm [x, 8, 6, 8, 7, 8] := by
+    simpa using (List.perm_middle (a := x)
+      (l₁ := [8, 6, 8, 7]) (l₂ := [8]))
+  have moveSix : [8, 6, 8, 7, 8].Perm [6, 8, 8, 7, 8] := by
+    simpa using (List.perm_middle (a := (6 : ℝ))
+      (l₁ := [8]) (l₂ := [8, 7, 8]))
+  have moveSeven : [8, 8, 7, 8].Perm [7, 8, 8, 8] := by
+    simpa using (List.perm_middle (a := (7 : ℝ))
+      (l₁ := [8, 8]) (l₂ := [8]))
+  have sortFixed : [8, 6, 8, 7, 8].Perm [6, 7, 8, 8, 8] :=
+    moveSix.trans (List.Perm.cons 6 moveSeven)
+  exact (moveX.trans (List.Perm.cons x sortFixed)).symm
+
+/-- The low-end route's median comes from a sorted permutation of the
+original sample after moving its first reading to any `x ∈ [0,8]`. -/
+theorem six_low_route_sorted_median (x : ℝ) (hx0 : 0 ≤ x) (hx8 : x ≤ 8) :
+    ∃ ys : List ℝ, ys.Perm [x, 6, 8, 7, 0, 8] ∧
+      List.Pairwise (· ≤ ·) ys ∧ orderedMedian ys = sixLowRouteMedian x := by
+  by_cases hx6 : x ≤ 6
+  · refine ⟨[0, x, 6, 7, 8, 8], six_low_base_permutation x,
+      six_entries_sorted 0 x 6 7 8 8 hx0 hx6 (by norm_num)
+        (by norm_num) (by norm_num), ?_⟩
+    norm_num [orderedMedian, sixLowRouteMedian, hx6]
+  · by_cases hx7 : x ≤ 7
+    · have hx6le : 6 ≤ x := by linarith
+      have p : [0, x, 6, 7, 8, 8].Perm [0, 6, x, 7, 8, 8] :=
+        List.Perm.cons 0 (List.Perm.swap 6 x [7, 8, 8])
+      refine ⟨[0, 6, x, 7, 8, 8],
+        p.symm.trans (six_low_base_permutation x),
+        six_entries_sorted 0 6 x 7 8 8 (by norm_num) hx6le hx7
+          (by norm_num) (by norm_num), ?_⟩
+      have hx8' : x ≤ 8 := le_trans hx7 (by norm_num)
+      simp [orderedMedian, sixLowRouteMedian, hx6, hx8']
+    · have hx7le : 7 ≤ x := by linarith
+      have p : [0, x, 6, 7, 8, 8].Perm [0, 6, x, 7, 8, 8] :=
+        List.Perm.cons 0 (List.Perm.swap 6 x [7, 8, 8])
+      have q : [0, 6, x, 7, 8, 8].Perm [0, 6, 7, x, 8, 8] :=
+        List.Perm.cons 0 (List.Perm.cons 6 (List.Perm.swap 7 x [8, 8]))
+      refine ⟨[0, 6, 7, x, 8, 8],
+        q.symm.trans (p.symm.trans (six_low_base_permutation x)),
+        six_entries_sorted 0 6 7 x 8 8 (by norm_num) (by norm_num)
+          hx7le hx8 (by norm_num), ?_⟩
+      simp [orderedMedian, sixLowRouteMedian, hx6, hx8]
+
+/-- The high-end route's median comes from a sorted permutation after
+moving the original sample's fifth reading to any `x ∈ [0,10]`. -/
+theorem six_high_route_sorted_median (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    ∃ ys : List ℝ, ys.Perm [8, 6, 8, 7, x, 8] ∧
+      List.Pairwise (· ≤ ·) ys ∧ orderedMedian ys = sixHighRouteMedian x := by
+  by_cases hx6 : x ≤ 6
+  · have hx7 : x ≤ 7 := by linarith
+    refine ⟨[x, 6, 7, 8, 8, 8], six_high_base_permutation x,
+      six_entries_sorted x 6 7 8 8 8 hx6 (by norm_num)
+        (by norm_num) (by norm_num) (by norm_num), ?_⟩
+    norm_num [orderedMedian, sixHighRouteMedian, hx7]
+  · have hx6le : 6 ≤ x := by linarith
+    have p : [x, 6, 7, 8, 8, 8].Perm [6, x, 7, 8, 8, 8] :=
+      List.Perm.swap 6 x [7, 8, 8, 8]
+    by_cases hx7 : x ≤ 7
+    · refine ⟨[6, x, 7, 8, 8, 8],
+        p.symm.trans (six_high_base_permutation x),
+        six_entries_sorted 6 x 7 8 8 8 hx6le hx7 (by norm_num)
+          (by norm_num) (by norm_num), ?_⟩
+      norm_num [orderedMedian, sixHighRouteMedian, hx7]
+    · have hx7le : 7 ≤ x := by linarith
+      have q : [6, x, 7, 8, 8, 8].Perm [6, 7, x, 8, 8, 8] :=
+        List.Perm.cons 6 (List.Perm.swap 7 x [8, 8, 8])
+      by_cases hx8 : x ≤ 8
+      · refine ⟨[6, 7, x, 8, 8, 8],
+          q.symm.trans (p.symm.trans (six_high_base_permutation x)),
+          six_entries_sorted 6 7 x 8 8 8 (by norm_num) hx7le hx8
+            (by norm_num) (by norm_num), ?_⟩
+        simp [orderedMedian, sixHighRouteMedian, hx7, hx8]
+      · have hx8le : 8 ≤ x := by linarith
+        have pLast : [6, 7, 8, 8, 8, x].Perm [x, 6, 7, 8, 8, 8] := by
+          simpa using (List.perm_append_singleton x [6, 7, 8, 8, 8])
+        refine ⟨[6, 7, 8, 8, 8, x],
+          pLast.trans (six_high_base_permutation x),
+          six_entries_sorted 6 7 8 8 8 x (by norm_num)
+            (by norm_num) (by norm_num) (by norm_num) hx8le, ?_⟩
+        simp [orderedMedian, sixHighRouteMedian, hx7, hx8]
+
+/-- Every target in the reported inner horizon has an exact tie from a
+one-reading move on the original sample and its exhibited sorted median. -/
+theorem six_reading_sorted_sample_horizon_tie (t : ℝ)
+    (hlt : 17 / 3 ≤ t) (htu : t ≤ 95 / 12) :
+    (∃ (x : ℝ) (ys : List ℝ), 0 ≤ x ∧ x ≤ 8 ∧
+      ys.Perm [x, 6, 8, 7, 0, 8] ∧ List.Pairwise (· ≤ ·) ys ∧
+      |sampleMean [x, 6, 8, 7, 0, 8] - t| = |orderedMedian ys - t|) ∨
+    (∃ (x : ℝ) (ys : List ℝ), 0 ≤ x ∧ x ≤ 10 ∧
+      ys.Perm [8, 6, 8, 7, x, 8] ∧ List.Pairwise (· ≤ ·) ys ∧
+      |sampleMean [8, 6, 8, 7, x, 8] - t| = |orderedMedian ys - t|) := by
+  rcases six_reading_inner_horizon_tie t hlt htu with
+    ⟨x, hx0, hx8, htie⟩ | ⟨x, hx0, hx10, htie⟩
+  · obtain ⟨ys, hperm, hsorted, hmedian⟩ :=
+      six_low_route_sorted_median x hx0 hx8
+    left
+    refine ⟨x, ys, hx0, hx8, hperm, hsorted, ?_⟩
+    rw [six_low_route_mean_from_sample, hmedian]
+    exact htie
+  · obtain ⟨ys, hperm, hsorted, hmedian⟩ :=
+      six_high_route_sorted_median x hx0 hx10
+    right
+    refine ⟨x, ys, hx0, hx10, hperm, hsorted, ?_⟩
+    rw [six_high_route_mean_from_sample, hmedian]
+    exact htie
+
 /-- The five-reading v6 obstruction after replacing the first `48` by `15`. -/
 def fiveReadingEqualSample : List ℝ := [15, 49, 50, 51, 85]
 
