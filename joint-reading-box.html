@@ -12,7 +12,7 @@
     header,footer{border-bottom:1px solid var(--line);padding:18px 0}footer{border-bottom:0;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}header .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}header strong{font-size:.75rem;letter-spacing:.14em}
     .hero{padding:clamp(45px,7vw,85px) 0 32px}.eyebrow{color:var(--mint);font-size:.74rem;letter-spacing:.17em;text-transform:uppercase;font-weight:800}h1{font-size:clamp(2.6rem,7vw,5.5rem);line-height:1.03;letter-spacing:-.06em;margin:12px 0 17px;max-width:820px}h2{font-size:clamp(1.5rem,3vw,2.2rem);letter-spacing:-.035em;line-height:1.12}.lede{font-size:1.1rem;max-width:780px;color:var(--muted)}.section{border-top:1px solid var(--line);padding:30px 0 43px}
     .grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:22px;min-width:0}.card h2{margin-top:0}textarea{width:100%;min-height:220px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);font:13px/1.55 ui-monospace,monospace;padding:12px}input[type=file]{max-width:100%;margin:8px 0 14px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}button{font:inherit;font-weight:800;cursor:pointer;border:1px solid var(--mint);border-radius:9px;padding:10px 15px;min-height:46px;background:var(--mint);color:#082d2a}button.secondary{background:transparent;color:var(--mint)}button:disabled{opacity:.55;cursor:not-allowed}.help{color:var(--muted);font-size:.88rem}.result{font-size:clamp(1.6rem,3vw,2.6rem);line-height:1.15;letter-spacing:-.04em;color:var(--gold);margin:10px 0}.fact{border-top:1px solid var(--line);padding:11px 0}.fact span{display:block;color:var(--muted);font-size:.8rem}.fact strong{overflow-wrap:anywhere}.error{color:#ffc5be}.good{color:var(--mint)}code{font:inherit;overflow-wrap:anywhere}#fingerprint{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.muted{color:var(--muted)}
-    .setup{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:15px}.setup select,.reading input,.setup input{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-height:46px;font:inherit}.reading-list{display:grid;gap:10px}.reading{border:1px solid var(--line);border-radius:11px;padding:11px 13px}.reading strong{display:block;margin-bottom:8px}.reading-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.reading label{display:block;min-width:0;color:var(--muted);font-size:.8rem}.reading input{display:block;min-width:0;width:100%;margin-top:4px;font-size:1rem}.reading[hidden]{display:none}.number-note{font-size:.84rem;color:var(--muted);margin:14px 0 0}
+    .setup{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:15px}.setup select,.reading input,.setup input{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-height:46px;font:inherit}.reading-list{display:grid;gap:10px}.reading{border:1px solid var(--line);border-radius:11px;padding:11px 13px}.reading strong{display:block;margin-bottom:8px}.reading-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.reading label{display:block;min-width:0;color:var(--muted);font-size:.8rem}.reading input{display:block;min-width:0;width:100%;margin-top:4px;font-size:1rem}.reading[hidden],#sweep-view[hidden]{display:none}.number-note{font-size:.84rem;color:var(--muted);margin:14px 0 0}#sweep-pieces{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace}
     @media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:18px}.hero{padding:36px 0 20px}}@media(max-width:390px){.reading-pair{gap:7px}.reading{padding:9px}.reading input{padding:8px}}@media(prefers-color-scheme:light){:root{--bg:#f4f8f6;--panel:#fff;--ink:#173341;--muted:#405d66;--line:#899fa7;--mint:#006750;--gold:#77501b}body{background:radial-gradient(circle at 83% 0,#e0f0e9 0,transparent 35%),var(--bg)}button{color:#fff}}@media print{button,textarea,input,.actions,.setup,.reading-list{display:none}body{background:#fff;color:#173341}.card{break-inside:avoid}}
   </style>
 </head>
@@ -20,7 +20,7 @@
   <header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Back to the lab</a></div></header>
   <main>
     <section class="hero"><p class="eyebrow">Exact mathematics / interactive research</p><h1>Several readings can move. Does the result hold?</h1>
-      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Find an attainable tie or the exact worst-case squared-error lead, check it independently, and share the receipt.</p></section>
+      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Find an attainable tie, the exact worst-case squared-error lead, or a complete map of how both change across targets. Check the receipt independently and share it.</p></section>
     <section class="section"><p class="eyebrow">01 / Define an experiment</p><h2>What might each reading become?</h2>
       <div class="grid"><form id="builder-form" class="card">
         <div class="setup"><label for="reading-count">Number of readings</label><select id="reading-count"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option></select>
@@ -34,14 +34,14 @@
           <div class="reading" id="row-5"><strong>Reading 5</strong><div class="reading-pair"><label for="low-5">Lowest value<input id="low-5" type="text" inputmode="decimal" value="85" autocomplete="off"></label><label for="high-5">Highest value<input id="high-5" type="text" inputmode="decimal" value="86" autocomplete="off"></label></div></div>
         </div>
         <p id="input-help" class="number-note">Use integers, fractions such as -3/2, or decimals up to six places. Each interval includes both endpoints. Leave “Target through” empty for one fixed target; fill it to certify every target in the closed range.</p>
-        <div class="actions"><button type="submit">Generate and verify</button><button id="download" type="button" class="secondary" disabled>Download checked JSON</button></div>
+        <div class="actions"><button type="submit">Generate and verify</button><button id="sweep" type="button" class="secondary">Map every target</button><button id="download" type="button" class="secondary" disabled>Download checked JSON</button></div>
         <p id="builder-status" class="help" role="status">Edit the example bounds or generate its receipt.</p>
-      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the new receipt gives the strict winner, the exact smallest squared-error lead, and readings and target where that minimum occurs.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
+      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the receipt gives the strict winner, the exact smallest squared-error lead, and readings and target where that minimum occurs.</p><p class="muted">To map the whole target range, enter a strictly higher “Target through” value and choose “Map every target.” The map finds every tie target and each exact linear piece of the worst-case lead, with readings that attain it.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
     </section>
     <section class="section grid">
       <div class="card"><p class="eyebrow">02 / Independent check</p><h2>Inspect the receipt</h2><label for="receipt-file">Choose a JSON certificate</label><br><input id="receipt-file" type="file" accept="application/json,.json">
-        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1, v2, or v3 receipt"></textarea>
-        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="strict-example" class="secondary" type="button">Fixed target: v1</button><button id="tie-example" class="secondary" type="button">Fixed tie: v1</button><button id="range-strict-example" class="secondary" type="button">Exact gap: v3</button><button id="interior-example" class="secondary" type="button">Interior minimum: v3</button><button id="range-tie-example" class="secondary" type="button">Range tie: v3</button></div>
+        <label for="receipt-json">Or paste exact JSON</label><textarea id="receipt-json" spellcheck="false" placeholder="Paste an inward-joint-reading-box-v1, v2, v3, or v4 receipt"></textarea>
+        <div class="actions"><button id="verify" type="button">Verify exactly</button><button id="sweep-example" class="secondary" type="button">Full target map: v4</button><button id="strict-example" class="secondary" type="button">Fixed target: v1</button><button id="tie-example" class="secondary" type="button">Fixed tie: v1</button><button id="range-strict-example" class="secondary" type="button">Exact gap: v3</button><button id="interior-example" class="secondary" type="button">Interior minimum: v3</button><button id="range-tie-example" class="secondary" type="button">Range tie: v3</button></div>
         <p class="help">The verifier recomputes the claim without importing the constructor. You can also generate or check receipts offline using the documented Python and Node commands.</p></div>
       <div class="card" aria-live="polite" aria-atomic="true"><p class="eyebrow">Verified result</p><p id="status" class="muted">Choose a certificate or load an example.</p><p id="verdict" class="result">—</p>
         <div class="fact"><span>All-reading guarantee or witness</span><strong id="detail">No certificate checked yet.</strong></div>
@@ -49,13 +49,14 @@
         <div class="fact"><span>Exact estimator-midpoint range</span><strong id="midpoint">—</strong></div>
         <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
     </section>
+    <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div></section>
     <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
       <p class="lede">The exact finite calculation covers every real reading and target inside the supplied intervals. A strict v3 verdict includes the exact attained minimum squared-error lead; legacy v1/v2 receipts retain their conservative bound. A tie result includes attainable readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
       <p><a href="docs/JOINT_READING_BOX.md">Read the proof, limits, and reproduction commands</a></p></section>
   </main>
   <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
-  <script src="joint-reading-box-core.js?v=7db1d273ee93"></script>
-  <script src="joint-reading-box-verifier.js?v=0790f8e351ca"></script>
+  <script src="joint-reading-box-core.js?v=4333d1ab1d37"></script>
+  <script src="joint-reading-box-verifier.js?v=f2bfc6c05e94"></script>
   <script>
     (() => {
       'use strict';
@@ -68,6 +69,7 @@
         $('builder-status').className = 'help';
         $('status').textContent = message; $('status').className = 'muted';
         $('verdict').textContent = '—';
+        $('sweep-view').hidden = true;
         for (const id of ['detail', 'estimate', 'midpoint', 'fingerprint']) $(id).textContent = '—';
       }
       function syncRows(clear = true) {
@@ -85,15 +87,15 @@
         ...Array.from({length: 5}, (_, i) => 'high-' + (i + 1))]) {
         $(id).addEventListener('input', () => invalidate('Inputs changed. Generate and verify the new experiment.'));
       }
-      $('builder-form').addEventListener('submit', async event => {
-        event.preventDefault();
+      async function generate(sweep = false) {
         invalidate('Building and checking exact certificate…');
         try {
           const count = Number($('reading-count').value);
           const intervals = Array.from({length: count}, (_, i) =>
             [$('low-' + (i + 1)).value.trim(), $('high-' + (i + 1)).value.trim()]);
           const targetLow = $('target').value.trim(), targetHigh = $('target-high').value.trim();
-          const receipt = InwardJointBox.certificateSharp(intervals, targetLow, targetHigh || targetLow);
+          const receipt = sweep ? InwardJointBox.certificateSweep(intervals, targetLow, targetHigh) :
+            InwardJointBox.certificateSharp(intervals, targetLow, targetHigh || targetLow);
           InwardJointBoxVerifier.verify(receipt);
           const json = JSON.stringify(receipt, null, 2) + '\n';
           if (new TextEncoder().encode(json).length > 2000000) throw new Error('Certificate exceeds 2 MB');
@@ -115,12 +117,18 @@
           $('builder-status').textContent = error.message;
           $('builder-status').className = 'error';
         }
+      }
+      $('builder-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        await generate();
       });
+      $('sweep').addEventListener('click', () => generate(true));
       $('download').addEventListener('click', () => {
         if (!generatedJSON) return;
         const url = URL.createObjectURL(new Blob([generatedJSON], {type: 'application/json'}));
         const link = document.createElement('a');
-        link.href = url; link.download = 'joint-reading-box-v3.json';
+        link.href = url; link.download = generatedJSON.includes('"inward-joint-reading-box-v4"') ?
+          'joint-reading-box-v4.json' : 'joint-reading-box-v3.json';
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
@@ -144,6 +152,7 @@
         generatedJSON = null; $('download').disabled = true;
         $('status').textContent = `Rejected: ${error.message}`; $('status').className = 'error';
         $('verdict').textContent = 'Unverified';
+        $('sweep-view').hidden = true;
         for (const id of ['detail', 'estimate', 'midpoint', 'fingerprint']) $(id).textContent = '—';
       }
       async function inspect() {
@@ -157,12 +166,24 @@
           if (token !== revision) return false;
           $('status').textContent = 'Exact receipt accepted. The claim was recalculated.';
           $('status').className = 'good';
-          $('verdict').textContent = result.verdict;
-          $('detail').textContent = result.tieWitness ?
+          $('sweep-view').hidden = !result.isSweep;
+          if (result.isSweep) {
+            $('verdict').textContent = result.tieTargetInterval ? 'Target map with ties' : 'Strict target map';
+            $('detail').textContent = `${result.strictPieces.length} exact strict piece(s); ${
+              result.tieTargetInterval ? 'ties on [' + result.tieTargetInterval.join(', ') + ']' : 'no ties in this range'}.`;
+            $('sweep-ties').textContent = result.tieTargetInterval ?
+              `Tie for every target in [${result.tieTargetInterval.join(', ')}]; witnessed at target ${result.tieWitness.target} with readings [${result.tieWitness.readings.join(', ')}].` :
+              'No target in this range permits a tie.';
+            $('sweep-pieces').textContent = result.strictPieces.map(piece =>
+              `[${piece.from}, ${piece.to}]  ${piece.verdict}  gap(t) = (${piece.slope})t + (${piece.intercept})\nAttained at readings [${piece.readings.join(', ')}]`).join('\n\n');
+          } else {
+            $('verdict').textContent = result.verdict;
+            $('detail').textContent = result.tieWitness ?
             `Tie attained at readings [${result.tieWitness.join(', ')}] for target ${result.tieTarget}.` :
             result.isSharp ?
               `Exact smallest squared-error lead = ${result.squaredGapLowerBound}; attained at readings [${result.gapWitness.readings.join(', ')}] for target ${result.gapWitness.target}.` :
               `For every permitted configuration, squared-error lead ≥ ${result.squaredGapLowerBound} (conservative bound).`;
+          }
           $('estimate').textContent = `[${receipt.claim.estimateRange.min.value}, ${receipt.claim.estimateRange.max.value}]`;
           $('midpoint').textContent = `[${receipt.claim.midpointRange.min}, ${receipt.claim.midpointRange.max}]`;
           $('fingerprint').textContent = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -170,7 +191,8 @@
         } catch (error) { if (token === revision) rejected(error); return false; }
       }
       $('verify').addEventListener('click', inspect);
-      for (const [id, path] of [['strict-example', 'examples/joint-reading-box-strict-v1.json'],
+      for (const [id, path] of [['sweep-example', 'examples/joint-reading-box-sweep-v4.json'],
+        ['strict-example', 'examples/joint-reading-box-strict-v1.json'],
         ['tie-example', 'examples/joint-reading-box-tie-v1.json'],
         ['range-strict-example', 'examples/joint-reading-box-strict-v3.json'],
         ['interior-example', 'examples/joint-reading-box-interior-v3.json'],

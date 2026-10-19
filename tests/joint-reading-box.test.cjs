@@ -27,8 +27,26 @@ function generate(intervals, target, targetHigh = null, sharp = false) {
   assert.equal(verifier.verify(receipt).verdict, receipt.claim.verdict);
   return receipt;
 }
+function generateSweep(intervals, from, to) {
+  const command = spawnSync('python3', ['tools/joint_reading_box.py',
+    `--intervals=${intervals.map(pair => pair.join(':')).join(',')}`,
+    `--target=${from}`, `--target-high=${to}`, '--target-sweep'], {encoding: 'utf8'});
+  assert.equal(command.status, 0, command.stderr);
+  const receipt = verifier.parseReceipt(command.stdout);
+  assert.equal(verifier.verify(receipt).isSweep, true);
+  return receipt;
+}
 const clone = value => JSON.parse(JSON.stringify(value));
 const numeric = raw => raw.includes('/') ? Number(raw.split('/')[0]) / Number(raw.split('/')[1]) : Number(raw);
+function rationalMidpoint(left, right) {
+  const [a, b = '1'] = left.split('/'), [c, d = '1'] = right.split('/');
+  let top = BigInt(a) * BigInt(d) + BigInt(c) * BigInt(b);
+  let bottom = 2n * BigInt(b) * BigInt(d);
+  let x = top < 0n ? -top : top, y = bottom;
+  while (y) [x, y] = [y, x % y];
+  top /= x; bottom /= x;
+  return bottom === 1n ? String(top) : `${top}/${bottom}`;
+}
 function at(readings) {
   const ordered = [...readings].sort((a, b) => a - b), n = readings.length;
   const mean = readings.reduce((a, b) => a + b, 0) / n;
@@ -310,6 +328,74 @@ test('v3 independently rejects forged minima and unattained witnesses', () => {
   }
 });
 
+test('v4 maps the exact tie band and all changes of the worst-case readings', () => {
+  const intervals = [['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']];
+  const receipt = generateSweep(intervals, '0', '80');
+  assert.deepEqual(receipt, JSON.parse(readFileSync('examples/joint-reading-box-sweep-v4.json', 'utf8')));
+  assert.deepEqual(browserCore.certificateSweep(intervals, '0', '80'), receipt);
+  assert.deepEqual(receipt.claim.tieTargetInterval, ['533/10', '543/10']);
+  assert.deepEqual(receipt.claim.strictPieces.map(piece => piece.to),
+    ['979/20', '533/10', '286/5', '80']);
+  for (const piece of receipt.claim.strictPieces) {
+    const t = (numeric(piece.from) + numeric(piece.to)) / 2;
+    const [d, h] = at(piece.readings.map(numeric));
+    const claimed = numeric(piece.slope) * t + numeric(piece.intercept);
+    assert.ok(Math.abs(2 * Math.abs(d * (h - t)) - claimed) < 1e-9);
+    const sharp = generate(intervals, rationalMidpoint(piece.from, piece.to), null, true);
+    assert.ok(Math.abs(numeric(sharp.claim.squaredGapLowerBound) - claimed) < 1e-9);
+  }
+  const allTie = generateSweep([['-4', '-3'], ['-1', '4'], ['1', '2']], '-10', '10');
+  assert.deepEqual(allTie.claim.tieTargetInterval, ['-10', '10']);
+  assert.deepEqual(allTie.claim.strictPieces, []);
+  assert.deepEqual(browserCore.certificateSweep(allTie.inputs.intervals, '-10', '10'), allTie);
+});
+
+test('v4 seeded boxes match Python and the independent verifier', () => {
+  let seed = 0x45de31a;
+  const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  for (let k = 0; k < 30; k++) {
+    const n = 3 + k % 3;
+    const intervals = Array.from({length: n}, () => {
+      const low = -6 + next() % 13;
+      return [String(low), String(low + next() % 4)];
+    });
+    const from = String(-10 + next() % 12), to = String(5 + next() % 12);
+    const receipt = generateSweep(intervals, from, to);
+    assert.deepEqual(browserCore.certificateSweep(intervals, from, to), receipt);
+    const verified = verifier.verify(receipt);
+    assert.equal(verified.isSweep, true);
+    for (const piece of receipt.claim.strictPieces) {
+      const t = (numeric(piece.from) + numeric(piece.to)) / 2;
+      const sharp = generate(intervals, rationalMidpoint(piece.from, piece.to), null, true);
+      const expected = numeric(piece.slope) * t + numeric(piece.intercept);
+      assert.ok(Math.abs(numeric(sharp.claim.squaredGapLowerBound) - expected) < 1e-8);
+    }
+  }
+});
+
+test('v4 rejects broken intervals, missing segments, forged lines and witnesses', () => {
+  const sweep = generateSweep([['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'],
+    ['85', '86']], '0', '80');
+  for (const change of [
+    x => { x.claim.tieTargetInterval[0] = '53'; },
+    x => { x.claim.tieWitness.target = '52'; },
+    x => { x.claim.strictPieces.pop(); },
+    x => { x.claim.strictPieces[0].to = '49'; },
+    x => { x.claim.strictPieces[0].slope = '-1'; },
+    x => { x.claim.strictPieces[0].readings[0] = '49'; },
+    x => { x.claim.strictPieces[0].verdict = 'Mean'; },
+    x => { x.claim.extra = 'unproved'; }
+  ]) {
+    const forged = clone(sweep); change(forged);
+    assert.throws(() => verifier.verify(forged));
+  }
+  assert.throws(() => browserCore.certificateSweep(sweep.inputs.intervals, '10', '10'));
+  const command = spawnSync('python3', ['tools/joint_reading_box.py',
+    '--intervals=0:0,1:1,3:3', '--target=10', '--target-high=10', '--target-sweep'],
+  {encoding: 'utf8'});
+  assert.notEqual(command.status, 0);
+});
+
 test('even-sample central-pair median and singleton tie boundaries are exact', () => {
   const intervals = [[0, 0], [0, 0], [0, 0], [10, 10]];
   const tie = generate(intervals, '5/4');
@@ -492,6 +578,11 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   await node('range-tie-example').handlers.click();
   assert.equal(node('verdict').textContent, 'Tie possible');
   assert.match(node('detail').textContent, /target 54/);
+  await node('sweep-example').handlers.click();
+  assert.equal(node('verdict').textContent, 'Target map with ties');
+  assert.equal(node('sweep-view').hidden, false);
+  assert.match(node('sweep-pieces').textContent, /979\/20/);
+  assert.match(node('sweep-ties').textContent, /533\/10, 543\/10/);
   node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8');
   node('receipt-json').handlers.input();
   await node('verify').handlers.click();
@@ -506,6 +597,12 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(node('verdict').textContent, 'Median');
   assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v3');
   assert.match(node('detail').textContent, /2581\/25/);
+  assert.equal(node('download').disabled, false);
+  node('target-high').value = '80';
+  await node('sweep').handlers.click();
+  assert.equal(node('verdict').textContent, 'Target map with ties');
+  assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v4');
+  assert.equal(node('sweep-view').hidden, false);
   assert.equal(node('download').disabled, false);
   node('target-high').value = '55';
   node('target-high').handlers.input();

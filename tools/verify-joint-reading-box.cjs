@@ -10,15 +10,23 @@ try {
   if (raw.length > 2_000_000) throw new Error('Certificate exceeds 2 MB');
   const text = new TextDecoder('utf-8', {fatal: true}).decode(raw);
   const result = verify(parseReceipt(text));
-  console.log(`Verified conditional verdict: ${result.verdict}`);
-  if (result.squaredGapLowerBound !== null) {
-    if (result.isSharp) {
-      console.log(`Exact worst-case squared-error lead: ${result.squaredGapLowerBound}`);
-      console.log(`Attained at readings: ${result.gapWitness.readings.join(', ')}; target: ${result.gapWitness.target}`);
-    } else console.log(`Conservative squared-error lead: at least ${result.squaredGapLowerBound}`);
+  if (result.isSweep) {
+    console.log(`Verified exact target sweep: ${result.strictPieces.length} strict pieces`);
+    console.log(`Tie target interval: ${result.tieTargetInterval ? result.tieTargetInterval.join(' through ') : 'none'}`);
+    for (const piece of result.strictPieces) {
+      console.log(`[${piece.from}, ${piece.to}]: ${piece.verdict}; gap(t) = (${piece.slope})t + (${piece.intercept}); readings [${piece.readings.join(', ')}]`);
+    }
   } else {
-    console.log(`Exact tie readings: ${result.tieWitness.join(', ')}`);
-    console.log(`Exact tie target: ${result.tieTarget}`);
+    console.log(`Verified conditional verdict: ${result.verdict}`);
+    if (result.squaredGapLowerBound !== null) {
+      if (result.isSharp) {
+        console.log(`Exact worst-case squared-error lead: ${result.squaredGapLowerBound}`);
+        console.log(`Attained at readings: ${result.gapWitness.readings.join(', ')}; target: ${result.gapWitness.target}`);
+      } else console.log(`Conservative squared-error lead: at least ${result.squaredGapLowerBound}`);
+    } else {
+      console.log(`Exact tie readings: ${result.tieWitness.join(', ')}`);
+      console.log(`Exact tie target: ${result.tieTarget}`);
+    }
   }
   console.log(`Receipt SHA-256: ${createHash('sha256').update(raw).digest('hex')}`);
 } catch (error) {

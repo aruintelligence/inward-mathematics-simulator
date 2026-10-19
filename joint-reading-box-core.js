@@ -8,6 +8,7 @@
   const FORMAT = "inward-joint-reading-box-v1";
   const RANGE_FORMAT = "inward-joint-reading-box-v2";
   const SHARP_FORMAT = "inward-joint-reading-box-v3";
+  const SWEEP_FORMAT = "inward-joint-reading-box-v4";
   const INPUT = /^(?:-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?|-?(?:0|[1-9][0-9]{0,8})\/[1-9][0-9]{0,8})$/;
   const abs = n => n < 0n ? -n : n;
   function gcd(a, b) {
@@ -174,5 +175,91 @@
     build(intervals, targetLow, targetHigh, true);
   const certificateSharp = (intervals, targetLow, targetHigh = targetLow) =>
     build(intervals, targetLow, targetHigh, true, true);
-  return {certificate, certificateRange, certificateSharp};
+  function lowerEnvelope(lines, left, right) {
+    if (cmp(left, right) >= 0) return [];
+    const slopes = new Map();
+    for (const line of lines) {
+      const key = notation(line.slope), previous = slopes.get(key);
+      if (!previous || cmp(line.intercept, previous.intercept) < 0) slopes.set(key, line);
+    }
+    const hull = [];
+    for (const line of [...slopes.values()].sort((a, b) => -cmp(a.slope, b.slope))) {
+      let start = null;
+      while (hull.length) {
+        const previous = hull[hull.length - 1];
+        start = div(sub(line.intercept, previous.line.intercept),
+          sub(previous.line.slope, line.slope));
+        if (previous.start === null || cmp(start, previous.start) > 0) break;
+        hull.pop();
+      }
+      hull.push({line, start: hull.length ? start : null});
+    }
+    const pieces = [];
+    for (let i = 0; i < hull.length; i++) {
+      const {line, start} = hull[i];
+      const from = start !== null && cmp(left, start) < 0 ? start : left;
+      const end = i + 1 < hull.length ? hull[i + 1].start : null;
+      const to = end !== null && cmp(end, right) < 0 ? end : right;
+      if (cmp(from, to) < 0) pieces.push({from: notation(from), to: notation(to),
+        slope: notation(line.slope), intercept: notation(line.intercept),
+        readings: line.readings.map(notation)});
+    }
+    return pieces;
+  }
+  function certificateSweep(rawIntervals, rawLow, rawHigh) {
+    const base = build(rawIntervals, rawLow, rawHigh, true);
+    const fromNotation = raw => {
+      const [top, bottom = "1"] = raw.split("/");
+      return q(BigInt(top), BigInt(bottom));
+    };
+    const intervals = base.inputs.intervals.map(pair => pair.map(fromNotation));
+    const [a, b] = base.inputs.targetInterval.map(fromNotation);
+    if (cmp(a, b) >= 0) throw new RangeError("Target sweep requires an increasing target range.");
+    const {estimateRange, midpointRange} = base.claim;
+    const hlow = fromNotation(midpointRange.min), hhigh = fromNotation(midpointRange.max);
+    const dlow = fromNotation(estimateRange.min.value);
+    const dhigh = fromNotation(estimateRange.max.value);
+    const globalTie = cmp(dlow, ZERO) <= 0 && cmp(ZERO, dhigh) <= 0;
+    const tieLow = globalTie ? a : cmp(a, hlow) > 0 ? a : hlow;
+    const tieHigh = globalTie ? b : cmp(b, hhigh) < 0 ? b : hhigh;
+    const tieTargetInterval = cmp(tieLow, tieHigh) <= 0 ?
+      [notation(tieLow), notation(tieHigh)] : null;
+    const tieWitness = tieTargetInterval ?
+      {readings: base.claim.tieWitness, target: base.claim.tieTarget} : null;
+    const strictPieces = [];
+    if (!globalTie) {
+      const endpoints = new Map(intervals.flat().map(value => [notation(value), value]));
+      const options = intervals.map(([lo, hi]) => [...endpoints.values()].filter(value =>
+        cmp(lo, value) <= 0 && cmp(value, hi) <= 0).sort(cmp));
+      const candidates = [], sample = [];
+      function visit(i) {
+        if (i === options.length) {
+          const {difference, midpoint} = factors(sample);
+          candidates.push({weight: mul(TWO, absQ(difference)), midpoint, readings: [...sample]});
+          return;
+        }
+        for (const value of options[i]) { sample[i] = value; visit(i + 1); }
+      }
+      visit(0);
+      const belowEnd = cmp(b, hlow) < 0 ? b : hlow;
+      if (cmp(a, belowEnd) < 0) {
+        const lines = candidates.map(({weight, midpoint, readings}) =>
+          ({slope: q(-weight.n, weight.d), intercept: mul(weight, midpoint), readings}));
+        const pieces = lowerEnvelope(lines, a, belowEnd);
+        pieces.forEach(piece => { piece.verdict = cmp(dlow, ZERO) < 0 ? "Mean" : "Median"; });
+        strictPieces.push(...pieces);
+      }
+      const aboveStart = cmp(a, hhigh) > 0 ? a : hhigh;
+      if (cmp(aboveStart, b) < 0) {
+        const lines = candidates.map(({weight, midpoint, readings}) =>
+          ({slope: weight, intercept: mul(q(-weight.n, weight.d), midpoint), readings}));
+        const pieces = lowerEnvelope(lines, aboveStart, b);
+        pieces.forEach(piece => { piece.verdict = cmp(dlow, ZERO) < 0 ? "Median" : "Mean"; });
+        strictPieces.push(...pieces);
+      }
+    }
+    return {format: SWEEP_FORMAT, inputs: base.inputs,
+      claim: {estimateRange, midpointRange, tieTargetInterval, tieWitness, strictPieces}};
+  }
+  return {certificate, certificateRange, certificateSharp, certificateSweep};
 });

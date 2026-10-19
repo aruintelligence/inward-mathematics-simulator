@@ -10,6 +10,7 @@ from odd_sample_flip import LIMIT, exact
 FORMAT = "inward-joint-reading-box-v1"
 RANGE_FORMAT = "inward-joint-reading-box-v2"
 SHARP_FORMAT = "inward-joint-reading-box-v3"
+SWEEP_FORMAT = "inward-joint-reading-box-v4"
 MAX_CANDIDATES = 100_000
 
 
@@ -150,6 +151,86 @@ def certificate(raw_intervals, raw_target, raw_target_high=None, exact_gap=False
             "inputs": inputs, "claim": claim}
 
 
+def lower_envelope(lines, left, right):
+    """Exact lower envelope of affine lines, clipped to a nonempty open span."""
+    if left >= right:
+        return []
+    by_slope = {}
+    for slope, intercept, readings in lines:
+        previous = by_slope.get(slope)
+        if previous is None or intercept < previous[0]:
+            by_slope[slope] = (intercept, readings)
+    hull = []
+    for slope in sorted(by_slope, reverse=True):
+        intercept, readings = by_slope[slope]
+        start = None
+        while hull:
+            old_slope, old_intercept, _, old_start = hull[-1]
+            start = (intercept - old_intercept) / (old_slope - slope)
+            if old_start is None or start > old_start:
+                break
+            hull.pop()
+        hull.append((slope, intercept, readings, start if hull else None))
+    pieces = []
+    for i, (slope, intercept, readings, start) in enumerate(hull):
+        lo = max(left, start) if start is not None else left
+        end = hull[i + 1][3] if i + 1 < len(hull) else None
+        hi = min(right, end) if end is not None else right
+        if lo < hi:
+            pieces.append({"from": str(lo), "to": str(hi),
+                           "slope": str(slope), "intercept": str(intercept),
+                           "readings": list(map(str, readings))})
+    return pieces
+
+
+def sweep_certificate(raw_intervals, raw_target, raw_target_high):
+    """Exact worst-case gap as a piecewise affine function of the target."""
+    base = certificate(raw_intervals, raw_target, raw_target_high)
+    intervals = [(Fraction(a), Fraction(b)) for a, b in base["inputs"]["intervals"]]
+    a, b = (Fraction(v) for v in base["inputs"]["targetInterval"])
+    if a >= b:
+        raise ValueError("Target sweep requires a lower target strictly below the upper target")
+    claim = base["claim"]
+    hlow = Fraction(claim["midpointRange"]["min"])
+    hhigh = Fraction(claim["midpointRange"]["max"])
+    dlow = Fraction(claim["estimateRange"]["min"]["value"])
+    dhigh = Fraction(claim["estimateRange"]["max"]["value"])
+    global_tie = dlow <= 0 <= dhigh
+    tie_interval = ([str(a), str(b)] if global_tie else
+                    [str(max(a, hlow)), str(min(b, hhigh))]
+                    if max(a, hlow) <= min(b, hhigh) else None)
+    tie_witness = ({"readings": claim["tieWitness"], "target": claim["tieTarget"]}
+                   if tie_interval is not None else None)
+    pieces = []
+    if not global_tie:
+        endpoints = sorted({v for pair in intervals for v in pair})
+        choices = [[v for v in endpoints if low <= v <= high] for low, high in intervals]
+        candidates = []
+        for readings in product(*choices):
+            difference, midpoint = factors(readings)
+            candidates.append((2 * abs(difference), midpoint, readings))
+        below_end = min(b, hlow)
+        if a < below_end:
+            lines = [(-weight, weight * midpoint, readings)
+                     for weight, midpoint, readings in candidates]
+            pieces.extend(lower_envelope(lines, a, below_end))
+            for piece in pieces:
+                piece["verdict"] = "Mean" if dlow < 0 else "Median"
+        above_start = max(a, hhigh)
+        if above_start < b:
+            lines = [(weight, -weight * midpoint, readings)
+                     for weight, midpoint, readings in candidates]
+            above = lower_envelope(lines, above_start, b)
+            for piece in above:
+                piece["verdict"] = "Median" if dlow < 0 else "Mean"
+            pieces.extend(above)
+    return {"format": SWEEP_FORMAT, "inputs": base["inputs"],
+            "claim": {"estimateRange": claim["estimateRange"],
+                      "midpointRange": claim["midpointRange"],
+                      "tieTargetInterval": tie_interval, "tieWitness": tie_witness,
+                      "strictPieces": pieces}}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--intervals", required=True,
@@ -158,11 +239,17 @@ def main():
     parser.add_argument("--target-high", help="upper target bound; enables interval receipt")
     parser.add_argument("--exact-gap", action="store_true",
                         help="emit v3 receipt with attained exact worst-case squared-error gap")
+    parser.add_argument("--target-sweep", action="store_true",
+                        help="emit v4 receipt with exact gap as the target moves; requires --target-high")
     args = parser.parse_args()
     try:
+        if args.target_sweep and (args.target_high is None or args.exact_gap):
+            raise ValueError("--target-sweep requires --target-high and excludes --exact-gap")
         intervals = [item.split(":") for item in args.intervals.split(",")]
-        print(json.dumps(certificate(intervals, args.target, args.target_high,
-                                     exact_gap=args.exact_gap),
+        receipt = (sweep_certificate(intervals, args.target, args.target_high)
+                   if args.target_sweep else certificate(intervals, args.target, args.target_high,
+                                                         exact_gap=args.exact_gap))
+        print(json.dumps(receipt,
                          indent=2, ensure_ascii=False))
     except (ValueError, TypeError, ArithmeticError, ZeroDivisionError) as error:
         parser.exit(1, f"Joint reading box failed: {error}\n")

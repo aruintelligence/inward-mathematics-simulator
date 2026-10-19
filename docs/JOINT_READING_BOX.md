@@ -10,6 +10,9 @@ signed rational intervals and includes the central-pair median
 for even samples. It does not replace the one-reading-at-a-time Target Box.
 New v3 receipts also find the **exact attained minimum squared-error lead**
 when one estimator wins throughout the box.
+The v4 target sweep maps the exact tie region and the attained worst-case lead
+for **every target** across a nondegenerate interval, including rational
+breakpoints where the worst-case readings change.
 
 ## Reproduce and inspect
 
@@ -34,6 +37,9 @@ node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v2.json
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=45 --exact-gap > joint-sharp.json
 node tools/verify-joint-reading-box.cjs joint-sharp.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-interior-v3.json
+python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 --target-high=80 --target-sweep > joint-sweep.json
+node tools/verify-joint-reading-box.cjs joint-sweep.json
+node tools/verify-joint-reading-box.cjs examples/joint-reading-box-sweep-v4.json
 ```
 
 The browser constructor and Python generator produce the same versioned
@@ -42,9 +48,10 @@ recompute the claim without importing either constructor. GitHub Actions
 checks the examples and runs seeded odd/even cases against an integer-grid
 oracle. These finite checks are distinct from the proof below.
 
-The v1 receipt has one fixed `inputs.target`. The v2 and v3 receipts have
-`inputs.targetInterval: [low, high]` and a `claim.tieTarget` when a tie is
-possible. Equal target bounds are allowed. The verifier accepts all three
+The v1 receipt has one fixed `inputs.target`. The v2, v3, and v4 receipts have
+`inputs.targetInterval: [low, high]`; v2/v3 have a `claim.tieTarget` when a tie
+is possible. Equal target bounds are allowed in v2/v3; v4 requires a strictly
+increasing target interval. The verifier accepts all four
 versions, rejects tie targets outside the supplied interval, and independently
 recomputes a v3 exact minimum and its `claim.gapWitness`. In v1/v2,
 `squaredGapLowerBound` is conservative; in v3 it is the attained exact minimum
@@ -52,6 +59,13 @@ for a strict verdict. A tie receipt has a zero minimum, represented by its
 `tieWitness`, and leaves the strict-gap fields null. The range model
 allows **every** combination of readings and target in the Cartesian product;
 it does not describe correlated motion or a probability distribution.
+V4 has `claim.tieTargetInterval` (or null), `claim.tieWitness` (or null), and
+`claim.strictPieces`. Each piece includes rational `from`, `to`, `slope`,
+`intercept`, a strict winner on its interior, and readings that attain
+$G(t)=\text{slope}\,t+\text{intercept}$ throughout that piece. A piece's
+closed endpoint may touch the tie interval, where $G=0$ and the winner ties.
+The independent verifier recomputes every segment boundary and line, checks
+coverage, and checks that the reading witness attains its line.
 
 ## Complete algebraic argument
 
@@ -184,6 +198,42 @@ $[-3,2]$, while the best of all box corners gives $816/25$. The
 [independently checkable receipt](../examples/joint-reading-box-interior-v3.json)
 records this interior ordering-cell vertex.
 
+## Complete target sweep (v4)
+
+Fix the reading box $B$ and let the target traverse $T=[a,b]$ with $a<b$.
+If $0\in I_D$, the same attainable reading vector with $\mu=m$ ties for
+**every** target in $T$, and $G(t)=0$ throughout. Otherwise the exact tie
+set is $T\cap I_H$. For targets strictly below $H(L)$ or strictly above
+$H(U)$, the sign of $D(H-t)$ fixes the winner.
+
+For each $c\in C$, set $w_c=2|D(c)|>0$ and $h_c=H(c)$. The v3 argument
+applied separately to every fixed target gives the exact attained gap
+
+$$
+G(t)=\begin{cases}
+\min_{c\in C}(w_ch_c-w_ct),&t<H(L),\\
+0,&t\in I_H,\\
+\min_{c\in C}(w_ct-w_ch_c),&t>H(U).
+\end{cases}
+$$
+
+The minimum of finitely many rational affine lines is a piecewise affine
+function. The generator sorts their slopes, discards parallel lines with
+larger intercept, intersects consecutive surviving lines exactly, and
+clips the lower envelope to $T$. A reading witness for each piece attains
+its line at **every target on that piece**. The verifier independently
+enumerates the endpoint-valued candidates, rebuilds the lower envelopes,
+checks all breakpoints and each witness, and rejects omitted or altered
+pieces. Thus there is no target sampling assumption.
+
+The [example v4 receipt](../examples/joint-reading-box-sweep-v4.json) for
+readings near $(48,49,50,51,85)$ and target range $[0,80]$ has ties exactly
+on $[533/10,543/10]$. The strict Median region changes worst-case readings
+at $979/20$, and the strict Mean region changes them at $286/5$. These are
+rational line intersections computed from the readings, not rounded plot
+coordinates. At the tie-band endpoints, the adjacent gap formula equals
+zero; the strict winner applies to the open part of each exterior piece.
+
 ## Why corners alone are insufficient
 
 For the intervals $[-4,-3],[-1,4],[1,2]$, the true minimum of $D$ is
@@ -195,7 +245,7 @@ records the exact extremum and an attained tie at target $-2$.
 
 Input is 3–5 intervals, rational or at most six-place decimal bounds within
 $[-1{,}000{,}000,1{,}000{,}000]$, and a fixed target (v1) or target interval
-(v2/v3, including equal bounds) in that range.
+(v2/v3, including equal bounds, or v4 with strictly increasing bounds) in that range.
 Every interval may have zero width. At most 100,000 feasible endpoint-valued
 vectors may be enumerated; a larger case fails explicitly. Imported input
 fractions are canonical and limited to 18 digits per part, computed claim
@@ -205,7 +255,7 @@ real values inside the accepted intervals, not just input-grid readings.
 The proof is an elementary argument recorded here, with separate Python and
 browser constructors, an independent exact verifier, and finite regression
 checks. There is **no Lean formalization of the arbitrary-interval vertex
-argument or the v3 sharp-gap argument** in this release.
+argument, the v3 sharp-gap argument, or the v4 envelope argument** in this release.
 The receipt cannot verify the provenance or suitability of supplied data,
 the target choice, correlation assumptions, or market demand. Attribution
 and licensing remain in the repository's `LICENSE` and `CITATION.cff`.
