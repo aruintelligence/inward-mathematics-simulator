@@ -6,11 +6,13 @@ const {createHash, webcrypto} = require('node:crypto');
 const vm = require('node:vm');
 const browserCore = require('../joint-reading-box-core.js');
 const verifier = require('../joint-reading-box-verifier.js');
+const thresholdCore = require('../joint-reading-threshold.js');
 const targetLens = require('../target-lens.js');
 
-test('browser lab pins constructor and verifier assets to their SHA-256 versions', () => {
+test('browser lab pins its exact computation assets to their SHA-256 versions', () => {
   const html = readFileSync('joint-reading-box.html', 'utf8');
-  for (const path of ['joint-reading-box-core.js', 'joint-reading-box-verifier.js']) {
+  for (const path of ['joint-reading-box-core.js', 'joint-reading-box-verifier.js',
+    'joint-reading-threshold.js']) {
     const hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12);
     assert.ok(html.includes(`<script src="${path}?v=${hash}"></script>`));
   }
@@ -511,6 +513,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   }
   node('reading-count').value = '5';
   node('target').value = '0';
+  node('margin-threshold').value = '100';
   const defaults = [[48, 49], [49, 50], [50, 51], [51, 52], [85, 86]];
   defaults.forEach(([low, high], i) => {
     node('low-' + (i + 1)).value = String(low);
@@ -531,6 +534,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
     assert.equal(tag, 'a'); return {click() {clicked = true;}};
   }}, fetch, URL, Blob, setTimeout() {},
     InwardJointBox: browserCore, InwardJointBoxVerifier: verifier,
+    InwardJointThreshold: thresholdCore,
     TextEncoder, TextDecoder, Uint8Array, crypto: testCrypto},
   {timeout: 1000});
   let submitted = false;
@@ -583,8 +587,28 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(node('sweep-view').hidden, false);
   assert.match(node('sweep-pieces').textContent, /979\/20/);
   assert.match(node('sweep-ties').textContent, /533\/10, 543\/10/);
+  assert.match(node('margin-result').textContent, /13131\/290.*18131\/290/s);
+  assert.equal(node('margin-download').disabled, false);
+  node('margin-download').handlers.click();
+  assert.deepEqual(JSON.parse(await exported.text()),
+    JSON.parse(readFileSync('examples/joint-reading-box-margin-100-v1.json', 'utf8')));
+  node('margin-threshold').value = '0';
+  node('margin-threshold').handlers.input();
+  assert.equal(node('margin-download').disabled, true);
+  node('margin-form').handlers.submit({preventDefault() {}});
+  assert.match(node('margin-result').textContent, /Required lead must be positive/);
+  node('margin-threshold').value = '700';
+  node('margin-threshold').handlers.input();
+  node('margin-form').handlers.submit({preventDefault() {}});
+  assert.match(node('margin-result').textContent, /No target/);
+  assert.equal(node('margin-download').disabled, false);
+  node('margin-threshold').value = '100';
+  node('margin-threshold').handlers.input();
+  node('margin-form').handlers.submit({preventDefault() {}});
+  assert.equal(node('margin-download').disabled, false);
   node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v2.json', 'utf8');
   node('receipt-json').handlers.input();
+  assert.equal(node('margin-download').disabled, true);
   await node('verify').handlers.click();
   assert.match(node('detail').textContent, /2407\/25.*conservative bound/);
   node('target-high').value = '45';
@@ -604,8 +628,42 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(verifier.parseReceipt(node('receipt-json').value).format, 'inward-joint-reading-box-v4');
   assert.equal(node('sweep-view').hidden, false);
   assert.equal(node('download').disabled, false);
+  node('margin-download').handlers.click();
+  const customAnswer = JSON.parse(await exported.text());
+  const customReceipt = verifier.parseReceipt(node('receipt-json').value);
+  assert.deepEqual(customAnswer.guaranteedRegions,
+    thresholdCore.regions(verifier.verify(customReceipt), customReceipt.inputs, '100').guaranteedRegions);
+  assert.equal(customAnswer.sourceReceiptSha256,
+    createHash('sha256').update(node('receipt-json').value).digest('hex'));
+  node('reading-count').value = '3';
+  node('reading-count').handlers.change();
+  [[-4, -3], [-1, 4], [1, 2]].forEach(([low, high], i) => {
+    node('low-' + (i + 1)).value = String(low);
+    node('high-' + (i + 1)).value = String(high);
+  });
+  node('target').value = '-8';
+  node('target-high').value = '9';
+  node('margin-threshold').value = '1';
+  node('margin-threshold').handlers.input();
+  await node('sweep').handlers.click();
+  assert.equal(node('margin-download').disabled, false);
+  node('margin-download').handlers.click();
+  const oddAnswer = JSON.parse(await exported.text());
+  const oddReceipt = verifier.parseReceipt(node('receipt-json').value);
+  assert.equal(oddAnswer.threshold, '1');
+  assert.deepEqual(oddAnswer.guaranteedRegions,
+    thresholdCore.regions(verifier.verify(oddReceipt), oddReceipt.inputs, '1').guaranteedRegions);
+  assert.equal(oddAnswer.sourceReceiptSha256,
+    createHash('sha256').update(node('receipt-json').value).digest('hex'));
+  node('reading-count').value = '5';
+  node('reading-count').handlers.change();
+  defaults.forEach(([low, high], i) => {
+    node('low-' + (i + 1)).value = String(low);
+    node('high-' + (i + 1)).value = String(high);
+  });
   node('target-high').value = '55';
   node('target-high').handlers.input();
+  assert.equal(node('margin-download').disabled, true);
   node('target').value = '54';
   await node('builder-form').handlers.submit({preventDefault() {}});
   assert.equal(node('verdict').textContent, 'Tie possible');
@@ -615,6 +673,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   await node('verify').handlers.click();
   assert.equal(node('verdict').textContent, 'Unverified');
   assert.equal(node('fingerprint').textContent, '—');
+  assert.equal(node('margin-download').disabled, true);
   assert.match(node('status').textContent, /^Rejected:/);
   node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8');
   delayNextDigest = true;

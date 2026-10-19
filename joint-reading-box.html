@@ -6,6 +6,7 @@
   <meta name="description" content="Certify the exact worst-case Mean versus Median gap when several readings and the target vary independently.">
   <title>Joint Reading Box / Exact Research Lab | INWARD Mathematics™</title>
   <style>
+    #margin-form{margin-top:22px}#margin-threshold{display:block;min-height:46px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;width:min(100%,230px);margin-top:6px}#margin-result{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace;margin-top:14px}
     :root{color-scheme:dark light;--bg:#071827;--panel:#102b3c;--ink:#f3f9f6;--muted:#c1d4d8;--line:#7896a3;--mint:#75e8c4;--gold:#ffd18a}
     *{box-sizing:border-box}body{margin:0;min-width:320px;background:radial-gradient(circle at 83% 0,#204c61 0,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
     main,header .wrap,footer .wrap{width:min(1020px,calc(100% - 36px));margin:auto}a{color:var(--mint);text-underline-offset:3px}a:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
@@ -20,7 +21,7 @@
   <header><div class="wrap"><strong>ĀRU INTELLIGENCE / INWARD MATHEMATICS™</strong><a href="index.html">Back to the lab</a></div></header>
   <main>
     <section class="hero"><p class="eyebrow">Exact mathematics / interactive research</p><h1>Several readings can move. Does the result hold?</h1>
-      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Find an attainable tie, the exact worst-case squared-error lead, or a complete map of how both change across targets. Check the receipt independently and share it.</p></section>
+      <p class="lede">Set independent bounds for 3–5 readings and a fixed target or target interval. Find an attainable tie, the exact worst-case squared-error lead, or a complete map of how both change across targets. Ask where a chosen lead is guaranteed, then check and share the exact answer.</p></section>
     <section class="section"><p class="eyebrow">01 / Define an experiment</p><h2>What might each reading become?</h2>
       <div class="grid"><form id="builder-form" class="card">
         <div class="setup"><label for="reading-count">Number of readings</label><select id="reading-count"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option></select>
@@ -36,7 +37,7 @@
         <p id="input-help" class="number-note">Use integers, fractions such as -3/2, or decimals up to six places. Each interval includes both endpoints. Leave “Target through” empty for one fixed target; fill it to certify every target in the closed range.</p>
         <div class="actions"><button type="submit">Generate and verify</button><button id="sweep" type="button" class="secondary">Map every target</button><button id="download" type="button" class="secondary" disabled>Download checked JSON</button></div>
         <p id="builder-status" class="help" role="status">Edit the example bounds or generate its receipt.</p>
-      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the receipt gives the strict winner, the exact smallest squared-error lead, and readings and target where that minimum occurs.</p><p class="muted">To map the whole target range, enter a strictly higher “Target through” value and choose “Map every target.” The map finds every tie target and each exact linear piece of the worst-case lead, with readings that attain it.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
+      </form><div class="card"><h2>What will the proof say?</h2><p class="muted">The two estimators are recomputed across every real configuration inside your chosen ranges. If an exact tie can occur, you receive readings and a target that attain it. Otherwise the receipt gives the strict winner, the exact smallest squared-error lead, and readings and target where that minimum occurs.</p><p class="muted">To map the whole target range, enter a strictly higher “Target through” value and choose “Map every target.” The map finds every tie target and each exact linear piece of the worst-case lead, with readings that attain it. Then choose a required lead to find the exact target regions that guarantee it.</p><p class="muted">The calculation runs on this device. The target and ranges are assumptions you choose; the page does not know whether they represent real measurements. The target may vary independently of the readings.</p><p><a href="docs/JOINT_READING_BOX.md">See the exact proof and limits</a></p></div></div>
     </section>
     <section class="section grid">
       <div class="card"><p class="eyebrow">02 / Independent check</p><h2>Inspect the receipt</h2><label for="receipt-file">Choose a JSON certificate</label><br><input id="receipt-file" type="file" accept="application/json,.json">
@@ -49,22 +50,33 @@
         <div class="fact"><span>Exact estimator-midpoint range</span><strong id="midpoint">—</strong></div>
         <div class="fact"><span>SHA-256 of checked JSON bytes</span><strong id="fingerprint">—</strong></div></div>
     </section>
-    <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div></section>
+    <section id="sweep-view" class="section" hidden><p class="eyebrow">Exact target map</p><h2>Every target in the range</h2><p class="help">Each formula is the smallest attainable squared-error lead at target t. The listed winner is strict inside the piece; at a boundary shared with the tie interval, the lead is zero.</p><p id="sweep-ties"></p><div id="sweep-pieces"></div>
+      <form id="margin-form" class="card"><h2>Where is a required lead guaranteed?</h2><p class="help">Enter a positive squared-error lead. The target regions below include their exact endpoints; the cutoff readings attain the threshold. This is a sensitivity question about your stipulated bounds.</p><label for="margin-threshold">Required lead<input id="margin-threshold" type="text" inputmode="decimal" value="100" autocomplete="off"></label><div class="actions"><button type="submit">Find exact target regions</button><button id="margin-download" type="button" class="secondary" disabled>Download checked region answer</button></div></form>
+      <div id="margin-result" class="card" role="status" aria-live="polite">Verify a v4 sweep to calculate target regions.</div></section>
     <section class="section"><p class="eyebrow">What this establishes</p><h2>A conditional result across infinitely many configurations</h2>
-      <p class="lede">The exact finite calculation covers every real reading and target inside the supplied intervals. A strict v3 verdict includes the exact attained minimum squared-error lead; legacy v1/v2 receipts retain their conservative bound. A tie result includes attainable readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
+      <p class="lede">The exact finite calculation covers every real reading and target inside the supplied intervals. A strict v3 verdict includes the exact attained minimum squared-error lead; legacy v1/v2 receipts retain their conservative bound. A v4 map can answer a required-lead query and export exact target regions linked to the checked source JSON. A tie result includes attainable readings and target. The receipt does not authenticate measurements, assign probabilities, or establish which estimator is appropriate for a real problem.</p>
       <p><a href="joint-reading-sweep-report.html">Explore the standalone, verified target-sweep report</a> · <a href="docs/JOINT_READING_BOX.md">Read the proof, limits, and reproduction commands</a></p></section>
   </main>
   <footer><div class="wrap">Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. MIT license. Conditional mathematical model.</div></footer>
   <script src="joint-reading-box-core.js?v=4333d1ab1d37"></script>
   <script src="joint-reading-box-verifier.js?v=f2bfc6c05e94"></script>
+  <script src="joint-reading-threshold.js?v=a976351e5ca5"></script>
   <script>
     (() => {
       'use strict';
       const $ = id => document.getElementById(id);
       let rawBytes = null, generatedJSON = null, revision = 0;
+      let verifiedSweep = null, marginJSON = null;
+      function clearMargin(message = 'Verify a v4 sweep to calculate target regions.') {
+        verifiedSweep = null; marginJSON = null;
+        $('margin-download').disabled = true;
+        $('margin-result').textContent = message;
+        $('margin-result').className = 'card';
+      }
       function invalidate(message) {
         revision++;
         rawBytes = null; generatedJSON = null; $('download').disabled = true;
+        clearMargin();
         $('builder-status').textContent = 'Generate again to download a checked certificate.';
         $('builder-status').className = 'help';
         $('status').textContent = message; $('status').className = 'muted';
@@ -125,13 +137,48 @@
       $('sweep').addEventListener('click', () => generate(true));
       $('download').addEventListener('click', () => {
         if (!generatedJSON) return;
-        const url = URL.createObjectURL(new Blob([generatedJSON], {type: 'application/json'}));
+        downloadJSON(generatedJSON, generatedJSON.includes('"inward-joint-reading-box-v4"') ?
+          'joint-reading-box-v4.json' : 'joint-reading-box-v3.json');
+      });
+      function downloadJSON(content, filename) {
+        const url = URL.createObjectURL(new Blob([content], {type: 'application/json'}));
         const link = document.createElement('a');
-        link.href = url; link.download = generatedJSON.includes('"inward-joint-reading-box-v4"') ?
-          'joint-reading-box-v4.json' : 'joint-reading-box-v3.json';
+        link.href = url; link.download = filename;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      $('margin-download').addEventListener('click', () => {
+        if (marginJSON && verifiedSweep) downloadJSON(marginJSON, 'joint-reading-margin-regions-v1.json');
       });
+      $('margin-threshold').addEventListener('input', () => {
+        marginJSON = null; $('margin-download').disabled = true;
+        $('margin-result').textContent = 'Threshold changed. Calculate the exact target regions again.';
+        $('margin-result').className = 'card';
+      });
+      function updateMargin() {
+        marginJSON = null; $('margin-download').disabled = true;
+        if (!verifiedSweep) return;
+        try {
+          const {result, inputs, sourceSha} = verifiedSweep;
+          const calculation = InwardJointThreshold.regions(result, inputs, $('margin-threshold').value.trim());
+          const answer = {format: 'inward-joint-reading-margin-regions-v1',
+            sourceReceiptSha256: sourceSha, ...calculation};
+          marginJSON = JSON.stringify(answer, null, 2) + '\n';
+          $('margin-download').disabled = false;
+          $('margin-result').className = 'card';
+          $('margin-result').textContent = calculation.guaranteedRegions.length ?
+            calculation.guaranteedRegions.map(region =>
+              `[${region.from}, ${region.to}]: ${region.verdict} guarantees a lead ≥ ${calculation.threshold} for every permitted reading. ` +
+              (region.thresholdBoundary ?
+                `At target ${region.thresholdBoundary.target}, readings [${region.thresholdBoundary.readings.join(', ')}] attain exactly ${calculation.threshold}.` :
+                'The threshold is not tight inside this target region.')).join('\n\n') :
+            `No target in the selected range guarantees a lead of ${calculation.threshold}.`;
+        } catch (error) {
+          $('margin-result').textContent = `Cannot calculate regions: ${error.message}`;
+          $('margin-result').className = 'card error';
+        }
+      }
+      $('margin-form').addEventListener('submit', event => {event.preventDefault(); updateMargin();});
       $('receipt-json').addEventListener('input', () => invalidate('Receipt edited. Verify its current contents.'));
       $('receipt-file').addEventListener('change', async event => {
         const file = event.target.files[0];
@@ -150,6 +197,7 @@
       function rejected(error) {
         revision++;
         generatedJSON = null; $('download').disabled = true;
+        clearMargin();
         $('status').textContent = `Rejected: ${error.message}`; $('status').className = 'error';
         $('verdict').textContent = 'Unverified';
         $('sweep-view').hidden = true;
@@ -157,6 +205,8 @@
       }
       async function inspect() {
         const token = ++revision;
+        clearMargin('Checking the edited receipt before calculating target regions…');
+        $('sweep-view').hidden = true;
         try {
           const text = $('receipt-json').value;
           const bytes = rawBytes || new TextEncoder().encode(text);
@@ -168,6 +218,8 @@
           $('status').className = 'good';
           $('sweep-view').hidden = !result.isSweep;
           if (result.isSweep) {
+            verifiedSweep = {result, inputs: receipt.inputs,
+              sourceSha: [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')};
             $('verdict').textContent = result.tieTargetInterval ? 'Target map with ties' : 'Strict target map';
             $('detail').textContent = `${result.strictPieces.length} exact strict piece(s); ${
               result.tieTargetInterval ? 'ties on [' + result.tieTargetInterval.join(', ') + ']' : 'no ties in this range'}.`;
@@ -176,6 +228,7 @@
               'No target in this range permits a tie.';
             $('sweep-pieces').textContent = result.strictPieces.map(piece =>
               `[${piece.from}, ${piece.to}]  ${piece.verdict}  gap(t) = (${piece.slope})t + (${piece.intercept})\nAttained at readings [${piece.readings.join(', ')}]`).join('\n\n');
+            updateMargin();
           } else {
             $('verdict').textContent = result.verdict;
             $('detail').textContent = result.tieWitness ?

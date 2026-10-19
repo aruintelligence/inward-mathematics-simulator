@@ -289,6 +289,13 @@ replays the source and recomputes the threshold regions, source fingerprint,
 and boundary witnesses. A fingerprint identifies exact source bytes and
 does not authenticate their origin.
 
+The [interactive lab](../joint-reading-box.html) also runs the inverse query
+for newly generated or imported v4 sweeps. After it checks the sweep and
+fingerprints its original JSON bytes, enter a positive required lead beneath
+the target map. Its downloaded answer carries that source fingerprint and
+can be replayed with the Node checker above. Editing inputs, receipt text,
+or the threshold clears the previous answer before another download.
+
 This query classifies stipulated targets; it does not recommend choosing a
 target to make one estimator appear better, and does not validate whether
 the reading intervals model a real application.
