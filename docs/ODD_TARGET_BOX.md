@@ -88,8 +88,14 @@ record. For the two displayed routes, Lean now exhibits a sorted permutation
 of the moved six-reading sample on every cell and checks that the median is
 the route formula. The interval tie theorem is also stated directly using
 the mean of each moved sample and the median of its sorted permutation.
-There is still no machine-checked bridge from a JSON route to the explicit
-Lean functions. The formal statements do not turn a computational
+Lean additionally enumerates all six original index choices, proves their
+sorted medians and strict Mean-below-Median ordering throughout `[0,10]`,
+and checks that every route's midpoint lies in `[17/3,95/12]`. The full
+six-reading theorem proves strict Mean below the horizon, an attained tie
+at every target within it, and strict Median above it. It accepts any
+sorted permutation of the moved sample. There is still no machine-checked
+bridge from an arbitrary JSON route to the explicit Lean functions. The
+formal statements do not turn a computational
 certificate into an automatically checked Lean proof of its data.
 
 For readings `[8,6,8,7,0,8]`, movement `[0,10]`, and probe target `[6,6]`, the [checked v6 example](../examples/target-horizon-v6.json) has $h_-=17/3$ and $h_+=95/12$. Every target below $17/3$ strictly favors Mean under every permitted move; every target above $95/12$ strictly favors Median. At target $6$, moving reading 1 to $4$ gives an exact tie. By contrast, the five-reading `[48,49,50,51,85]` case with movement `[0,100]` has an all-target tie after moving reading 1 to $15$, so no target can provide a strict global guarantee across every route. These conclusions concern the stated hypothetical movement model and do not establish which estimator is appropriate for real measurements.

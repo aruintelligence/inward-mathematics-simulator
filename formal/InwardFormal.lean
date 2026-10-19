@@ -1028,8 +1028,8 @@ theorem six_reading_target_six_tie :
   rw [six_reading_mean, six_reading_median]
   norm_num
 
-/-- The first route at movement low `0`; the receipt separately checks that
-this endpoint attains the minimum over every route. -/
+/-- The first route at movement low `0`. The six-route theorem below proves
+that its midpoint is the global lower bound in the permitted movement box. -/
 def sixReadingLowEndpoint : List ℝ := [0, 0, 6, 7, 8, 8]
 
 theorem six_reading_low_endpoint_midpoint :
@@ -1037,8 +1037,8 @@ theorem six_reading_low_endpoint_midpoint :
       17 / 3 := by
   norm_num [sampleMean, orderedMedian, sixReadingLowEndpoint]
 
-/-- The fifth route at movement high `10`; the receipt separately checks
-that this endpoint attains the maximum over every route. -/
+/-- The fifth route at movement high `10`. The six-route theorem below proves
+that its midpoint is the global upper bound in the permitted movement box. -/
 def sixReadingHighEndpoint : List ℝ := [6, 7, 8, 8, 8, 10]
 
 theorem six_reading_high_endpoint_midpoint :
@@ -1317,6 +1317,338 @@ theorem six_reading_sorted_sample_horizon_tie (t : ℝ)
     rw [six_high_route_mean_from_sample, hmedian]
     exact htie
 
+/-!
+The two routes above give every inner tie. The remaining four index choices
+must also be controlled before either outside winner is a global guarantee.
+Three positions contain `8`, so they share the same median formula, but the
+model records all six original indices rather than silently dropping routes.
+-/
+inductive SixReadingMove where
+  | firstEight | six | thirdEight | seven | zero | lastEight
+  deriving DecidableEq
+
+def sixMovedSample : SixReadingMove → ℝ → List ℝ
+  | .firstEight, x => [x, 6, 8, 7, 0, 8]
+  | .six, x => [8, x, 8, 7, 0, 8]
+  | .thirdEight, x => [8, 6, x, 7, 0, 8]
+  | .seven, x => [8, 6, 8, x, 0, 8]
+  | .zero, x => [8, 6, 8, 7, x, 8]
+  | .lastEight, x => [8, 6, 8, 7, 0, x]
+
+noncomputable def sixMoveMean : SixReadingMove → ℝ → ℝ
+  | .firstEight, x => (x + 29) / 6
+  | .six, x => (x + 31) / 6
+  | .thirdEight, x => (x + 29) / 6
+  | .seven, x => (x + 30) / 6
+  | .zero, x => (x + 37) / 6
+  | .lastEight, x => (x + 29) / 6
+
+noncomputable def sixMoveMedian : SixReadingMove → ℝ → ℝ
+  | .firstEight, x => sixLowRouteMedian x
+  | .six, x => if x ≤ 7 then 15 / 2 else if x ≤ 8 then (x + 8) / 2 else 8
+  | .thirdEight, x => sixLowRouteMedian x
+  | .seven, x => if x ≤ 6 then 7 else if x ≤ 8 then (x + 8) / 2 else 8
+  | .zero, x => sixHighRouteMedian x
+  | .lastEight, x => sixLowRouteMedian x
+
+theorem six_move_mean_from_sample (r : SixReadingMove) (x : ℝ) :
+    sampleMean (sixMovedSample r x) = sixMoveMean r x := by
+  cases r <;> norm_num [sixMovedSample, sixMoveMean, sampleMean] <;> ring
+
+private theorem six_six_base_permutation (x : ℝ) :
+    [0, x, 7, 8, 8, 8].Perm [8, x, 8, 7, 0, 8] := by
+  have moveZero : [8, x, 8, 7, 0, 8].Perm [0, 8, x, 8, 7, 8] := by
+    simpa using (List.perm_middle (a := (0 : ℝ))
+      (l₁ := [8, x, 8, 7]) (l₂ := [8]))
+  have moveSeven : [8, x, 8, 7, 8].Perm [7, 8, x, 8, 8] := by
+    simpa using (List.perm_middle (a := (7 : ℝ))
+      (l₁ := [8, x, 8]) (l₂ := [8]))
+  have moveX : [8, x, 8, 8].Perm [x, 8, 8, 8] := by
+    simpa using (List.perm_middle (a := x)
+      (l₁ := [8]) (l₂ := [8, 8]))
+  have swapSeven : [0, 7, x, 8, 8, 8].Perm [0, x, 7, 8, 8, 8] :=
+    List.Perm.cons 0 (List.Perm.swap x 7 [8, 8, 8])
+  have rearrange : [0, 8, x, 8, 7, 8].Perm [0, 7, x, 8, 8, 8] :=
+    List.Perm.cons 0 (moveSeven.trans (List.Perm.cons 7 moveX))
+  exact (moveZero.trans (rearrange.trans swapSeven)).symm
+
+private theorem six_seven_base_permutation (x : ℝ) :
+    [0, x, 6, 8, 8, 8].Perm [8, 6, 8, x, 0, 8] := by
+  have moveZero : [8, 6, 8, x, 0, 8].Perm [0, 8, 6, 8, x, 8] := by
+    simpa using (List.perm_middle (a := (0 : ℝ))
+      (l₁ := [8, 6, 8, x]) (l₂ := [8]))
+  have moveSix : [8, 6, 8, x, 8].Perm [6, 8, 8, x, 8] := by
+    simpa using (List.perm_middle (a := (6 : ℝ))
+      (l₁ := [8]) (l₂ := [8, x, 8]))
+  have moveX : [8, 8, x, 8].Perm [x, 8, 8, 8] := by
+    simpa using (List.perm_middle (a := x)
+      (l₁ := [8, 8]) (l₂ := [8]))
+  have swapSix : [0, 6, x, 8, 8, 8].Perm [0, x, 6, 8, 8, 8] :=
+    List.Perm.cons 0 (List.Perm.swap x 6 [8, 8, 8])
+  have rearrange : [0, 8, 6, 8, x, 8].Perm [0, 6, x, 8, 8, 8] :=
+    List.Perm.cons 0 (moveSix.trans (List.Perm.cons 6 moveX))
+  exact (moveZero.trans (rearrange.trans swapSix)).symm
+
+private theorem six_eight_sorted_median (x : ℝ) (hx0 : 0 ≤ x)
+    (hx10 : x ≤ 10) :
+    ∃ ys : List ℝ, ys.Perm [x, 6, 8, 7, 0, 8] ∧
+      List.Pairwise (· ≤ ·) ys ∧ orderedMedian ys = sixLowRouteMedian x := by
+  by_cases hx8 : x ≤ 8
+  · exact six_low_route_sorted_median x hx0 hx8
+  · have hx8le : 8 ≤ x := by linarith
+    have hx6 : ¬ x ≤ 6 := by linarith
+    have moveLast : [0, 6, 7, 8, 8, x].Perm [x, 0, 6, 7, 8, 8] := by
+      simpa using (List.perm_append_singleton x [0, 6, 7, 8, 8])
+    have swapZero : [x, 0, 6, 7, 8, 8].Perm [0, x, 6, 7, 8, 8] :=
+      List.Perm.swap 0 x [6, 7, 8, 8]
+    refine ⟨[0, 6, 7, 8, 8, x],
+      (moveLast.trans swapZero).trans (six_low_base_permutation x),
+      six_entries_sorted 0 6 7 8 8 x (by norm_num) (by norm_num)
+        (by norm_num) (by norm_num) hx8le, ?_⟩
+    norm_num [orderedMedian, sixLowRouteMedian, hx6, hx8]
+
+private theorem six_six_sorted_median (x : ℝ) (hx0 : 0 ≤ x)
+    (hx10 : x ≤ 10) :
+    ∃ ys : List ℝ, ys.Perm [8, x, 8, 7, 0, 8] ∧
+      List.Pairwise (· ≤ ·) ys ∧
+        orderedMedian ys = sixMoveMedian .six x := by
+  by_cases hx7 : x ≤ 7
+  · refine ⟨[0, x, 7, 8, 8, 8], six_six_base_permutation x,
+      six_entries_sorted 0 x 7 8 8 8 hx0 hx7 (by norm_num)
+        (by norm_num) (by norm_num), ?_⟩
+    norm_num [orderedMedian, sixMoveMedian, hx7]
+  · have hx7le : 7 ≤ x := by linarith
+    have p : [0, x, 7, 8, 8, 8].Perm [0, 7, x, 8, 8, 8] :=
+      List.Perm.cons 0 (List.Perm.swap 7 x [8, 8, 8])
+    by_cases hx8 : x ≤ 8
+    · refine ⟨[0, 7, x, 8, 8, 8],
+        p.symm.trans (six_six_base_permutation x),
+        six_entries_sorted 0 7 x 8 8 8 (by norm_num) hx7le hx8
+          (by norm_num) (by norm_num), ?_⟩
+      simp [orderedMedian, sixMoveMedian, hx7, hx8]
+    · have hx8le : 8 ≤ x := by linarith
+      have moveLast : [0, 7, 8, 8, 8, x].Perm [x, 0, 7, 8, 8, 8] := by
+        simpa using (List.perm_append_singleton x [0, 7, 8, 8, 8])
+      have swapZero : [x, 0, 7, 8, 8, 8].Perm [0, x, 7, 8, 8, 8] :=
+        List.Perm.swap 0 x [7, 8, 8, 8]
+      refine ⟨[0, 7, 8, 8, 8, x],
+        (moveLast.trans swapZero).trans (six_six_base_permutation x),
+        six_entries_sorted 0 7 8 8 8 x (by norm_num)
+          (by norm_num) (by norm_num) (by norm_num) hx8le, ?_⟩
+      simp [orderedMedian, sixMoveMedian, hx7, hx8]
+
+private theorem six_seven_sorted_median (x : ℝ) (hx0 : 0 ≤ x)
+    (hx10 : x ≤ 10) :
+    ∃ ys : List ℝ, ys.Perm [8, 6, 8, x, 0, 8] ∧
+      List.Pairwise (· ≤ ·) ys ∧
+        orderedMedian ys = sixMoveMedian .seven x := by
+  by_cases hx6 : x ≤ 6
+  · refine ⟨[0, x, 6, 8, 8, 8], six_seven_base_permutation x,
+      six_entries_sorted 0 x 6 8 8 8 hx0 hx6 (by norm_num)
+        (by norm_num) (by norm_num), ?_⟩
+    norm_num [orderedMedian, sixMoveMedian, hx6]
+  · have hx6le : 6 ≤ x := by linarith
+    have p : [0, x, 6, 8, 8, 8].Perm [0, 6, x, 8, 8, 8] :=
+      List.Perm.cons 0 (List.Perm.swap 6 x [8, 8, 8])
+    by_cases hx8 : x ≤ 8
+    · refine ⟨[0, 6, x, 8, 8, 8],
+        p.symm.trans (six_seven_base_permutation x),
+        six_entries_sorted 0 6 x 8 8 8 (by norm_num) hx6le hx8
+          (by norm_num) (by norm_num), ?_⟩
+      simp [orderedMedian, sixMoveMedian, hx6, hx8]
+    · have hx8le : 8 ≤ x := by linarith
+      have moveLast : [0, 6, 8, 8, 8, x].Perm [x, 0, 6, 8, 8, 8] := by
+        simpa using (List.perm_append_singleton x [0, 6, 8, 8, 8])
+      have swapZero : [x, 0, 6, 8, 8, 8].Perm [0, x, 6, 8, 8, 8] :=
+        List.Perm.swap 0 x [6, 8, 8, 8]
+      refine ⟨[0, 6, 8, 8, 8, x],
+        (moveLast.trans swapZero).trans (six_seven_base_permutation x),
+        six_entries_sorted 0 6 8 8 8 x (by norm_num)
+          (by norm_num) (by norm_num) (by norm_num) hx8le, ?_⟩
+      simp [orderedMedian, sixMoveMedian, hx6, hx8]
+
+/-- Every permitted index move has a concrete sorted permutation whose
+order-statistic median agrees with its exact route formula. -/
+theorem six_move_sorted_median (r : SixReadingMove) (x : ℝ)
+    (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    ∃ ys : List ℝ, ys.Perm (sixMovedSample r x) ∧
+      List.Pairwise (· ≤ ·) ys ∧ orderedMedian ys = sixMoveMedian r x := by
+  cases r with
+  | firstEight => simpa [sixMovedSample, sixMoveMedian] using
+      six_eight_sorted_median x hx0 hx10
+  | six => simpa [sixMovedSample] using six_six_sorted_median x hx0 hx10
+  | thirdEight =>
+      obtain ⟨ys, hp, hs, hm⟩ := six_eight_sorted_median x hx0 hx10
+      have swapEight : [x, 6, 8, 7, 0, 8].Perm [8, 6, x, 7, 0, 8] := by
+        simpa using (List.cons_append_cons_perm
+          (a := x) (b := (8 : ℝ)) (as := [6]) (bs := [7, 0, 8]))
+      exact ⟨ys, by simpa [sixMovedSample] using hp.trans swapEight,
+        hs, by simpa [sixMoveMedian] using hm⟩
+  | seven => simpa [sixMovedSample] using six_seven_sorted_median x hx0 hx10
+  | zero => simpa [sixMovedSample, sixMoveMedian] using
+      six_high_route_sorted_median x hx0 hx10
+  | lastEight =>
+      obtain ⟨ys, hp, hs, hm⟩ := six_eight_sorted_median x hx0 hx10
+      have swapEight : [x, 6, 8, 7, 0, 8].Perm [8, 6, 8, 7, 0, x] := by
+        simpa using (List.cons_append_cons_perm
+          (a := x) (b := (8 : ℝ)) (as := [6, 8, 7, 0]) (bs := []))
+      exact ⟨ys, by simpa [sixMovedSample] using hp.trans swapEight,
+        hs, by simpa [sixMoveMedian] using hm⟩
+
+private theorem six_eight_bounds (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    (x + 29) / 6 < sixLowRouteMedian x ∧
+    17 / 3 ≤ ((x + 29) / 6 + sixLowRouteMedian x) / 2 ∧
+    ((x + 29) / 6 + sixLowRouteMedian x) / 2 ≤ 95 / 12 := by
+  by_cases hx6 : x ≤ 6
+  · simp only [sixLowRouteMedian, if_pos hx6]
+    constructor
+    · linarith
+    constructor <;> linarith
+  · by_cases hx8 : x ≤ 8
+    · simp only [sixLowRouteMedian, if_neg hx6, if_pos hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+    · simp only [sixLowRouteMedian, if_neg hx6, if_neg hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+
+private theorem six_six_bounds (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    (x + 31) / 6 < sixMoveMedian .six x ∧
+    17 / 3 ≤ ((x + 31) / 6 + sixMoveMedian .six x) / 2 ∧
+    ((x + 31) / 6 + sixMoveMedian .six x) / 2 ≤ 95 / 12 := by
+  by_cases hx7 : x ≤ 7
+  · simp only [sixMoveMedian, if_pos hx7]
+    constructor
+    · linarith
+    constructor <;> linarith
+  · by_cases hx8 : x ≤ 8
+    · simp only [sixMoveMedian, if_neg hx7, if_pos hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+    · simp only [sixMoveMedian, if_neg hx7, if_neg hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+
+private theorem six_seven_bounds (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    (x + 30) / 6 < sixMoveMedian .seven x ∧
+    17 / 3 ≤ ((x + 30) / 6 + sixMoveMedian .seven x) / 2 ∧
+    ((x + 30) / 6 + sixMoveMedian .seven x) / 2 ≤ 95 / 12 := by
+  by_cases hx6 : x ≤ 6
+  · simp only [sixMoveMedian, if_pos hx6]
+    constructor
+    · linarith
+    constructor <;> linarith
+  · by_cases hx8 : x ≤ 8
+    · simp only [sixMoveMedian, if_neg hx6, if_pos hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+    · simp only [sixMoveMedian, if_neg hx6, if_neg hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+
+private theorem six_zero_bounds (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    (x + 37) / 6 < sixHighRouteMedian x ∧
+    17 / 3 ≤ ((x + 37) / 6 + sixHighRouteMedian x) / 2 ∧
+    ((x + 37) / 6 + sixHighRouteMedian x) / 2 ≤ 95 / 12 := by
+  by_cases hx7 : x ≤ 7
+  · simp only [sixHighRouteMedian, if_pos hx7]
+    constructor
+    · linarith
+    constructor <;> linarith
+  · by_cases hx8 : x ≤ 8
+    · simp only [sixHighRouteMedian, if_neg hx7, if_pos hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+    · simp only [sixHighRouteMedian, if_neg hx7, if_neg hx8]
+      constructor
+      · linarith
+      constructor <;> linarith
+
+/-- All six moves keep Mean strictly below Median. Their midpoint targets
+stay within the exact closed horizon, for every real move `x ∈ [0,10]`. -/
+theorem six_move_global_bounds (r : SixReadingMove) (x : ℝ)
+    (hx0 : 0 ≤ x) (hx10 : x ≤ 10) :
+    sixMoveMean r x < sixMoveMedian r x ∧
+    17 / 3 ≤ (sixMoveMean r x + sixMoveMedian r x) / 2 ∧
+    (sixMoveMean r x + sixMoveMedian r x) / 2 ≤ 95 / 12 := by
+  cases r with
+  | firstEight => simpa [sixMoveMean, sixMoveMedian] using
+      six_eight_bounds x hx0 hx10
+  | six => simpa [sixMoveMean] using six_six_bounds x hx0 hx10
+  | thirdEight => simpa [sixMoveMean, sixMoveMedian] using
+      six_eight_bounds x hx0 hx10
+  | seven => simpa [sixMoveMean] using six_seven_bounds x hx0 hx10
+  | zero => simpa [sixMoveMean, sixMoveMedian] using
+      six_zero_bounds x hx0 hx10
+  | lastEight => simpa [sixMoveMean, sixMoveMedian] using
+      six_eight_bounds x hx0 hx10
+
+private theorem six_sorted_permutation_unique (ys zs : List ℝ)
+    (hy : List.Pairwise (· ≤ ·) ys) (hz : List.Pairwise (· ≤ ·) zs)
+    (hp : ys.Perm zs) : ys = zs := by
+  exact List.Perm.eq_of_pairwise
+    (by intro a b _ _ hab hba; exact le_antisymm hab hba) hy hz hp
+
+/-- The reported horizon is exact for the original sample and **all six**
+possible one-reading moves in `[0,10]`: universal strict Mean on the left,
+an attained tie at every inner target, and universal strict Median on the
+right. The statement works with any sorted permutation of each moved sample. -/
+theorem six_reading_full_horizon (t : ℝ) :
+    (t < 17 / 3 → ∀ (r : SixReadingMove) (x : ℝ), 0 ≤ x → x ≤ 10 →
+      ∀ ys : List ℝ, ys.Perm (sixMovedSample r x) →
+        List.Pairwise (· ≤ ·) ys →
+        |sampleMean (sixMovedSample r x) - t| < |orderedMedian ys - t|) ∧
+    (17 / 3 ≤ t → t ≤ 95 / 12 →
+      ∃ (r : SixReadingMove) (x : ℝ) (ys : List ℝ),
+        0 ≤ x ∧ x ≤ 10 ∧ ys.Perm (sixMovedSample r x) ∧
+        List.Pairwise (· ≤ ·) ys ∧
+        |sampleMean (sixMovedSample r x) - t| = |orderedMedian ys - t|) ∧
+    (95 / 12 < t → ∀ (r : SixReadingMove) (x : ℝ), 0 ≤ x → x ≤ 10 →
+      ∀ ys : List ℝ, ys.Perm (sixMovedSample r x) →
+        List.Pairwise (· ≤ ·) ys →
+        |orderedMedian ys - t| < |sampleMean (sixMovedSample r x) - t|) := by
+  have hmeans (r : SixReadingMove) (x : ℝ) (hx0 : 0 ≤ x) (hx10 : x ≤ 10)
+      (ys : List ℝ) (hp : ys.Perm (sixMovedSample r x))
+      (hs : List.Pairwise (· ≤ ·) ys) :
+      sampleMean (sixMovedSample r x) = sixMoveMean r x ∧
+        orderedMedian ys = sixMoveMedian r x := by
+    obtain ⟨zs, hzp, hzs, hzm⟩ := six_move_sorted_median r x hx0 hx10
+    have heq : ys = zs :=
+      six_sorted_permutation_unique ys zs hs hzs (hp.trans hzp.symm)
+    exact ⟨six_move_mean_from_sample r x, by rw [heq]; exact hzm⟩
+  constructor
+  · intro ht r x hx0 hx10 ys hp hs
+    obtain ⟨hm, hd⟩ := hmeans r x hx0 hx10 ys hp hs
+    rw [hm, hd]
+    obtain ⟨horder, hlower, _⟩ := six_move_global_bounds r x hx0 hx10
+    apply lower_strict_below_midpoint (sixMoveMean r x) (sixMoveMedian r x) t
+      horder
+    linarith
+  constructor
+  · intro hlt htu
+    rcases six_reading_sorted_sample_horizon_tie t hlt htu with
+      ⟨x, ys, hx0, hx8, hp, hs, htie⟩ |
+      ⟨x, ys, hx0, hx10, hp, hs, htie⟩
+    · exact ⟨.firstEight, x, ys, hx0, le_trans hx8 (by norm_num),
+        by simpa [sixMovedSample] using hp, hs,
+        by simpa [sixMovedSample] using htie⟩
+    · exact ⟨.zero, x, ys, hx0, hx10,
+        by simpa [sixMovedSample] using hp, hs,
+        by simpa [sixMovedSample] using htie⟩
+  · intro ht r x hx0 hx10 ys hp hs
+    obtain ⟨hm, hd⟩ := hmeans r x hx0 hx10 ys hp hs
+    rw [hm, hd]
+    obtain ⟨horder, _, hupper⟩ := six_move_global_bounds r x hx0 hx10
+    apply higher_strict_above_midpoint (sixMoveMean r x) (sixMoveMedian r x) t
+      horder
+    linarith
 /-- The five-reading v6 obstruction after replacing the first `48` by `15`. -/
 def fiveReadingEqualSample : List ℝ := [15, 49, 50, 51, 85]
 

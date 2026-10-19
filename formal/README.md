@@ -141,15 +141,27 @@ original six readings after each permitted one-reading move and prove that
 their order-statistic medians equal the route formulas on every cell.
 `six_reading_sorted_sample_horizon_tie` states the full inner tie result
 using `sampleMean` and `orderedMedian` of those concrete lists.
+`SixReadingMove` enumerates all six index choices in the original sample,
+including its three positions containing `8`. For every real moved reading
+in `[0,10]`, `six_move_sorted_median` exhibits an ordered permutation of
+that moved sample, and `six_move_global_bounds` proves strict Mean-below-Median
+ordering and both exact midpoint bounds. The theorem
+`six_reading_full_horizon` combines these results: every target below
+`17/3` strictly favors Mean on **all six routes**, every target above
+`95/12` strictly favors Median on all routes, and each target in the closed
+middle interval has an attained tie. Its statement accepts *any* sorted
+permutation of each moved sample; sorted-permutation uniqueness removes
+dependence on which sorting implementation produced it.
 
 These proofs take agreement between each route and its affine cell formula,
 adjacent cell boundaries, endpoint attainment, common anchor, global bounds,
 and route ordering as hypotheses where used. The path theorem proves that
 the supplied cells compose without a target gap; it does not construct the
-paths from a concrete receipt. The two explicit example routes have checked
-sorted-permutation witnesses; the proofs do not establish that a JSON record
-enumerates every route or cell or that its endpoint values are global extrema.
-There is no machine-checked bridge from a JSON route to the Lean definitions. The
+paths from a concrete receipt. The six-reading example has an explicit
+global bound proof for all six moves; the general theorem still takes bounds
+as premises. These proofs do not establish that an arbitrary JSON record
+enumerates every route or cell. There is no machine-checked bridge from a
+JSON route to the Lean definitions. The
 independently implemented browser and Python receipt verifiers check their
 own concrete calculations from the supplied readings. No v6 JSON file is
 parsed or checked by Lean.
