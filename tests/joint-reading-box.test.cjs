@@ -2,10 +2,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {spawnSync} = require('node:child_process');
 const {readFileSync} = require('node:fs');
-const {webcrypto} = require('node:crypto');
+const {createHash, webcrypto} = require('node:crypto');
 const vm = require('node:vm');
+const browserCore = require('../joint-reading-box-core.js');
 const verifier = require('../joint-reading-box-verifier.js');
 const targetLens = require('../target-lens.js');
+
+test('browser lab pins constructor and verifier assets to their SHA-256 versions', () => {
+  const html = readFileSync('joint-reading-box.html', 'utf8');
+  for (const path of ['joint-reading-box-core.js', 'joint-reading-box-verifier.js']) {
+    const hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12);
+    assert.ok(html.includes(`<script src="${path}?v=${hash}"></script>`));
+  }
+});
 
 function generate(intervals, target) {
   const command = spawnSync('python3', ['tools/joint_reading_box.py',
@@ -24,6 +33,40 @@ function at(readings) {
   return [mean - (ordered[(n - 1) >> 1] + ordered[n >> 1]) / 2,
     (mean + (ordered[(n - 1) >> 1] + ordered[n >> 1]) / 2) / 2];
 }
+
+test('browser constructor matches Python receipts and an independent BigInt checker', () => {
+  const cases = [
+    [[['48', '49'], ['49', '50'], ['50', '51'], ['51', '52'], ['85', '86']], '0'],
+    [[['-4', '-3'], ['-1', '4'], ['1', '2']], '-2'],
+    [[['0.5', '1'], ['1/3', '2/3'], ['-1/2', '0'], ['2/3', '5/6']], '1/3'],
+    [[['-0.500000', '-0.25'], ['-1/4', '0'], ['0', '0.5']], '-0.125'],
+    [[['0', '0'], ['1', '1'], ['2', '2'], ['3', '3']], '-100'],
+    [[['-1000000', '-1000000'], ['0', '0'], ['1000000', '1000000']], '1000000']
+  ];
+  let seed = 0x2ec57a1;
+  const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  for (let k = 0; k < 24; k++) {
+    const n = 3 + k % 3;
+    const intervals = Array.from({length: n}, (_, i) => {
+      const low = -7 + next() % 15, high = low + next() % 5;
+      return i % 2 ? [`${2 * low + 1}/2`, `${2 * high + 1}/2`] :
+        [String(low), String(high)];
+    });
+    cases.push([intervals, String(-8 + next() % 18)]);
+  }
+  for (const [intervals, target] of cases) {
+    const browser = browserCore.certificate(intervals, target);
+    const python = generate(intervals, target);
+    assert.deepEqual(browser, python, JSON.stringify({intervals, target}));
+    assert.equal(verifier.verify(browser).verdict, browser.claim.verdict);
+  }
+  for (const [intervals, target] of [
+    [[['5', '4'], ['0', '1'], ['2', '3']], '2'],
+    [[['0', '1'], ['0', '1']], '0'],
+    [[['0', '1'], ['0', '1'], ['0', '1']], '1/0'],
+    [[['0', '1'], ['0', '1'], ['0', '1000001']], '0']
+  ]) assert.throws(() => browserCore.certificate(intervals, target));
+});
 
 test('joint box catches an interior order-cell vertex missed by all 8 corners', () => {
   const intervals = [[-4, -3], [-1, 4], [1, 2]];
@@ -159,7 +202,7 @@ test('forged extrema, margin, witness, fields, and duplicate JSON keys are rejec
   ]}}), /precision limit/);
 });
 
-test('mobile inspector renders checked examples and clears a stale result after input changes', async () => {
+test('mobile lab generates, exports, verifies, and clears stale evidence', async () => {
   const html = readFileSync('joint-reading-box.html', 'utf8');
   const script = html.match(/<script>\s*([\s\S]*?)<\/script>/);
   assert.ok(script);
@@ -169,11 +212,58 @@ test('mobile inspector renders checked examples and clears a stale result after 
       addEventListener(type, callback) { this.handlers[type] = callback; }});
     return nodes.get(id);
   }
+  node('reading-count').value = '5';
+  node('target').value = '0';
+  const defaults = [[48, 49], [49, 50], [50, 51], [51, 52], [85, 86]];
+  defaults.forEach(([low, high], i) => {
+    node('low-' + (i + 1)).value = String(low);
+    node('high-' + (i + 1)).value = String(high);
+  });
   const fetch = async path => ({ok: true, arrayBuffer: async () =>
     Uint8Array.from(readFileSync(path)).buffer});
-  vm.runInNewContext(script[1], {document: {getElementById: node}, fetch,
-    InwardJointBoxVerifier: verifier, TextEncoder, TextDecoder, Uint8Array, crypto: webcrypto},
+  let exported = null, clicked = false, delayNextDigest = false, releaseDigest;
+  const URL = {createObjectURL(blob) {exported = blob; return 'blob:receipt';}, revokeObjectURL() {}};
+  const testCrypto = {subtle: {digest(...args) {
+    if (delayNextDigest) {
+      delayNextDigest = false;
+      return new Promise(resolve => { releaseDigest = async () => resolve(await webcrypto.subtle.digest(...args)); });
+    }
+    return webcrypto.subtle.digest(...args);
+  }}};
+  vm.runInNewContext(script[1], {document: {getElementById: node, createElement(tag) {
+    assert.equal(tag, 'a'); return {click() {clicked = true;}};
+  }}, fetch, URL, Blob, setTimeout() {},
+    InwardJointBox: browserCore, InwardJointBoxVerifier: verifier,
+    TextEncoder, TextDecoder, Uint8Array, crypto: testCrypto},
   {timeout: 1000});
+  let submitted = false;
+  await node('builder-form').handlers.submit({preventDefault() {submitted = true;}});
+  assert.equal(submitted, true);
+  assert.equal(node('verdict').textContent, 'Median');
+  assert.equal(node('download').disabled, false);
+  assert.deepEqual(verifier.parseReceipt(node('receipt-json').value),
+    JSON.parse(readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8')));
+  node('download').handlers.click();
+  assert.equal(clicked, true);
+  assert.deepEqual(verifier.parseReceipt(await exported.text()),
+    JSON.parse(readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8')));
+  assert.equal(node('fingerprint').textContent,
+    createHash('sha256').update(Buffer.from(await exported.arrayBuffer())).digest('hex'));
+  node('reading-count').value = '4';
+  node('reading-count').handlers.change();
+  assert.equal(node('row-5').hidden, true);
+  assert.equal(node('low-5').disabled, true);
+  assert.equal(node('verdict').textContent, '—');
+  assert.equal(node('download').disabled, true);
+  await node('builder-form').handlers.submit({preventDefault() {}});
+  assert.equal(node('verdict').textContent, 'Tie possible');
+  node('low-1').value = '1000001';
+  node('low-1').handlers.input();
+  assert.equal(node('fingerprint').textContent, '—');
+  await node('builder-form').handlers.submit({preventDefault() {}});
+  assert.equal(node('verdict').textContent, 'Unverified');
+  assert.equal(node('download').disabled, true);
+  assert.match(node('builder-status').textContent, /between -1000000 and 1000000/);
   await node('strict-example').handlers.click();
   assert.equal(node('verdict').textContent, 'Median');
   assert.match(node('detail').textContent, /squared-error lead ≥ 15457\/25/);
@@ -187,4 +277,14 @@ test('mobile inspector renders checked examples and clears a stale result after 
   assert.equal(node('verdict').textContent, 'Unverified');
   assert.equal(node('fingerprint').textContent, '—');
   assert.match(node('status').textContent, /^Rejected:/);
+  node('receipt-json').value = readFileSync('examples/joint-reading-box-strict-v1.json', 'utf8');
+  delayNextDigest = true;
+  const oldCheck = node('verify').handlers.click();
+  node('receipt-json').value = '{"edited":true}';
+  node('receipt-json').handlers.input();
+  await releaseDigest();
+  await oldCheck;
+  assert.equal(node('verdict').textContent, '—');
+  assert.equal(node('fingerprint').textContent, '—');
+  assert.match(node('status').textContent, /Receipt edited/);
 });

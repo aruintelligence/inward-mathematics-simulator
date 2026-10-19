@@ -10,7 +10,16 @@ for even samples. It does not replace the one-reading-at-a-time Target Box.
 
 ## Reproduce and inspect
 
-From the repository root:
+Open the [browser lab](../joint-reading-box.html) to set 3–5 reading bounds
+and a target, generate a certificate on your device, independently verify
+its claim, and download the checked JSON. The same lab can check the two
+examples, imported files, or pasted receipts on a phone. It reads files
+locally, rejects duplicate JSON keys, verifies exact rational calculations,
+and prints the SHA-256 of the checked bytes. The fingerprint identifies
+matching bytes; it does not authenticate an author. Generating a new receipt
+does not require Python or a server.
+
+To reproduce the experiment offline from the repository root:
 
 ```sh
 python3 tools/joint_reading_box.py --intervals=48:49,49:50,50:51,51:52,85:86 --target=0 > joint.json
@@ -18,14 +27,11 @@ node tools/verify-joint-reading-box.cjs joint.json
 node tools/verify-joint-reading-box.cjs examples/joint-reading-box-tie-v1.json
 ```
 
-Open [the browser inspector](../joint-reading-box.html) to check either
-example or an imported receipt on a phone. It reads the file locally,
-rejects duplicate JSON keys, verifies exact rational calculations, and prints
-the SHA-256 of the checked bytes. The fingerprint identifies matching bytes;
-it does not authenticate an author. The independent Node verifier does not
-import the Python constructor. GitHub Actions checks both examples and runs
-seeded odd/even cases against an integer-grid oracle. That finite test suite
-is distinct from the proof below.
+The browser constructor and Python generator produce the same versioned
+receipt; the separate BigInt browser verifier and independent Node checker
+recompute the claim without importing either constructor. GitHub Actions
+checks both examples and runs seeded odd/even cases against an integer-grid
+oracle. These finite checks are distinct from the proof below.
 
 ## Complete algebraic argument
 
@@ -96,8 +102,9 @@ fractions are canonical and limited to 18 digits per part, computed claim
 fractions to 257 digits per part, and JSON to 2 MB. The result covers all
 real values inside the accepted intervals, not just input-grid readings.
 
-The proof is an elementary argument recorded here, with two separately
-implemented exact programs and finite regression checks. There is **no Lean
+The proof is an elementary argument recorded here, with separate Python and
+browser constructors, an independent exact verifier, and finite regression
+checks. There is **no Lean
 formalization of the arbitrary-interval vertex argument** in this release.
 The receipt cannot verify the provenance or suitability of supplied data,
 the target choice, correlation assumptions, or market demand. Attribution
