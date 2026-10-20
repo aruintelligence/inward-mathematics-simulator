@@ -1046,15 +1046,15 @@ namespace FixedMedianCell
 
 open AffineProduct
 
-def mean (n : ℕ) (x : Fin n → ℝ) : ℝ :=
+noncomputable def mean (n : ℕ) (x : Fin n → ℝ) : ℝ :=
   (∑ i : Fin n, x i) / (n : ℝ)
 
-def median {n : ℕ} (low high : Fin n) (x : Fin n → ℝ) : ℝ :=
+noncomputable def median {n : ℕ} (low high : Fin n) (x : Fin n → ℝ) : ℝ :=
   (x low + x high) / 2
 
-def meanCoeff (n : ℕ) : Fin n → ℝ := fun _ => 1 / (n : ℝ)
+noncomputable def meanCoeff (n : ℕ) : Fin n → ℝ := fun _ => 1 / (n : ℝ)
 
-def medianCoeff {n : ℕ} (low high : Fin n) : Fin n → ℝ :=
+noncomputable def medianCoeff {n : ℕ} (low high : Fin n) : Fin n → ℝ :=
   fun i => (if i = low then (1 / 2 : ℝ) else 0) +
     (if i = high then (1 / 2 : ℝ) else 0)
 
@@ -1073,8 +1073,7 @@ theorem median_is_affine {n : ℕ} (low high : Fin n) (x : Fin n → ℝ) :
         (if i = high then (1 / 2 : ℝ) else 0)) * x i =
         (if i = low then x i / 2 else 0) +
           (if i = high then x i / 2 else 0) := by
-    by_cases hl : i = low <;> by_cases hh : i = high <;>
-      simp [hl, hh] <;> ring
+    split_ifs <;> ring
   simp_rw [hterm]
   simp [Finset.sum_add_distrib]
   ring
@@ -1092,11 +1091,11 @@ private theorem readingAffine_combo {n : ℕ} (a b : Fin n → ℝ)
   rw [Finset.sum_add_distrib, ← Finset.mul_sum, ← Finset.mul_sum]
   ring
 
-def differenceCoeff {n : ℕ} (low high : Fin n) (sign : ℝ) :
+noncomputable def differenceCoeff {n : ℕ} (low high : Fin n) (sign : ℝ) :
     Fin n → ℝ :=
   fun i => sign * meanCoeff n i - sign * medianCoeff low high i
 
-def midpointCoeff {n : ℕ} (low high : Fin n) (side : ℝ) : Fin n → ℝ :=
+noncomputable def midpointCoeff {n : ℕ} (low high : Fin n) (side : ℝ) : Fin n → ℝ :=
   fun i => (side / 2) * meanCoeff n i +
     (side / 2) * medianCoeff low high i
 
@@ -1108,7 +1107,8 @@ theorem difference_is_affine {n : ℕ} (low high : Fin n)
     readingAffine (differenceCoeff low high sign) 0 x =
         sign * readingAffine (meanCoeff n) 0 x +
           (-sign) * readingAffine (medianCoeff low high) 0 x := by
-      simpa only [differenceCoeff, neg_mul, mul_zero, add_zero] using
+      unfold differenceCoeff
+      simpa only [neg_mul, sub_eq_add_neg, mul_zero, add_zero] using
         readingAffine_combo (meanCoeff n) (medianCoeff low high)
           0 0 sign (-sign) x
     _ = sign * (mean n x - median low high x) := by
@@ -1122,12 +1122,13 @@ theorem midpoint_is_affine {n : ℕ} (low high : Fin n)
   have hcombo : readingAffine (midpointCoeff low high side) 0 x =
       (side / 2) * readingAffine (meanCoeff n) 0 x +
         (side / 2) * readingAffine (medianCoeff low high) 0 x := by
-    simpa only [midpointCoeff, mul_zero, add_zero] using
+    unfold midpointCoeff
+    simpa only [mul_zero, add_zero] using
       readingAffine_combo (meanCoeff n) (medianCoeff low high)
         0 0 (side / 2) (side / 2) x
   have hbias : readingAffine (midpointCoeff low high side) (-side * target) x =
       readingAffine (midpointCoeff low high side) 0 x - side * target := by
-    simp [readingAffine]
+    simp only [readingAffine, add_zero, neg_mul, sub_eq_add_neg]
   rw [hbias, hcombo, mean_is_affine, median_is_affine]
   ring
 
