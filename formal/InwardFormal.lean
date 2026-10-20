@@ -1037,6 +1037,140 @@ theorem reading_blends_attained_minimum {n : ℕ}
 end AffineProduct
 
 /-!
+For one fixed reading order, the median is one coordinate for odd samples
+or the average of the central two for even samples. The indices below are
+parameters: proving that they are central for each ordering cell is a
+separate task. The formulas apply to any positive finite sample size.
+-/
+namespace FixedMedianCell
+
+open AffineProduct
+
+noncomputable def mean (n : ℕ) (x : Fin n → ℝ) : ℝ :=
+  (∑ i : Fin n, x i) / (n : ℝ)
+
+noncomputable def median {n : ℕ} (low high : Fin n) (x : Fin n → ℝ) : ℝ :=
+  (x low + x high) / 2
+
+noncomputable def meanCoeff (n : ℕ) : Fin n → ℝ := fun _ => 1 / (n : ℝ)
+
+noncomputable def medianCoeff {n : ℕ} (low high : Fin n) : Fin n → ℝ :=
+  fun i => (if i = low then (1 / 2 : ℝ) else 0) +
+    (if i = high then (1 / 2 : ℝ) else 0)
+
+theorem mean_is_affine {n : ℕ} (x : Fin n → ℝ) :
+    readingAffine (meanCoeff n) 0 x = mean n x := by
+  simp only [readingAffine, meanCoeff, mean, add_zero]
+  rw [← Finset.mul_sum]
+  ring
+
+theorem median_is_affine {n : ℕ} (low high : Fin n) (x : Fin n → ℝ) :
+    readingAffine (medianCoeff low high) 0 x = median low high x := by
+  classical
+  simp only [readingAffine, medianCoeff, median, add_zero]
+  have hterm (i : Fin n) :
+      ((if i = low then (1 / 2 : ℝ) else 0) +
+        (if i = high then (1 / 2 : ℝ) else 0)) * x i =
+        (if i = low then x i / 2 else 0) +
+          (if i = high then x i / 2 else 0) := by
+    split_ifs <;> ring
+  simp_rw [hterm]
+  simp [Finset.sum_add_distrib]
+  ring
+
+private theorem readingAffine_combo {n : ℕ} (a b : Fin n → ℝ)
+    (aBias bBias u v : ℝ) (x : Fin n → ℝ) :
+    readingAffine (fun i => u * a i + v * b i)
+        (u * aBias + v * bBias) x =
+      u * readingAffine a aBias x + v * readingAffine b bBias x := by
+  have hterm (i : Fin n) :
+      (u * a i + v * b i) * x i =
+        u * (a i * x i) + v * (b i * x i) := by ring
+  simp only [readingAffine]
+  simp_rw [hterm]
+  rw [Finset.sum_add_distrib, ← Finset.mul_sum, ← Finset.mul_sum]
+  ring
+
+noncomputable def differenceCoeff {n : ℕ} (low high : Fin n) (sign : ℝ) :
+    Fin n → ℝ :=
+  fun i => sign * meanCoeff n i - sign * medianCoeff low high i
+
+noncomputable def midpointCoeff {n : ℕ} (low high : Fin n) (side : ℝ) : Fin n → ℝ :=
+  fun i => (side / 2) * meanCoeff n i +
+    (side / 2) * medianCoeff low high i
+
+theorem difference_is_affine {n : ℕ} (low high : Fin n)
+    (sign : ℝ) (x : Fin n → ℝ) :
+    readingAffine (differenceCoeff low high sign) 0 x =
+      sign * (mean n x - median low high x) := by
+  calc
+    readingAffine (differenceCoeff low high sign) 0 x =
+        sign * readingAffine (meanCoeff n) 0 x +
+          (-sign) * readingAffine (medianCoeff low high) 0 x := by
+      unfold differenceCoeff
+      simpa only [neg_mul, sub_eq_add_neg, mul_zero, add_zero] using
+        readingAffine_combo (meanCoeff n) (medianCoeff low high)
+          0 0 sign (-sign) x
+    _ = sign * (mean n x - median low high x) := by
+      rw [mean_is_affine, median_is_affine]
+      ring
+
+theorem midpoint_is_affine {n : ℕ} (low high : Fin n)
+    (side target : ℝ) (x : Fin n → ℝ) :
+    readingAffine (midpointCoeff low high side) (-side * target) x =
+      side * ((mean n x + median low high x) / 2 - target) := by
+  have hcombo : readingAffine (midpointCoeff low high side) 0 x =
+      (side / 2) * readingAffine (meanCoeff n) 0 x +
+        (side / 2) * readingAffine (medianCoeff low high) 0 x := by
+    unfold midpointCoeff
+    simpa only [mul_zero, add_zero] using
+      readingAffine_combo (meanCoeff n) (medianCoeff low high)
+        0 0 (side / 2) (side / 2) x
+  have hbias : readingAffine (midpointCoeff low high side) (-side * target) x =
+      readingAffine (midpointCoeff low high side) 0 x - side * target := by
+    simp only [readingAffine, add_zero, neg_mul, sub_eq_add_neg]
+  rw [hbias, hcombo, mean_is_affine, median_is_affine]
+  ring
+
+/-- On a stipulated median-ordering cell, the product of the explicit
+affine reading factors is exactly half of the doubly oriented squared-error
+lead. The two orientations handle either side of the midpoint. -/
+theorem signed_gap_factors {n : ℕ} (low high : Fin n)
+    (sign side target : ℝ) (x : Fin n → ℝ) :
+    2 * (readingFactors (differenceCoeff low high sign)
+        (midpointCoeff low high side) 0 (-side * target) x).1 *
+      (readingFactors (differenceCoeff low high sign)
+        (midpointCoeff low high side) 0 (-side * target) x).2 =
+      sign * side * ((mean n x - target) ^ 2 -
+        (median low high x - target) ^ 2) := by
+  simp only [readingFactors, difference_is_affine, midpoint_is_affine]
+  ring
+
+/-- A verified affine-product margin becomes a squared-error guarantee
+for every reading vector generated from the stipulated cell candidates. -/
+theorem signed_gap_margin {n : ℕ} (vertices : Set (Fin n → ℝ))
+    (low high : Fin n) (sign side target margin : ℝ)
+    (hvertices : ∀ r ∈ vertices,
+      0 ≤ (readingFactors (differenceCoeff low high sign)
+        (midpointCoeff low high side) 0 (-side * target) r).1 ∧
+      0 ≤ (readingFactors (differenceCoeff low high sign)
+        (midpointCoeff low high side) 0 (-side * target) r).2 ∧
+      margin ≤ (readingFactors (differenceCoeff low high sign)
+        (midpointCoeff low high side) 0 (-side * target) r).1 *
+        (readingFactors (differenceCoeff low high sign)
+          (midpointCoeff low high side) 0 (-side * target) r).2)
+    {x : Fin n → ℝ} (hx : ReadingBlends vertices x) :
+    2 * margin ≤ sign * side * ((mean n x - target) ^ 2 -
+      (median low high x - target) ^ 2) := by
+  have hmargin := reading_blends_preserve_margin vertices
+    (differenceCoeff low high sign) (midpointCoeff low high side)
+    0 (-side * target) margin hvertices hx
+  rw [← signed_gap_factors low high sign side target x]
+  linarith
+
+end FixedMedianCell
+
+/-!
 On a fixed movement cell the mean and median are affine in the moved reading.
 The mean has positive slope, and the median has nonnegative slope. These
 lemmas justify the v6 target-horizon interpolation and the strict guarantees

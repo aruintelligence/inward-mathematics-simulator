@@ -254,6 +254,19 @@ can be inserted into this theorem; the checker still supplies the ordering
 cell, its vertices, and evidence that they cover the requested box. Lean
 does not parse or authenticate the JSON receipt.
 
+`InwardFormal.FixedMedianCell` now supplies the estimator formulas that the
+reading-vector bridge needs. For any positive finite sample size, it proves
+that the arithmetic mean and the selected central reading (or average of two
+selected central readings) are explicit affine functions of the readings.
+It builds the signed mean-minus-median factor and midpoint-minus-target
+factor from those coefficients and proves their product is exactly half the
+signed squared-error difference. The margin theorem then carries verified
+candidate checks through every finite reading blend in that cell. The two
+central indices are parameters: this module does not prove that an arbitrary
+reading vector has the stipulated order, determine its middle indices, or
+show that the listed vertices span every ordering cell. The v3/v4 verifiers
+and the written ordering-cell argument still handle those steps.
+
 To run the route gate after `lake build`:
 
 ```sh
