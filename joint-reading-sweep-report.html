@@ -30,9 +30,9 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
 <div id="threshold-result" class="panel" aria-live="polite"></div>
 <div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div>
-<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses.</p>
+<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses. If the lead fails, permitted readings and both squared errors prove it.</p>
 <button id="tolerance-button" type="button">Calculate target tolerance</button><div id="tolerance-result" class="panel" aria-live="polite">Choose a target above and calculate its tolerance.</div>
-<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a></div></section>
+<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a><a id="counterexample-download" class="button secondary" download="joint-reading-margin-counterexample-v1.json" hidden>Download failing readings</a></div></section>
 <section class="section"><p class="eyebrow">03 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid"><article class="piece">
 <div class="piece-head"><span class="eyebrow">Piece 01</span><strong>Median on the interior</strong></div>
 <p class="piece-range">[0, 979/20]</p>
@@ -568,7 +568,42 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
       symmetricRadius: show(radius), symmetricInterval: [show(sub(t, radius)), show(add(t, radius))],
       leftCutoff: cutoff(from), rightCutoff: cutoff(to)}};
   }
-  return {regions, tolerance};
+  function counterexample(checked, receipt, rawTarget, rawThreshold, tieWitnessAt) {
+    if (!receipt || !receipt.inputs || !Array.isArray(receipt.inputs.intervals)) {
+      throw new Error("Supply the checked source receipt.");
+    }
+    const result = tolerance(checked, receipt.inputs, rawTarget, rawThreshold);
+    if (result.guarantee) return null;
+    const t = exact(result.target), required = exact(result.threshold);
+    const piece = checked.strictPieces.find(item =>
+      cmp(exact(item.from), t) <= 0 && cmp(t, exact(item.to)) <= 0);
+    const readings = result.attainedLead === "0" ?
+      tieWitnessAt(receipt, result.target).readings : piece.readings;
+    if (!Array.isArray(readings) || readings.length !== receipt.inputs.intervals.length) {
+      throw new Error("Invalid counterexample readings.");
+    }
+    const values = readings.map(exact);
+    for (let i = 0; i < values.length; i++) {
+      const [low, high] = receipt.inputs.intervals[i].map(exact);
+      if (cmp(values[i], low) < 0 || cmp(values[i], high) > 0) {
+        throw new Error("Counterexample reading outside its interval.");
+      }
+    }
+    const ordered = [...values].sort(cmp);
+    const mean = div(values.reduce(add, q(0n)), q(BigInt(values.length)));
+    const median = div(add(ordered[(values.length - 1) >> 1], ordered[values.length >> 1]), q(2n));
+    const meanError = mul(sub(mean, t), sub(mean, t));
+    const medianError = mul(sub(median, t), sub(median, t));
+    const difference = sub(meanError, medianError);
+    const lead = difference.n < 0n ? q(-difference.n, difference.d) : difference;
+    const winner = difference.n < 0n ? "Mean" : difference.n > 0n ? "Median" : null;
+    if (cmp(lead, exact(result.attainedLead)) !== 0 || cmp(lead, required) >= 0 ||
+        winner !== result.winner) throw new Error("Counterexample does not attain the failing lead.");
+    return {target: result.target, threshold: result.threshold, readings: values.map(show),
+      mean: show(mean), median: show(median), meanSquaredError: show(meanError),
+      medianSquaredError: show(medianError), attainedLead: show(lead), winner};
+  }
+  return {regions, tolerance, counterexample};
 });
 </script>
 <script>/* Construct exact readings attaining a tie at any target in a verified v4 tie band. */
@@ -773,6 +808,8 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     function clearTolerance() {
       $('tolerance-download').hidden = true;
       $('tolerance-download').removeAttribute('href');
+      $('counterexample-download').hidden = true;
+      $('counterexample-download').removeAttribute('href');
       $('tolerance-result').textContent = 'Target or required lead changed. Calculate its tolerance again.';
     }
     function updateTolerance() {
@@ -791,6 +828,18 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
           `At ${answer.target}, the attained minimum lead is ${answer.attainedLead}` +
           (answer.winner ? ` for ${answer.winner}` : ' (a tie is attainable)') +
           `. The required lead ${answer.threshold} is not guaranteed here.`;
+        if (!range) {
+          const witness = InwardJointThreshold.counterexample(result, receipt,
+            answer.target, answer.threshold, InwardJointTieWitness.witnessAt);
+          $('tolerance-result').textContent += `\n\nExact failing readings [${witness.readings.join(', ')}]: ` +
+            `Mean ${witness.mean}, Median ${witness.median}; squared errors ${witness.meanSquaredError} ` +
+            `and ${witness.medianSquaredError}. Their attained lead ${witness.attainedLead} is less than ${answer.threshold}.`;
+          const failure = {format: 'inward-joint-reading-margin-counterexample-v1',
+            sourceReceiptSha256: 'd192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86', ...witness};
+          $('counterexample-download').href = 'data:application/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify(failure, null, 2) + '\n');
+          $('counterexample-download').hidden = false;
+        }
         const exported = {format: 'inward-joint-reading-target-tolerance-v1',
           sourceReceiptSha256: 'd192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86', ...answer};
         $('tolerance-download').href = 'data:application/json;charset=utf-8,' +

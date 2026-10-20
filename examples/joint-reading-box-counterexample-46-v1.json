@@ -1,0 +1,19 @@
+{
+  "format": "inward-joint-reading-margin-counterexample-v1",
+  "sourceReceiptSha256": "d192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86",
+  "target": "46",
+  "threshold": "100",
+  "readings": [
+    "48",
+    "49",
+    "51",
+    "51",
+    "85"
+  ],
+  "mean": "284/5",
+  "median": "51",
+  "meanSquaredError": "2916/25",
+  "medianSquaredError": "25",
+  "attainedLead": "2291/25",
+  "winner": "Median"
+}

@@ -623,11 +623,23 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('tolerance-download').handlers.click();
   assert.deepEqual(JSON.parse(await exported.text()),
     JSON.parse(readFileSync('examples/joint-reading-box-tolerance-40-v1.json', 'utf8')));
+  assert.equal(node('counterexample-download').disabled, true);
+  node('tolerance-target').value = '46';
+  node('tolerance-target').handlers.input();
+  node('tolerance-form').handlers.submit({preventDefault() {}});
+  assert.match(node('tolerance-result').textContent, /squared errors 2916\/25 and 25/);
+  assert.equal(node('counterexample-download').disabled, false);
+  node('counterexample-download').handlers.click();
+  assert.deepEqual(JSON.parse(await exported.text()),
+    JSON.parse(readFileSync('examples/joint-reading-box-counterexample-46-v1.json', 'utf8')));
   node('tolerance-target').value = '54';
   node('tolerance-target').handlers.input();
+  assert.equal(node('counterexample-download').disabled, true);
   assert.equal(node('tolerance-download').disabled, true);
   node('tolerance-form').handlers.submit({preventDefault() {}});
   assert.match(node('tolerance-result').textContent, /a tie is attainable/);
+  assert.match(node('tolerance-result').textContent, /Exact failing readings/);
+  assert.equal(node('counterexample-download').disabled, false);
   assert.equal(node('report-download').disabled, false);
   await node('report-download').handlers.click();
   assert.equal(exported.type, 'text/html;charset=utf-8');
@@ -651,6 +663,7 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   assert.equal(typeof releaseReportTemplate, 'function');
   node('margin-threshold').value = '101';
   node('margin-threshold').handlers.input();
+  assert.equal(node('counterexample-download').disabled, true);
   releaseReportTemplate();
   holdReportTemplate = false;
   await staleReport;
