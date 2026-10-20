@@ -226,6 +226,16 @@ concrete claims with exact rational arithmetic. The general v4
 arbitrary-interval vertex argument remains an elementary written proof,
 not a Lean theorem.
 
+`InwardFormal.AffineProduct` formalizes another step used by the exact v3
+margin and v4 target sweep. If two affine factors are nonnegative at both
+ends of a segment, their product at every interior point is at least the
+smaller endpoint product. This includes opposing factor slopes, where the
+product can rise above both endpoint values. A second theorem carries any
+common endpoint margin through the segment. The mathematical argument
+iterates this fact over convex combinations of median-ordering-cell
+vertices. The Lean module proves the segment step; it does not formalize
+the convex-hull decomposition or the endpoint-valued vertex enumeration.
+
 To run the route gate after `lake build`:
 
 ```sh
