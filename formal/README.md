@@ -206,6 +206,26 @@ thresholds, and witnesses transform by the same affine map, and distances
 multiply by `scale`. The Lean statements do not formalize the particular
 runtime sorting algorithm, its JSON parser, or source equivalence.
 
+`InwardFormal.AffineEnvelope` proves the universal algebraic step used by
+the v4 Joint Reading Box audit. If one affine line is no higher than a
+competitor at both endpoints of a nonempty target interval, it remains no
+higher at **every real target** between them. For a finite list of competing
+lines, checking those endpoint inequalities and exhibiting the reported
+line in the list proves that it is an **attained exact minimum throughout
+the piece**. Two additional theorems characterize the exact closed
+threshold side of an attained cutoff for negative and positive slopes.
+The proof uses nonnegative endpoint weights `(right − t)` and `(t − left)`
+and has no target-grid assumption.
+
+The theorem takes the complete candidate list and its endpoint checks as
+premises. It does not prove that enumerating endpoint-valued reading
+candidates covers every vertex of each median ordering cell, that a JSON
+receipt supplies the premises, or that the reported pieces cover the full
+target sweep. The independent browser and Python verifiers check those
+concrete claims with exact rational arithmetic. The general v4
+arbitrary-interval vertex argument remains an elementary written proof,
+not a Lean theorem.
+
 To run the route gate after `lake build`:
 
 ```sh
