@@ -128,5 +128,40 @@
       symmetricRadius: show(radius), symmetricInterval: [show(sub(t, radius)), show(add(t, radius))],
       leftCutoff: cutoff(from), rightCutoff: cutoff(to)}};
   }
-  return {regions, tolerance};
+  function counterexample(checked, receipt, rawTarget, rawThreshold, tieWitnessAt) {
+    if (!receipt || !receipt.inputs || !Array.isArray(receipt.inputs.intervals)) {
+      throw new Error("Supply the checked source receipt.");
+    }
+    const result = tolerance(checked, receipt.inputs, rawTarget, rawThreshold);
+    if (result.guarantee) return null;
+    const t = exact(result.target), required = exact(result.threshold);
+    const piece = checked.strictPieces.find(item =>
+      cmp(exact(item.from), t) <= 0 && cmp(t, exact(item.to)) <= 0);
+    const readings = result.attainedLead === "0" ?
+      tieWitnessAt(receipt, result.target).readings : piece.readings;
+    if (!Array.isArray(readings) || readings.length !== receipt.inputs.intervals.length) {
+      throw new Error("Invalid counterexample readings.");
+    }
+    const values = readings.map(exact);
+    for (let i = 0; i < values.length; i++) {
+      const [low, high] = receipt.inputs.intervals[i].map(exact);
+      if (cmp(values[i], low) < 0 || cmp(values[i], high) > 0) {
+        throw new Error("Counterexample reading outside its interval.");
+      }
+    }
+    const ordered = [...values].sort(cmp);
+    const mean = div(values.reduce(add, q(0n)), q(BigInt(values.length)));
+    const median = div(add(ordered[(values.length - 1) >> 1], ordered[values.length >> 1]), q(2n));
+    const meanError = mul(sub(mean, t), sub(mean, t));
+    const medianError = mul(sub(median, t), sub(median, t));
+    const difference = sub(meanError, medianError);
+    const lead = difference.n < 0n ? q(-difference.n, difference.d) : difference;
+    const winner = difference.n < 0n ? "Mean" : difference.n > 0n ? "Median" : null;
+    if (cmp(lead, exact(result.attainedLead)) !== 0 || cmp(lead, required) >= 0 ||
+        winner !== result.winner) throw new Error("Counterexample does not attain the failing lead.");
+    return {target: result.target, threshold: result.threshold, readings: values.map(show),
+      mean: show(mean), median: show(median), meanSquaredError: show(meanError),
+      medianSquaredError: show(medianError), attainedLead: show(lead), winner};
+  }
+  return {regions, tolerance, counterexample};
 });

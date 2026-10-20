@@ -394,6 +394,44 @@ every field and the source fingerprint. These are conditional sensitivity
 limits for stipulated bounds, not a probability distribution or a measured
 error tolerance.
 
+## Exact counterexample to a required lead
+
+The target-tolerance query also gives a concrete reason when a positive
+required lead $q$ fails at a selected target $t$ in the verified sweep. It
+first checks the exact value $G(t)<q$ from the v4 envelope. On a strict
+piece, that piece's recorded in-box readings attain $G(t)$ at **every**
+target on the piece, including shared breakpoints. In the tie band, the
+target-specific constructor above supplies in-box readings with equal
+absolute errors at the selected $t$, so $G(t)=0$. Recompute the Mean,
+Median, their individual squared errors, and the absolute difference from
+those readings; the difference must equal $G(t)$ and be strictly below $q$.
+If $G(t)\ge q$, no failing readings exist under these stipulated bounds.
+
+For the [worked failure receipt](../examples/joint-reading-box-counterexample-46-v1.json),
+$q=100$ and $t=46$. Readings $(48,49,51,51,85)$ yield Mean $284/5$ and
+Median $51$. Their squared errors are $2916/25$ and $25$, respectively,
+and the attained lead $2291/25$ is strictly less than $100$. This is a
+counterexample to the **required margin**, even though Median remains the
+strict winner at this target. At target $54$, the constructor instead gives
+an attainable tie and a zero lead. The lab and both offline reports display
+these readings whenever a selected target fails the threshold and export
+JSON linked to the exact original source bytes. Editing the target, required
+lead, or source clears that download.
+
+```sh
+python3 tools/joint_reading_counterexample.py examples/joint-reading-box-sweep-v4.json --target=46 --threshold=100 > failure.json
+python3 tools/joint_reading_counterexample.py examples/joint-reading-box-sweep-v4.json --verify failure.json
+```
+
+The independent Python checker audits the entire original sweep, rejects
+duplicate JSON keys and changed source fingerprints, checks every witness
+reading against its interval, recomputes both squared errors exactly, and
+confirms that the witness attains the audited minimum and fails the specified
+threshold. Tie witnesses may differ while still being valid; the checker
+checks their mathematical content rather than requiring the generator's
+particular interpolation. The receipt does not test whether the stipulated
+intervals correspond to real measurements.
+
 ## Why corners alone are insufficient
 
 For the intervals $[-4,-3],[-1,4],[1,2]$, the true minimum of $D$ is

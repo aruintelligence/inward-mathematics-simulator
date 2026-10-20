@@ -160,9 +160,9 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
 <div id="threshold-result" class="panel" aria-live="polite"></div>
 <div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div>
-<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses.</p>
+<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses. If the lead fails, permitted readings and both squared errors prove it.</p>
 <button id="tolerance-button" type="button">Calculate target tolerance</button><div id="tolerance-result" class="panel" aria-live="polite">Choose a target above and calculate its tolerance.</div>
-<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a></div></section>
+<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a><a id="counterexample-download" class="button secondary" download="joint-reading-margin-counterexample-v1.json" hidden>Download failing readings</a></div></section>
 <section class="section"><p class="eyebrow">03 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid">{pieces}</div></section>
 <section class="section"><p class="eyebrow">04 / Evidence and limits</p><h2>Replay the exact claim</h2>
 <div class="pair"><div class="panel"><strong>Input assumptions</strong><p>Reading intervals: <code>{bounds}</code>.</p><p>Target interval: <code>[{safe(low)}, {safe(high)}]</code>. Each reading and the target vary independently. These bounds are stipulated; the report cannot establish how they were measured or which estimator is appropriate.</p></div>
@@ -277,6 +277,8 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
     function clearTolerance() {{
       $('tolerance-download').hidden = true;
       $('tolerance-download').removeAttribute('href');
+      $('counterexample-download').hidden = true;
+      $('counterexample-download').removeAttribute('href');
       $('tolerance-result').textContent = 'Target or required lead changed. Calculate its tolerance again.';
     }}
     function updateTolerance() {{
@@ -295,6 +297,18 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
           `At ${{answer.target}}, the attained minimum lead is ${{answer.attainedLead}}` +
           (answer.winner ? ` for ${{answer.winner}}` : ' (a tie is attainable)') +
           `. The required lead ${{answer.threshold}} is not guaranteed here.`;
+        if (!range) {{
+          const witness = InwardJointThreshold.counterexample(result, receipt,
+            answer.target, answer.threshold, InwardJointTieWitness.witnessAt);
+          $('tolerance-result').textContent += `\n\nExact failing readings [${{witness.readings.join(', ')}}]: ` +
+            `Mean ${{witness.mean}}, Median ${{witness.median}}; squared errors ${{witness.meanSquaredError}} ` +
+            `and ${{witness.medianSquaredError}}. Their attained lead ${{witness.attainedLead}} is less than ${{answer.threshold}}.`;
+          const failure = {{format: 'inward-joint-reading-margin-counterexample-v1',
+            sourceReceiptSha256: '{digest}', ...witness}};
+          $('counterexample-download').href = 'data:application/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify(failure, null, 2) + '\n');
+          $('counterexample-download').hidden = false;
+        }}
         const exported = {{format: 'inward-joint-reading-target-tolerance-v1',
           sourceReceiptSha256: '{digest}', ...answer}};
         $('tolerance-download').href = 'data:application/json;charset=utf-8,' +
