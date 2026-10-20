@@ -198,9 +198,19 @@ affine factors between two configurations is at least the smaller endpoint
 product, even when the factors move in opposite directions. Induction over
 finite binary convex blends of factor-value pairs proves that a margin
 checked at every listed vertex persists throughout those blends. With an
-attaining listed witness, it proves their exact minimum. The connection
-from every median-ordering-cell reading to a blend of vertex factor pairs,
-and the general cell-vertex completeness argument above, remain outside Lean.
+attaining listed witness, it proves their exact minimum. Showing that the
+listed vertices span every median-ordering-cell reading, and the general
+cell-vertex completeness argument above, remain outside Lean.
+
+An additional [Lean reading-vector bridge](../formal/InwardFormal.lean)
+proves that any explicit affine formula with one coefficient per reading
+preserves binary convex blends. It maps finite blends of candidate reading
+vectors into blends of the corresponding two factor values, carries their
+checked margin, and proves the minimum attained when a candidate reading
+vector realizes it. This removes an assumed factor-map step for an arbitrary
+number of readings. The specific median ordering cells, their coefficients,
+their vertex coverage, and the interpretation of JSON remain verifier and
+written-proof responsibilities.
 
 For the readings around $48,49,50,51,85$ and target interval $[0,45]$,
 the conservative v2 bound is $2407/25$; the exact v3 minimum is $2581/25$,
