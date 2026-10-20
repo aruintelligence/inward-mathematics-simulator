@@ -1168,6 +1168,123 @@ theorem signed_gap_margin {n : ℕ} (vertices : Set (Fin n → ℝ))
   rw [← signed_gap_factors low high sign side target x]
   linarith
 
+/-- The lower middle position of a nonempty sorted reading list. -/
+def lowerCentral {n : ℕ} (hn : 0 < n) : Fin n :=
+  ⟨(n - 1) / 2, by omega⟩
+
+/-- The upper middle position, equal to the lower one for odd lengths. -/
+def upperCentral {n : ℕ} (hn : 0 < n) : Fin n :=
+  ⟨n / 2, by omega⟩
+
+theorem central_positions_ordered {n : ℕ} (hn : 0 < n) :
+    lowerCentral hn ≤ upperCentral hn := by
+  change (n - 1) / 2 ≤ n / 2
+  omega
+
+theorem central_positions_odd {n : ℕ} (hn : 0 < n)
+    (hodd : n % 2 = 1) : lowerCentral hn = upperCentral hn := by
+  apply Fin.ext
+  change (n - 1) / 2 = n / 2
+  omega
+
+theorem central_positions_even {n : ℕ} (hn : 0 < n)
+    (heven : n % 2 = 0) :
+    (lowerCentral hn).val + 1 = (upperCentral hn).val := by
+  change (n - 1) / 2 + 1 = n / 2
+  omega
+
+/-- Applying a permutation to a reading vector produces a list.
+The middle entries of this list are exactly the two coordinates used by the
+affine median cell; the sortedness premise is needed to interpret it as the
+sample median, rather than merely as two selected readings. -/
+theorem orderedMedian_eq_cell_median {n : ℕ} (hn : 0 < n)
+    (order : Fin n ≃ Fin n) (x : Fin n → ℝ) :
+    orderedMedian (List.ofFn (fun i : Fin n => x (order i))) =
+      median (order (lowerCentral hn)) (order (upperCentral hn)) x := by
+  have hl : (n - 1) / 2 < n := by omega
+  have hu : n / 2 < n := by omega
+  simp [orderedMedian, median, lowerCentral, upperCentral, hl, hu]
+
+/-- On a weakly sorted permutation, the selected median lies above every
+reading through the lower middle position and below every reading from the
+upper middle position onward. Equal readings are allowed. -/
+theorem ordered_median_brackets {n : ℕ} (hn : 0 < n)
+    (order : Fin n ≃ Fin n) (x : Fin n → ℝ)
+    (hordered : ∀ i j : Fin n, i ≤ j → x (order i) ≤ x (order j)) :
+    (∀ i : Fin n, i ≤ lowerCentral hn →
+      x (order i) ≤ median (order (lowerCentral hn))
+        (order (upperCentral hn)) x) ∧
+    (∀ i : Fin n, upperCentral hn ≤ i →
+      median (order (lowerCentral hn))
+        (order (upperCentral hn)) x ≤ x (order i)) := by
+  have hcenters := hordered (lowerCentral hn) (upperCentral hn)
+    (central_positions_ordered hn)
+  have hlow : x (order (lowerCentral hn)) ≤
+      median (order (lowerCentral hn)) (order (upperCentral hn)) x := by
+    dsimp [median]
+    linarith
+  have hhigh : median (order (lowerCentral hn))
+      (order (upperCentral hn)) x ≤ x (order (upperCentral hn)) := by
+    dsimp [median]
+    linarith
+  constructor
+  · intro i hi
+    exact (hordered i (lowerCentral hn) hi).trans hlow
+  · intro i hi
+    exact hhigh.trans (hordered (upperCentral hn) i hi)
+
+/-- Weak reading order persists through every finite convex blend of
+candidate readings in the same ordering cell, including ties. -/
+theorem reading_blends_preserve_order {n : ℕ}
+    (vertices : Set (Fin n → ℝ)) (order : Fin n ≃ Fin n)
+    (hvertices : ∀ r ∈ vertices, ∀ i j : Fin n,
+      i ≤ j → r (order i) ≤ r (order j))
+    {x : Fin n → ℝ} (hx : ReadingBlends vertices x) :
+    ∀ i j : Fin n, i ≤ j → x (order i) ≤ x (order j) := by
+  induction hx with
+  | vertex p hp => exact hvertices p hp
+  | blend p q u hp hq hu hunit ihp ihq =>
+      intro i j hij
+      have hzero : 0 ≤ 1 - u := by linarith
+      exact add_le_add
+        (mul_le_mul_of_nonneg_left (ihp i j hij) hzero)
+        (mul_le_mul_of_nonneg_left (ihq i j hij) hu)
+
+/-- Sorted candidate readings and factor checks jointly certify a gap
+against the actual ordered-list median for every reading blend in the cell.
+This does not assert that the candidate blends cover an arbitrary box. -/
+theorem ordered_median_gap_margin {n : ℕ} (hn : 0 < n)
+    (vertices : Set (Fin n → ℝ)) (order : Fin n ≃ Fin n)
+    (sign side target margin : ℝ)
+    (hordered : ∀ r ∈ vertices, ∀ i j : Fin n,
+      i ≤ j → r (order i) ≤ r (order j))
+    (hvertices : ∀ r ∈ vertices,
+      0 ≤ (readingFactors
+        (differenceCoeff (order (lowerCentral hn)) (order (upperCentral hn)) sign)
+        (midpointCoeff (order (lowerCentral hn)) (order (upperCentral hn)) side)
+        0 (-side * target) r).1 ∧
+      0 ≤ (readingFactors
+        (differenceCoeff (order (lowerCentral hn)) (order (upperCentral hn)) sign)
+        (midpointCoeff (order (lowerCentral hn)) (order (upperCentral hn)) side)
+        0 (-side * target) r).2 ∧
+      margin ≤ (readingFactors
+        (differenceCoeff (order (lowerCentral hn)) (order (upperCentral hn)) sign)
+        (midpointCoeff (order (lowerCentral hn)) (order (upperCentral hn)) side)
+        0 (-side * target) r).1 *
+        (readingFactors
+          (differenceCoeff (order (lowerCentral hn)) (order (upperCentral hn)) sign)
+          (midpointCoeff (order (lowerCentral hn)) (order (upperCentral hn)) side)
+          0 (-side * target) r).2)
+    {x : Fin n → ℝ} (hx : ReadingBlends vertices x) :
+    (∀ i j : Fin n, i ≤ j → x (order i) ≤ x (order j)) ∧
+      2 * margin ≤ sign * side * ((mean n x - target) ^ 2 -
+        (orderedMedian (List.ofFn (fun i : Fin n => x (order i))) - target) ^ 2) := by
+  constructor
+  · exact reading_blends_preserve_order vertices order hordered hx
+  · rw [orderedMedian_eq_cell_median hn order x]
+    exact signed_gap_margin vertices (order (lowerCentral hn))
+      (order (upperCentral hn)) sign side target margin hvertices hx
+
 end FixedMedianCell
 
 /-!
