@@ -261,11 +261,16 @@ selected central readings) are explicit affine functions of the readings.
 It builds the signed mean-minus-median factor and midpoint-minus-target
 factor from those coefficients and proves their product is exactly half the
 signed squared-error difference. The margin theorem then carries verified
-candidate checks through every finite reading blend in that cell. The two
-central indices are parameters: this module does not prove that an arbitrary
-reading vector has the stipulated order, determine its middle indices, or
-show that the listed vertices span every ordering cell. The v3/v4 verifiers
-and the written ordering-cell argument still handle those steps.
+candidate checks through every finite reading blend in that cell.
+`lowerCentral` and `upperCentral` identify the middle positions for odd and
+even sample lengths. Given a permutation of indices, Lean connects the
+existing `orderedMedian` list rule to these positions, proves that its
+value brackets a weakly ordered sample, and proves that the weak order
+survives finite convex blends of candidate readings. The combined theorem
+then carries the checked margin to the actual ordered-list median on the
+whole generated cell. The sorted permutation, candidate checks, and vertex
+set remain explicit premises. The v3/v4 verifiers and written ordering-cell
+argument still establish which cells and vertices cover a requested box.
 
 To run the route gate after `lake build`:
 
