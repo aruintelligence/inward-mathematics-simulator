@@ -39,6 +39,17 @@
     if (value.n <= 0n) throw new Error("Required lead must be positive.");
     return value;
   }
+  function target(raw) {
+    if (typeof raw !== "string" || raw.length > 520) throw new Error("Invalid target");
+    if (/^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/.test(raw)) {
+      return exact(raw);
+    }
+    if (/^-?(?:0|[1-9][0-9]{0,8})\.[0-9]{1,6}$/.test(raw)) {
+      const [whole, decimals] = raw.split(".");
+      return q(BigInt(whole + decimals), 10n ** BigInt(decimals.length));
+    }
+    throw new Error("Use an exact integer or fraction, or a decimal with up to six places.");
+  }
   function regions(checked, inputs, rawThreshold) {
     if (!checked || checked.isSweep !== true || !Array.isArray(checked.strictPieces) ||
         !inputs || !Array.isArray(inputs.targetInterval) || inputs.targetInterval.length !== 2) {
@@ -86,5 +97,36 @@
     });
     return {threshold: show(required), guaranteedRegions};
   }
-  return {regions};
+  function tolerance(checked, inputs, rawTarget, rawThreshold) {
+    const {threshold: normalized, guaranteedRegions} = regions(checked, inputs, rawThreshold);
+    const t = target(rawTarget), required = exact(normalized);
+    const [domainLow, domainHigh] = inputs.targetInterval.map(exact);
+    if (cmp(t, domainLow) < 0 || cmp(t, domainHigh) > 0) {
+      throw new Error(`Target must be within [${show(domainLow)}, ${show(domainHigh)}].`);
+    }
+    const containing = piece => cmp(exact(piece.from), t) <= 0 && cmp(t, exact(piece.to)) <= 0;
+    const piece = checked.strictPieces.find(containing);
+    const gapAt = (item, point) => add(mul(exact(item.slope), point), exact(item.intercept));
+    const attainedLead = piece ? gapAt(piece, t) : q(0n);
+    const base = {target: show(t), threshold: normalized, attainedLead: show(attainedLead),
+      winner: attainedLead.n === 0n ? null : piece.verdict};
+    const region = guaranteedRegions.find(item =>
+      cmp(exact(item.from), t) <= 0 && cmp(t, exact(item.to)) <= 0);
+    if (!region) return {...base, guarantee: null};
+    const from = exact(region.from), to = exact(region.to);
+    const leftReach = sub(t, from), rightReach = sub(to, t);
+    const radius = cmp(leftReach, rightReach) < 0 ? leftReach : rightReach;
+    const cutoff = point => {
+      const item = checked.strictPieces.find(entry =>
+        entry.verdict === region.verdict && cmp(exact(entry.from), point) <= 0 &&
+        cmp(point, exact(entry.to)) <= 0 && cmp(gapAt(entry, point), required) === 0);
+      return item ? {target: show(point), readings: item.readings} : null;
+    };
+    return {...base, guarantee: {verdict: region.verdict,
+      region: {from: region.from, to: region.to},
+      leftReach: show(leftReach), rightReach: show(rightReach),
+      symmetricRadius: show(radius), symmetricInterval: [show(sub(t, radius)), show(add(t, radius))],
+      leftCutoff: cutoff(from), rightCutoff: cutoff(to)}};
+  }
+  return {regions, tolerance};
 });

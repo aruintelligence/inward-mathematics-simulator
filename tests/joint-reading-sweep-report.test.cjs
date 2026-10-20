@@ -74,6 +74,15 @@ test('standalone report rechecks the exact JSON and probes strict and tie target
   node('target-input').value = '1/0';
   node('probe-form').handlers.submit({preventDefault() {}});
   assert.match(node('probe-result').textContent, /Use an exact integer/);
+  node('target-input').value = '40';
+  node('tolerance-button').handlers.click();
+  assert.match(node('tolerance-result').textContent, /symmetric tolerance ±1531\/290/);
+  assert.equal(node('tolerance-download').hidden, false);
+  const tolerance = JSON.parse(decodeURIComponent(node('tolerance-download').href.split(',')[1]));
+  assert.deepEqual(tolerance, JSON.parse(readFileSync('examples/joint-reading-box-tolerance-40-v1.json', 'utf8')));
+  node('target-input').value = '54';
+  node('target-input').handlers.input();
+  assert.equal(node('tolerance-download').hidden, true);
   assert.ok(Number(node('probe-marker').attributes.cx) >= 52);
   node('threshold-input').value = '700';
   node('threshold-form').handlers.submit({preventDefault() {}});

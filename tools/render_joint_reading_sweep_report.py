@@ -159,7 +159,10 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
 <p class="muted">Choose a positive minimum squared-error lead. The exact intervals include their endpoints, and a boundary witness shows when the guarantee is tight. The target and readings remain independent.</p>
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
 <div id="threshold-result" class="panel" aria-live="polite"></div>
-<div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div></section>
+<div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div>
+<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses.</p>
+<button id="tolerance-button" type="button">Calculate target tolerance</button><div id="tolerance-result" class="panel" aria-live="polite">Choose a target above and calculate its tolerance.</div>
+<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a></div></section>
 <section class="section"><p class="eyebrow">03 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid">{pieces}</div></section>
 <section class="section"><p class="eyebrow">04 / Evidence and limits</p><h2>Replay the exact claim</h2>
 <div class="pair"><div class="panel"><strong>Input assumptions</strong><p>Reading intervals: <code>{bounds}</code>.</p><p>Target interval: <code>[{safe(low)}, {safe(high)}]</code>. Each reading and the target vary independently. These bounds are stipulated; the report cannot establish how they were measured or which estimator is appropriate.</p></div>
@@ -227,6 +230,7 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
     $('status').textContent = 'Exact certificate independently rechecked on this device.';
     $('status').className = 'wrap';
     function update(raw) {{
+      clearTolerance();
       $('tie-download').hidden = true;
       $('tie-download').removeAttribute('href');
       try {{
@@ -252,6 +256,7 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
       }} catch (error) {{$('probe-result').textContent = `Cannot inspect target: ${{error.message}}`;}}
     }}
     function updateThreshold(raw) {{
+      clearTolerance();
       $('margin-download').hidden = true;
       $('margin-download').removeAttribute('href');
       try {{
@@ -269,12 +274,48 @@ svg{{width:100%;height:auto;display:block;background:#0a2032;border:1px solid va
         $('margin-download').hidden = false;
       }} catch (error) {{$('threshold-result').textContent = `Cannot calculate regions: ${{error.message}}`;}}
     }}
+    function clearTolerance() {{
+      $('tolerance-download').hidden = true;
+      $('tolerance-download').removeAttribute('href');
+      $('tolerance-result').textContent = 'Target or required lead changed. Calculate its tolerance again.';
+    }}
+    function updateTolerance() {{
+      clearTolerance();
+      try {{
+        const answer = InwardJointThreshold.tolerance(result, receipt.inputs,
+          $('target-input').value.trim(), $('threshold-input').value.trim());
+        const range = answer.guarantee;
+        $('tolerance-result').textContent = range ?
+          `At ${{answer.target}}, ${{range.verdict}} has attained minimum lead ${{answer.attainedLead}}. ` +
+          `The required lead ${{answer.threshold}} holds on [${{range.region.from}}, ${{range.region.to}}]. ` +
+          `Left reach ${{range.leftReach}}; right reach ${{range.rightReach}}; symmetric tolerance ±${{range.symmetricRadius}} ` +
+          `on [${{range.symmetricInterval.join(', ')}}]. ` +
+          [range.leftCutoff, range.rightCutoff].filter(Boolean).map(item =>
+            `At ${{item.target}}, readings [${{item.readings.join(', ')}}] attain the required lead.`).join(' ') :
+          `At ${{answer.target}}, the attained minimum lead is ${{answer.attainedLead}}` +
+          (answer.winner ? ` for ${{answer.winner}}` : ' (a tie is attainable)') +
+          `. The required lead ${{answer.threshold}} is not guaranteed here.`;
+        const exported = {{format: 'inward-joint-reading-target-tolerance-v1',
+          sourceReceiptSha256: '{digest}', ...answer}};
+        $('tolerance-download').href = 'data:application/json;charset=utf-8,' +
+          encodeURIComponent(JSON.stringify(exported, null, 2) + '\n');
+        $('tolerance-download').hidden = false;
+      }} catch (error) {{$('tolerance-result').textContent = `Cannot calculate tolerance: ${{error.message}}`;}}
+    }}
     $('probe-form').addEventListener('submit', event => {{event.preventDefault(); update($('target-input').value.trim());}});
     $('target-input').addEventListener('input', () => {{
       $('tie-download').hidden = true;
       $('tie-download').removeAttribute('href');
+      clearTolerance();
     }});
     $('threshold-form').addEventListener('submit', event => {{event.preventDefault(); updateThreshold($('threshold-input').value.trim());}});
+    $('threshold-input').addEventListener('input', () => {{
+      clearTolerance();
+      $('margin-download').hidden = true;
+      $('margin-download').removeAttribute('href');
+      $('threshold-result').textContent = 'Required lead changed. Calculate the target regions again.';
+    }});
+    $('tolerance-button').addEventListener('click', updateTolerance);
     document.querySelectorAll('[data-target]').forEach(button => button.addEventListener('click', () => {{
       $('target-input').value = button.dataset.target;
       update(button.dataset.target);

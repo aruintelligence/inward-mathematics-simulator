@@ -616,6 +616,18 @@ test('mobile lab generates, exports, verifies, and clears stale evidence', async
   node('margin-download').handlers.click();
   assert.deepEqual(JSON.parse(await exported.text()),
     JSON.parse(readFileSync('examples/joint-reading-box-margin-100-v1.json', 'utf8')));
+  node('tolerance-target').value = '40';
+  node('tolerance-form').handlers.submit({preventDefault() {}});
+  assert.match(node('tolerance-result').textContent, /symmetric tolerance is ±1531\/290/);
+  assert.equal(node('tolerance-download').disabled, false);
+  node('tolerance-download').handlers.click();
+  assert.deepEqual(JSON.parse(await exported.text()),
+    JSON.parse(readFileSync('examples/joint-reading-box-tolerance-40-v1.json', 'utf8')));
+  node('tolerance-target').value = '54';
+  node('tolerance-target').handlers.input();
+  assert.equal(node('tolerance-download').disabled, true);
+  node('tolerance-form').handlers.submit({preventDefault() {}});
+  assert.match(node('tolerance-result').textContent, /a tie is attainable/);
   assert.equal(node('report-download').disabled, false);
   await node('report-download').handlers.click();
   assert.equal(exported.type, 'text/html;charset=utf-8');
