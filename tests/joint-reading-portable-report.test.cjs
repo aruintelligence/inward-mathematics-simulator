@@ -81,6 +81,17 @@ test('portable custom report independently rechecks, probes, and exports exact r
       assert.equal(node('tie-download').hidden, true);
     } else assert.equal(node('tie-download').hidden, true);
   }
+  node('target-input').value = '40';
+  node('tolerance-button').handlers.click();
+  assert.match(node('tolerance-result').textContent, /symmetric tolerance ±1531\/290/);
+  assert.equal(node('tolerance-download').hidden, false);
+  const tolerance = JSON.parse(decodeURIComponent(node('tolerance-download').href.split(',')[1]));
+  assert.deepEqual(tolerance, JSON.parse(readFileSync('examples/joint-reading-box-tolerance-40-v1.json', 'utf8')));
+  node('threshold-input').value = '101';
+  node('threshold-input').handlers.input();
+  assert.equal(node('tolerance-download').hidden, true);
+  assert.equal(node('margin-download').hidden, true);
+  node('threshold-input').value = '100';
   node('threshold-input').value = '0';
   node('threshold-form').handlers.submit({preventDefault() {}});
   assert.match(node('threshold-result').textContent, /Required lead must be positive/);

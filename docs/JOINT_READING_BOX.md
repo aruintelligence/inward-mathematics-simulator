@@ -350,6 +350,50 @@ This query classifies stipulated targets; it does not recommend choosing a
 target to make one estimator appear better, and does not validate whether
 the reading intervals model a real application.
 
+## Exact target tolerance
+
+Choose an anchor target $t_0\in T$ and a positive required squared-error
+lead $q$. The inverse margin set $S_q$ above has at most two disjoint closed
+components. If $t_0\notin S_q$, the requested lead is not guaranteed even
+at the anchor. Otherwise the unique component $[l,r]$ containing $t_0$
+is the **largest connected target interval within the supplied sweep** that
+contains $t_0$ and keeps the same strict winner with lead at least $q$
+for every allowed reading. The exact left and right reaches are
+$t_0-l$ and $r-t_0$. The largest symmetric interval about $t_0$ inside
+this verified domain has radius
+
+$$
+\rho=\min(t_0-l,\ r-t_0),\qquad [t_0-\rho,t_0+\rho]\subseteq[l,r].
+$$
+
+At an interior endpoint where $G(l)=q$ or $G(r)=q$, the strict piece's
+readings attain the required lead exactly. Any movement beyond that cutoff
+toward the tie band fails the required lead. A domain endpoint can have no
+threshold witness because the lead there still exceeds $q$; the result
+makes no claim beyond the supplied domain. An anchor at a qualifying
+endpoint has symmetric radius zero. The result uses exact rational
+arithmetic and the independently verified v4 sweep, not sampled targets.
+
+For the [worked tolerance answer](../examples/joint-reading-box-tolerance-40-v1.json),
+$t_0=40$ and $q=100$. Median is guaranteed on $[0,13131/290]$;
+the left reach is $40$ and the right reach is $1531/290$. Hence
+$\rho=1531/290$, with symmetric interval $[10069/290,13131/290]$.
+At the right cutoff, readings $(48,49,51,51,85)$ attain lead exactly
+$100$. The browser lab and both offline reports calculate and export this
+answer for a selected target. The JSON binds to the exact SHA-256 of the
+source receipt and can be independently replayed in Python:
+
+```sh
+python3 tools/joint_reading_tolerance.py examples/joint-reading-box-sweep-v4.json --target=40 --threshold=100 > tolerance.json
+python3 tools/joint_reading_tolerance.py examples/joint-reading-box-sweep-v4.json --verify tolerance.json
+```
+
+The Python checker separately audits the original sweep, recalculates the
+inverse regions and both cutoffs using rational fractions, then compares
+every field and the source fingerprint. These are conditional sensitivity
+limits for stipulated bounds, not a probability distribution or a measured
+error tolerance.
+
 ## Why corners alone are insufficient
 
 For the intervals $[-4,-3],[-1,4],[1,2]$, the true minimum of $D$ is

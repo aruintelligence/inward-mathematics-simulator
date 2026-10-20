@@ -1,0 +1,33 @@
+{
+  "format": "inward-joint-reading-target-tolerance-v1",
+  "sourceReceiptSha256": "d192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86",
+  "target": "40",
+  "threshold": "100",
+  "attainedLead": "4031/25",
+  "winner": "Median",
+  "guarantee": {
+    "verdict": "Median",
+    "region": {
+      "from": "0",
+      "to": "13131/290"
+    },
+    "leftReach": "40",
+    "rightReach": "1531/290",
+    "symmetricRadius": "1531/290",
+    "symmetricInterval": [
+      "10069/290",
+      "13131/290"
+    ],
+    "leftCutoff": null,
+    "rightCutoff": {
+      "target": "13131/290",
+      "readings": [
+        "48",
+        "49",
+        "51",
+        "51",
+        "85"
+      ]
+    }
+  }
+}

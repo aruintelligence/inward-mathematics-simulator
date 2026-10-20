@@ -29,7 +29,10 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
 <p class="muted">Choose a positive minimum squared-error lead. The exact intervals include their endpoints, and a boundary witness shows when the guarantee is tight. The target and readings remain independent.</p>
 <form id="threshold-form"><label for="threshold-input">Required lead<input id="threshold-input" type="text" inputmode="decimal" autocomplete="off" value="100"></label><button type="submit">Find target regions</button></form>
 <div id="threshold-result" class="panel" aria-live="polite"></div>
-<div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div></section>
+<div class="actions"><a id="margin-download" class="button secondary" download="joint-reading-margin-regions-v1.json" hidden>Download checked region answer</a></div>
+<h3>How far can the inspected target move?</h3><p class="muted">Use the target inspected above and this required lead. The exact answer gives left and right reach, symmetric tolerance, and cutoff witnesses.</p>
+<button id="tolerance-button" type="button">Calculate target tolerance</button><div id="tolerance-result" class="panel" aria-live="polite">Choose a target above and calculate its tolerance.</div>
+<div class="actions"><a id="tolerance-download" class="button secondary" download="joint-reading-target-tolerance-v1.json" hidden>Download checked tolerance answer</a></div></section>
 <section class="section"><p class="eyebrow">03 / Attaining readings</p><h2>Every strict piece</h2><p class="muted">A piece's interior has the stated strict winner. A closed endpoint that touches the tie band has gap zero. At other shared endpoints, adjacent formulas agree.</p><div class="piece-grid"><article class="piece">
 <div class="piece-head"><span class="eyebrow">Piece 01</span><strong>Median on the interior</strong></div>
 <p class="piece-range">[0, 979/20]</p>
@@ -476,6 +479,17 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     if (value.n <= 0n) throw new Error("Required lead must be positive.");
     return value;
   }
+  function target(raw) {
+    if (typeof raw !== "string" || raw.length > 520) throw new Error("Invalid target");
+    if (/^(?:0|-?[1-9][0-9]{0,256})(?:\/[1-9][0-9]{0,256})?$/.test(raw)) {
+      return exact(raw);
+    }
+    if (/^-?(?:0|[1-9][0-9]{0,8})\.[0-9]{1,6}$/.test(raw)) {
+      const [whole, decimals] = raw.split(".");
+      return q(BigInt(whole + decimals), 10n ** BigInt(decimals.length));
+    }
+    throw new Error("Use an exact integer or fraction, or a decimal with up to six places.");
+  }
   function regions(checked, inputs, rawThreshold) {
     if (!checked || checked.isSweep !== true || !Array.isArray(checked.strictPieces) ||
         !inputs || !Array.isArray(inputs.targetInterval) || inputs.targetInterval.length !== 2) {
@@ -523,7 +537,38 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     });
     return {threshold: show(required), guaranteedRegions};
   }
-  return {regions};
+  function tolerance(checked, inputs, rawTarget, rawThreshold) {
+    const {threshold: normalized, guaranteedRegions} = regions(checked, inputs, rawThreshold);
+    const t = target(rawTarget), required = exact(normalized);
+    const [domainLow, domainHigh] = inputs.targetInterval.map(exact);
+    if (cmp(t, domainLow) < 0 || cmp(t, domainHigh) > 0) {
+      throw new Error(`Target must be within [${show(domainLow)}, ${show(domainHigh)}].`);
+    }
+    const containing = piece => cmp(exact(piece.from), t) <= 0 && cmp(t, exact(piece.to)) <= 0;
+    const piece = checked.strictPieces.find(containing);
+    const gapAt = (item, point) => add(mul(exact(item.slope), point), exact(item.intercept));
+    const attainedLead = piece ? gapAt(piece, t) : q(0n);
+    const base = {target: show(t), threshold: normalized, attainedLead: show(attainedLead),
+      winner: attainedLead.n === 0n ? null : piece.verdict};
+    const region = guaranteedRegions.find(item =>
+      cmp(exact(item.from), t) <= 0 && cmp(t, exact(item.to)) <= 0);
+    if (!region) return {...base, guarantee: null};
+    const from = exact(region.from), to = exact(region.to);
+    const leftReach = sub(t, from), rightReach = sub(to, t);
+    const radius = cmp(leftReach, rightReach) < 0 ? leftReach : rightReach;
+    const cutoff = point => {
+      const item = checked.strictPieces.find(entry =>
+        entry.verdict === region.verdict && cmp(exact(entry.from), point) <= 0 &&
+        cmp(point, exact(entry.to)) <= 0 && cmp(gapAt(entry, point), required) === 0);
+      return item ? {target: show(point), readings: item.readings} : null;
+    };
+    return {...base, guarantee: {verdict: region.verdict,
+      region: {from: region.from, to: region.to},
+      leftReach: show(leftReach), rightReach: show(rightReach),
+      symmetricRadius: show(radius), symmetricInterval: [show(sub(t, radius)), show(add(t, radius))],
+      leftCutoff: cutoff(from), rightCutoff: cutoff(to)}};
+  }
+  return {regions, tolerance};
 });
 </script>
 <script>/* Construct exact readings attaining a tie at any target in a verified v4 tie band. */
@@ -681,6 +726,7 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
     $('status').textContent = 'Exact certificate independently rechecked on this device.';
     $('status').className = 'wrap';
     function update(raw) {
+      clearTolerance();
       $('tie-download').hidden = true;
       $('tie-download').removeAttribute('href');
       try {
@@ -706,6 +752,7 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
       } catch (error) {$('probe-result').textContent = `Cannot inspect target: ${error.message}`;}
     }
     function updateThreshold(raw) {
+      clearTolerance();
       $('margin-download').hidden = true;
       $('margin-download').removeAttribute('href');
       try {
@@ -723,12 +770,48 @@ svg{width:100%;height:auto;display:block;background:#0a2032;border:1px solid var
         $('margin-download').hidden = false;
       } catch (error) {$('threshold-result').textContent = `Cannot calculate regions: ${error.message}`;}
     }
+    function clearTolerance() {
+      $('tolerance-download').hidden = true;
+      $('tolerance-download').removeAttribute('href');
+      $('tolerance-result').textContent = 'Target or required lead changed. Calculate its tolerance again.';
+    }
+    function updateTolerance() {
+      clearTolerance();
+      try {
+        const answer = InwardJointThreshold.tolerance(result, receipt.inputs,
+          $('target-input').value.trim(), $('threshold-input').value.trim());
+        const range = answer.guarantee;
+        $('tolerance-result').textContent = range ?
+          `At ${answer.target}, ${range.verdict} has attained minimum lead ${answer.attainedLead}. ` +
+          `The required lead ${answer.threshold} holds on [${range.region.from}, ${range.region.to}]. ` +
+          `Left reach ${range.leftReach}; right reach ${range.rightReach}; symmetric tolerance ±${range.symmetricRadius} ` +
+          `on [${range.symmetricInterval.join(', ')}]. ` +
+          [range.leftCutoff, range.rightCutoff].filter(Boolean).map(item =>
+            `At ${item.target}, readings [${item.readings.join(', ')}] attain the required lead.`).join(' ') :
+          `At ${answer.target}, the attained minimum lead is ${answer.attainedLead}` +
+          (answer.winner ? ` for ${answer.winner}` : ' (a tie is attainable)') +
+          `. The required lead ${answer.threshold} is not guaranteed here.`;
+        const exported = {format: 'inward-joint-reading-target-tolerance-v1',
+          sourceReceiptSha256: 'd192f94eb904f91a627589fc6aab23bdff44a7d6dea240cd9160c04966cc5b86', ...answer};
+        $('tolerance-download').href = 'data:application/json;charset=utf-8,' +
+          encodeURIComponent(JSON.stringify(exported, null, 2) + '\n');
+        $('tolerance-download').hidden = false;
+      } catch (error) {$('tolerance-result').textContent = `Cannot calculate tolerance: ${error.message}`;}
+    }
     $('probe-form').addEventListener('submit', event => {event.preventDefault(); update($('target-input').value.trim());});
     $('target-input').addEventListener('input', () => {
       $('tie-download').hidden = true;
       $('tie-download').removeAttribute('href');
+      clearTolerance();
     });
     $('threshold-form').addEventListener('submit', event => {event.preventDefault(); updateThreshold($('threshold-input').value.trim());});
+    $('threshold-input').addEventListener('input', () => {
+      clearTolerance();
+      $('margin-download').hidden = true;
+      $('margin-download').removeAttribute('href');
+      $('threshold-result').textContent = 'Required lead changed. Calculate the target regions again.';
+    });
+    $('tolerance-button').addEventListener('click', updateTolerance);
     document.querySelectorAll('[data-target]').forEach(button => button.addEventListener('click', () => {
       $('target-input').value = button.dataset.target;
       update(button.dataset.target);
