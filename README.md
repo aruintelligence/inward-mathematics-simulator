@@ -173,3 +173,11 @@ The lab starts paused for everyone and respects reduced motion. Set a seed, then
 The original page only drew an unseeded spring animation even though its README described a second panel and telemetry. The current lab implements both panels and makes the claims and formulas inspectable.
 
 Created by Daniel Jacob Read IV / ĀRU Intelligence Inc. with Shane Travis Horman. Development assistance included Grok (xAI). Released under the [MIT License](LICENSE); see [CITATION.cff](CITATION.cff).
+
+---
+
+### Inward Physics research navigation
+
+[Complete Inward Physics index](https://github.com/aruintelligence/aruintelligence/blob/main/INWARD_PHYSICS.md) · [Daniel Jacob Read IV’s ORCID](https://orcid.org/0009-0000-6133-1872) · [Zenodo DOI series (record index)](https://github.com/aruintelligence/aruintelligence/blob/main/INWARD_PHYSICS.md#zenodo-record-index)
+
+These links index project-authored proposals and simulations; they do not imply independent validation of a physical model.
