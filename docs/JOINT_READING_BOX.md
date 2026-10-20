@@ -192,13 +192,15 @@ records its readings and $t_*$. The separate verifier enumerates candidates
 again, checks the exact minimum, and confirms the witness attains it. It
 does not trust the generator's extremum or witness.
 
-The [Lean `AffineProduct` theorem](../formal/InwardFormal.lean) also checks
-the core segment inequality without square roots: the product of two
-nonnegative affine factors between two configurations is at least the
-smaller endpoint product, even when the factors move in opposite directions.
-Its margin corollary preserves a claimed endpoint lower bound everywhere on
-the segment. It assumes the factors and their endpoint signs; the general
-cell-vertex completeness argument above remains outside Lean.
+The [Lean `AffineProduct` theorems](../formal/InwardFormal.lean) also check
+the core inequality without square roots: the product of two nonnegative
+affine factors between two configurations is at least the smaller endpoint
+product, even when the factors move in opposite directions. Induction over
+finite binary convex blends of factor-value pairs proves that a margin
+checked at every listed vertex persists throughout those blends. With an
+attaining listed witness, it proves their exact minimum. The connection
+from every median-ordering-cell reading to a blend of vertex factor pairs,
+and the general cell-vertex completeness argument above, remain outside Lean.
 
 For the readings around $48,49,50,51,85$ and target interval $[0,45]$,
 the conservative v2 bound is $2407/25$; the exact v3 minimum is $2581/25$,
