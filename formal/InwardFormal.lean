@@ -794,6 +794,88 @@ theorem increasing_threshold_region (s b q cutoff t : ℝ)
 end AffineEnvelope
 
 /-!
+The sharp v3/v4 squared-error lead is the product of two nonnegative affine
+factors on each fixed median-ordering cell. Its minimum on a segment cannot
+fall below both endpoint products. Iterating this segment fact over a convex
+combination of cell vertices is the algebraic part of the finite-candidate
+argument; identifying and enumerating all cell vertices is a separate step.
+-/
+namespace AffineProduct
+
+private theorem min_le_affine_average (p q u : ℝ)
+    (hu : 0 ≤ u) (hu1 : u ≤ 1) :
+    min p q ≤ (1 - u) * p + u * q := by
+  have hleft : 0 ≤ (1 - u) * (p - min p q) :=
+    mul_nonneg (by linarith) (sub_nonneg.mpr (min_le_left p q))
+  have hright : 0 ≤ u * (q - min p q) :=
+    mul_nonneg hu (sub_nonneg.mpr (min_le_right p q))
+  nlinarith
+
+/-- A product of two nonnegative affine factors on a segment is no smaller
+than the lesser endpoint product, even when the factors move in opposite
+directions. This is the sharp-gap step, with no sampling of interior points. -/
+theorem product_above_endpoint_min (a b c d u : ℝ)
+    (ha : 0 ≤ a) (hb : 0 ≤ b) (hc : 0 ≤ c) (hd : 0 ≤ d)
+    (hu : 0 ≤ u) (hu1 : u ≤ 1) :
+    min (a * c) (b * d) ≤
+      ((1 - u) * a + u * b) * ((1 - u) * c + u * d) := by
+  let x := (1 - u) * a + u * b
+  let y := (1 - u) * c + u * d
+  have hzero : 0 ≤ 1 - u := by linarith
+  have opposite (hcross : 0 ≤ (b - a) * (c - d)) :
+      min (a * c) (b * d) ≤ x * y := by
+    have hweight : 0 ≤ (u * (1 - u)) * ((b - a) * (c - d)) :=
+      mul_nonneg (mul_nonneg hu hzero) hcross
+    have hid : x * y - ((1 - u) * (a * c) + u * (b * d)) =
+        (u * (1 - u)) * ((b - a) * (c - d)) := by
+      dsimp [x, y]
+      ring
+    exact (min_le_affine_average (a * c) (b * d) u hu hu1).trans (by linarith)
+  change min (a * c) (b * d) ≤ x * y
+  rcases le_total a b with hab | hba
+  · rcases le_total c d with hcd | hdc
+    · have hxa : 0 ≤ x - a := by
+        have hid : x - a = u * (b - a) := by dsimp [x]; ring
+        rw [hid]
+        exact mul_nonneg hu (sub_nonneg.mpr hab)
+      have hyc : 0 ≤ y - c := by
+        have hid : y - c = u * (d - c) := by dsimp [y]; ring
+        rw [hid]
+        exact mul_nonneg hu (sub_nonneg.mpr hcd)
+      have h1 := mul_nonneg hxa hyc
+      have h2 := mul_nonneg ha hyc
+      have h3 := mul_nonneg hc hxa
+      exact (min_le_left (a * c) (b * d)).trans (by nlinarith)
+    · exact opposite (mul_nonneg (sub_nonneg.mpr hab) (sub_nonneg.mpr hdc))
+  · rcases le_total c d with hcd | hdc
+    · exact opposite (mul_nonneg_of_nonpos_of_nonpos
+        (sub_nonpos.mpr hba) (sub_nonpos.mpr hcd))
+    · have hxb : 0 ≤ x - b := by
+        have hid : x - b = (1 - u) * (a - b) := by dsimp [x]; ring
+        rw [hid]
+        exact mul_nonneg hzero (sub_nonneg.mpr hba)
+      have hyd : 0 ≤ y - d := by
+        have hid : y - d = (1 - u) * (c - d) := by dsimp [y]; ring
+        rw [hid]
+        exact mul_nonneg hzero (sub_nonneg.mpr hdc)
+      have h1 := mul_nonneg hxb hyd
+      have h2 := mul_nonneg hb hyd
+      have h3 := mul_nonneg hd hxb
+      exact (min_le_right (a * c) (b * d)).trans (by nlinarith)
+
+/-- Endpoint margins on both affine factors certify the same margin at
+every point of their segment. -/
+theorem endpoint_margin_lower_bound (a b c d u margin : ℝ)
+    (ha : 0 ≤ a) (hb : 0 ≤ b) (hc : 0 ≤ c) (hd : 0 ≤ d)
+    (hu : 0 ≤ u) (hu1 : u ≤ 1)
+    (hfirst : margin ≤ a * c) (hlast : margin ≤ b * d) :
+    margin ≤ ((1 - u) * a + u * b) * ((1 - u) * c + u * d) := by
+  exact (le_min hfirst hlast).trans
+    (product_above_endpoint_min a b c d u ha hb hc hd hu hu1)
+
+end AffineProduct
+
+/-!
 On a fixed movement cell the mean and median are affine in the moved reading.
 The mean has positive slope, and the median has nonnegative slope. These
 lemmas justify the v6 target-horizon interpolation and the strict guarantees
