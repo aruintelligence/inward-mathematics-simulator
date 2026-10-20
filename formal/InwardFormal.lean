@@ -873,6 +873,52 @@ theorem endpoint_margin_lower_bound (a b c d u margin : ℝ)
   exact (le_min hfirst hlast).trans
     (product_above_endpoint_min a b c d u ha hb hc hd hu hu1)
 
+/-- Every finite convex combination can be built from singleton vertices
+and binary blends. The pair records the two affine factor values, not the
+original reading vector. -/
+inductive FiniteBlends (vertices : Set (ℝ × ℝ)) : ℝ × ℝ → Prop where
+  | vertex (p : ℝ × ℝ) (hp : p ∈ vertices) : FiniteBlends vertices p
+  | blend (p q : ℝ × ℝ) (u : ℝ)
+      (hp : FiniteBlends vertices p) (hq : FiniteBlends vertices q)
+      (hu : 0 ≤ u) (hunit : u ≤ 1) :
+      FiniteBlends vertices
+        ((1 - u) * p.1 + u * q.1, (1 - u) * p.2 + u * q.2)
+
+/-- A margin verified at every candidate vertex holds throughout every
+finite convex combination of their affine-factor pairs. -/
+theorem finite_blends_preserve_margin
+    (vertices : Set (ℝ × ℝ)) (margin : ℝ)
+    (hvertices : ∀ p ∈ vertices,
+      0 ≤ p.1 ∧ 0 ≤ p.2 ∧ margin ≤ p.1 * p.2)
+    {p : ℝ × ℝ} (hp : FiniteBlends vertices p) :
+    0 ≤ p.1 ∧ 0 ≤ p.2 ∧ margin ≤ p.1 * p.2 := by
+  induction hp with
+  | vertex p hmem => exact hvertices p hmem
+  | blend p q u hp hq hu hunit ihp ihq =>
+      rcases ihp with ⟨hpa, hpc, hpm⟩
+      rcases ihq with ⟨hqb, hqd, hqm⟩
+      dsimp only [Prod.fst, Prod.snd]
+      have hzero : 0 ≤ 1 - u := by linarith
+      exact ⟨add_nonneg (mul_nonneg hzero hpa) (mul_nonneg hu hqb),
+        add_nonneg (mul_nonneg hzero hpc) (mul_nonneg hu hqd),
+        endpoint_margin_lower_bound p.1 q.1 p.2 q.2 u margin
+          hpa hqb hpc hqd hu hunit hpm hqm⟩
+
+/-- If one listed vertex attains the checked bound, that bound is the
+exact attained minimum over all finite convex combinations. -/
+theorem attained_minimum_of_finite_blends
+    (vertices : Set (ℝ × ℝ)) (witness : ℝ × ℝ) (margin : ℝ)
+    (hvertices : ∀ p ∈ vertices,
+      0 ≤ p.1 ∧ 0 ≤ p.2 ∧ margin ≤ p.1 * p.2)
+    (hwitness : witness ∈ vertices)
+    (hattain : witness.1 * witness.2 = margin) :
+    (∀ p, FiniteBlends vertices p → margin ≤ p.1 * p.2) ∧
+      (∃ p, FiniteBlends vertices p ∧ p.1 * p.2 = margin) := by
+  constructor
+  · intro p hp
+    exact (finite_blends_preserve_margin vertices margin hvertices hp).2.2
+  · exact ⟨witness, FiniteBlends.vertex witness hwitness, hattain⟩
+
 end AffineProduct
 
 /-!
