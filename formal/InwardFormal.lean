@@ -705,6 +705,95 @@ theorem zero_at_two_points (A B p q x : ℝ) (hpq : p ≠ q)
 end AffinePartition
 
 /-!
+The v4 Joint Reading Box verifier checks each proposed affine lower-envelope
+piece against every finite candidate at both endpoints. These lemmas prove
+that those endpoint inequalities cover every real target on the piece and
+that a listed attaining line is its exact finite minimum. They assume the
+candidate list is complete; the arbitrary-interval ordering-cell argument
+that supplies that list is not formalized here.
+-/
+namespace AffineEnvelope
+
+/-- Endpoint dominance between two affine lines persists on the entire
+closed interval, including both boundaries. -/
+theorem below_between_endpoints (s b u v left right t : ℝ)
+    (hspan : left < right) (hleft : left ≤ t) (hright : t ≤ right)
+    (hstart : s * left + b ≤ u * left + v)
+    (hstop : s * right + b ≤ u * right + v) :
+    s * t + b ≤ u * t + v := by
+  have hfirst : 0 ≤ ((u * left + v) - (s * left + b)) * (right - t) :=
+    mul_nonneg (sub_nonneg.mpr hstart) (sub_nonneg.mpr hright)
+  have hsecond : 0 ≤ ((u * right + v) - (s * right + b)) * (t - left) :=
+    mul_nonneg (sub_nonneg.mpr hstop) (sub_nonneg.mpr hleft)
+  have hid :
+      ((u * left + v) - (s * left + b)) * (right - t) +
+        ((u * right + v) - (s * right + b)) * (t - left) =
+          (right - left) * ((u * t + v) - (s * t + b)) := by
+    ring
+  have hsum : 0 ≤ (right - left) * ((u * t + v) - (s * t + b)) := by
+    rw [← hid]
+    exact add_nonneg hfirst hsecond
+  by_contra h
+  have hgap : (u * t + v) - (s * t + b) < 0 := by linarith
+  have hproduct : (right - left) * ((u * t + v) - (s * t + b)) < 0 :=
+    mul_neg_of_pos_of_neg (sub_pos.mpr hspan) hgap
+  exact (not_lt_of_ge hsum) hproduct
+
+/-- Endpoint comparisons against every listed line, together with an
+attaining line in the list, prove an exact finite minimum at every real
+target in the piece. -/
+theorem attained_minimum_from_endpoint_checks
+    (lines : List (ℝ × ℝ)) (s b left right : ℝ) (hspan : left < right)
+    (hwitness : (s, b) ∈ lines)
+    (hstart : ∀ line ∈ lines, s * left + b ≤ line.1 * left + line.2)
+    (hstop : ∀ line ∈ lines, s * right + b ≤ line.1 * right + line.2) :
+    ∀ t, left ≤ t → t ≤ right →
+      (∀ line ∈ lines, s * t + b ≤ line.1 * t + line.2) ∧
+      (∃ line ∈ lines, s * t + b = line.1 * t + line.2) := by
+  intro t hleft hright
+  constructor
+  · intro line hline
+    exact below_between_endpoints s b line.1 line.2 left right t
+      hspan hleft hright (hstart line hline) (hstop line hline)
+  · exact ⟨(s, b), hwitness, rfl⟩
+
+/-- On a decreasing affine gap, an attained threshold is met exactly at
+and to the left of its cutoff, within the audited piece. -/
+theorem decreasing_threshold_region (s b q cutoff t : ℝ)
+    (hs : s < 0) (hcut : s * cutoff + b = q) :
+    q ≤ s * t + b ↔ t ≤ cutoff := by
+  constructor
+  · intro h
+    by_contra hnot
+    have ht : cutoff < t := not_le.mp hnot
+    have hproduct : s * (t - cutoff) < 0 :=
+      mul_neg_of_neg_of_pos hs (sub_pos.mpr ht)
+    nlinarith
+  · intro ht
+    have hproduct : 0 ≤ s * (t - cutoff) :=
+      mul_nonneg_of_nonpos_of_nonpos (le_of_lt hs) (sub_nonpos.mpr ht)
+    nlinarith
+
+/-- On an increasing affine gap, an attained threshold is met exactly at
+and to the right of its cutoff, within the audited piece. -/
+theorem increasing_threshold_region (s b q cutoff t : ℝ)
+    (hs : 0 < s) (hcut : s * cutoff + b = q) :
+    q ≤ s * t + b ↔ cutoff ≤ t := by
+  constructor
+  · intro h
+    by_contra hnot
+    have ht : t < cutoff := not_le.mp hnot
+    have hproduct : s * (t - cutoff) < 0 :=
+      mul_neg_of_pos_of_neg hs (sub_neg.mpr ht)
+    nlinarith
+  · intro ht
+    have hproduct : 0 ≤ s * (t - cutoff) :=
+      mul_nonneg (le_of_lt hs) (sub_nonneg.mpr ht)
+    nlinarith
+
+end AffineEnvelope
+
+/-!
 On a fixed movement cell the mean and median are affine in the moved reading.
 The mean has positive slope, and the median has nonnegative slope. These
 lemmas justify the v6 target-horizon interpolation and the strict guarantees

@@ -243,7 +243,14 @@ regions and fabricated breakpoints. This audit uses exact fractions and
 rejects duplicate JSON keys. It has a 2 MB input limit, the 100,000-candidate
 limit, and a 2,000,000 endpoint-comparison budget. It relies on the
 ordering-cell vertex argument above for completeness of the candidate set;
-it is an independent executable check, not a Lean formalization of v4.
+it is an independent executable check. The general
+[`AffineEnvelope` Lean theorems](../formal/InwardFormal.lean) independently
+formalize the endpoint-to-every-target implication for arbitrary real
+affine lines, and show that an attaining line is the exact minimum of a
+supplied finite candidate list. They also prove the sharp threshold side
+of a piece's attained cutoff. Lean does not yet prove that the candidate
+list exhausts all median ordering cells or that a JSON sweep satisfies
+the theorem's premises.
 
 The [example v4 receipt](../examples/joint-reading-box-sweep-v4.json) for
 readings near $(48,49,50,51,85)$ and target range $[0,80]$ has ties exactly
@@ -452,8 +459,10 @@ real values inside the accepted intervals, not just input-grid readings.
 
 The proof is an elementary argument recorded here, with separate Python and
 browser constructors, an independent exact verifier, and finite regression
-checks. There is **no Lean formalization of the arbitrary-interval vertex
-argument, the v3 sharp-gap argument, or the v4 envelope argument** in this release.
+checks. Lean now proves the generic v4 affine endpoint audit and threshold
+cutoff lemmas. There is **no Lean formalization of the arbitrary-interval
+vertex argument, the v3 sharp-gap argument, or the completeness of a v4
+receipt's candidates and coverage** in this release.
 The receipt cannot verify the provenance or suitability of supplied data,
 the target choice, correlation assumptions, or market demand. Attribution
 and licensing remain in the repository's `LICENSE` and `CITATION.cff`.
