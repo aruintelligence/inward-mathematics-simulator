@@ -234,7 +234,12 @@ $[-2,-2],[-4,-4],[8,12],[-2,0],[-3,2]$ and fixed target $-20$, the exact
 minimum is $404/25$ at $(-2,-4,8,0,0)$. The final zero is **inside**
 $[-3,2]$, while the best of all box corners gives $816/25$. The
 [independently checkable receipt](../examples/joint-reading-box-interior-v3.json)
-records this interior ordering-cell vertex.
+records this interior ordering-cell vertex. The
+[Lean `InteriorBox` theorem](../formal/InwardFormal.lean) directly proves
+the $404/25$ lead for every real reading in these five intervals at target
+$-20$, for any sorted permutation, and checks that the displayed interior
+witness attains it. This one-box proof does not rely on the general
+endpoint-valued vertex enumeration.
 
 ## Complete target sweep (v4)
 
