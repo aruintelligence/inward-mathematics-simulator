@@ -2578,4 +2578,149 @@ theorem four_reading_middle_strict_distance (x : ℝ) (h40 : 40 ≤ x) (h50 : x 
 
 end EvenSample
 
+/-!
+The five-reading v3 interior-vertex receipt has a sharp bound that can be
+proved directly over its full real box. Its fifth reading may be any real
+number in `[-3,2]`; the attaining value zero is inside that interval.
+-/
+namespace InteriorBox
+
+def sample (a b c : ℝ) : List ℝ := [-2, -4, a, b, c]
+
+noncomputable def cellMedian (b c : ℝ) : ℝ :=
+  if c ≤ -2 then -2 else if c ≤ b then c else b
+
+theorem sample_mean (a b c : ℝ) :
+    sampleMean (sample a b c) = (a + b + c - 6) / 5 := by
+  simp [sampleMean, sample]
+  ring
+
+private theorem five_sorted (u v w y z : ℝ)
+    (huv : u ≤ v) (hvw : v ≤ w) (hwy : w ≤ y) (hyz : y ≤ z) :
+    List.Pairwise (· ≤ ·) [u, v, w, y, z] := by
+  apply List.Pairwise.cons_cons_of_trans huv
+  apply List.Pairwise.cons_cons_of_trans hvw
+  apply List.Pairwise.cons_cons_of_trans hwy
+  apply List.Pairwise.cons_cons_of_trans hyz
+  simp
+
+private theorem base_perm (a b c : ℝ) :
+    ([-4, -2, b, c, a] : List ℝ).Perm (sample a b c) := by
+  have h1 : ([-2, -4, a, b, c] : List ℝ).Perm [-4, -2, a, b, c] :=
+    List.Perm.swap (-4) (-2) [a, b, c]
+  have h2 : ([-4, -2, a, b, c] : List ℝ).Perm [-4, -2, b, a, c] :=
+    List.Perm.cons (-4) (List.Perm.cons (-2) (List.Perm.swap b a [c]))
+  have h3 : ([-4, -2, b, a, c] : List ℝ).Perm [-4, -2, b, c, a] :=
+    List.Perm.cons (-4) (List.Perm.cons (-2)
+      (List.Perm.cons b (List.Perm.swap c a [])))
+  exact (h1.trans (h2.trans h3)).symm
+
+private theorem sorted_unique (ys zs : List ℝ)
+    (hy : List.Pairwise (· ≤ ·) ys) (hz : List.Pairwise (· ≤ ·) zs)
+    (hp : ys.Perm zs) : ys = zs := by
+  exact List.Perm.eq_of_pairwise
+    (by intro a b _ _ hab hba; exact le_antisymm hab hba) hy hz hp
+
+/-- The median formula is derived from all three possible order cells,
+including weak ties, for every permitted real reading. -/
+theorem sorted_median (a b c : ℝ)
+    (ha : 8 ≤ a) (hb0 : -2 ≤ b) (hb1 : b ≤ 0)
+    (hc0 : -3 ≤ c) (hc1 : c ≤ 2)
+    (ys : List ℝ) (hp : ys.Perm (sample a b c))
+    (hs : List.Pairwise (· ≤ ·) ys) :
+    orderedMedian ys = cellMedian b c := by
+  have hmidperm : ([-4, -2, c, b, a] : List ℝ).Perm (sample a b c) := by
+    have hswap : ([-4, -2, b, c, a] : List ℝ).Perm [-4, -2, c, b, a] :=
+      List.Perm.cons (-4) (List.Perm.cons (-2) (List.Perm.swap c b [a]))
+    exact hswap.symm.trans (base_perm a b c)
+  by_cases hlow : c ≤ -2
+  · have hswap : ([-4, -2, c, b, a] : List ℝ).Perm [-4, c, -2, b, a] :=
+      List.Perm.cons (-4) (List.Perm.swap c (-2) [b, a])
+    have hsorted : List.Pairwise (· ≤ ·) ([-4, c, -2, b, a] : List ℝ) :=
+      five_sorted (-4) c (-2) b a (by linarith) hlow hb0 (by linarith)
+    have heq := sorted_unique ys [-4, c, -2, b, a] hs hsorted
+      (hp.trans (hswap.symm.trans hmidperm).symm)
+    rw [heq]
+    simp [orderedMedian, cellMedian, hlow]
+  · have hcbelow : -2 ≤ c := by linarith
+    by_cases hmiddle : c ≤ b
+    · have hsorted : List.Pairwise (· ≤ ·) ([-4, -2, c, b, a] : List ℝ) :=
+        five_sorted (-4) (-2) c b a (by norm_num) hcbelow hmiddle
+          (by linarith)
+      have heq := sorted_unique ys [-4, -2, c, b, a] hs hsorted
+        (hp.trans hmidperm.symm)
+      rw [heq]
+      simp [orderedMedian, cellMedian, hlow, hmiddle]
+    · have hsorted : List.Pairwise (· ≤ ·) ([-4, -2, b, c, a] : List ℝ) :=
+        five_sorted (-4) (-2) b c a (by norm_num) hb0 (by linarith)
+          (by linarith)
+      have heq := sorted_unique ys [-4, -2, b, c, a] hs hsorted
+        (hp.trans (base_perm a b c).symm)
+      rw [heq]
+      simp [orderedMedian, cellMedian, hlow, hmiddle]
+
+private theorem middle_cell_margin (m extra : ℝ)
+    (hm0 : -2 ≤ m) (hm1 : m ≤ 0) (he : 0 ≤ extra) :
+    404 / 25 ≤ ((2 + 2 * m + extra) / 5 + 20) ^ 2 - (m + 20) ^ 2 := by
+  have hfirst : 0 ≤ extra * (204 + 4 * m + extra) :=
+    mul_nonneg he (by linarith)
+  have hsecond : 0 ≤ (-m) * (592 + 21 * m) :=
+    mul_nonneg (by linarith) (by linarith)
+  nlinarith
+
+/-- Sharp, universal squared-error lead for the full continuum of this
+five-reading box, with the target fixed at `-20`. -/
+theorem sharp_margin (a b c : ℝ)
+    (ha0 : 8 ≤ a) (ha1 : a ≤ 12)
+    (hb0 : -2 ≤ b) (hb1 : b ≤ 0)
+    (hc0 : -3 ≤ c) (hc1 : c ≤ 2) :
+    404 / 25 ≤ ((a + b + c - 6) / 5 + 20) ^ 2 -
+      (cellMedian b c + 20) ^ 2 := by
+  by_cases hlow : c ≤ -2
+  · have hmean : -(3 / 5 : ℝ) ≤ (a + b + c - 6) / 5 := by linarith
+    have hproduct : 0 ≤
+        (((a + b + c - 6) / 5 + 20) - 97 / 5) *
+          (((a + b + c - 6) / 5 + 20) + 97 / 5) :=
+      mul_nonneg (by linarith) (by linarith)
+    simp only [cellMedian, if_pos hlow]
+    nlinarith
+  · have hcabove : -2 ≤ c := by linarith
+    by_cases hmiddle : c ≤ b
+    · have hextra : 0 ≤ a - 8 + b - c := by linarith
+      have hcore := middle_cell_margin c (a - 8 + b - c)
+        hcabove (by linarith) hextra
+      simp only [cellMedian, if_neg hlow, if_pos hmiddle]
+      nlinarith [hcore]
+    · have hextra : 0 ≤ a - 8 + c - b := by linarith
+      have hcore := middle_cell_margin b (a - 8 + c - b)
+        hb0 hb1 hextra
+      simp only [cellMedian, if_neg hlow, if_neg hmiddle]
+      nlinarith [hcore]
+
+theorem actual_sorted_margin (a b c : ℝ)
+    (ha0 : 8 ≤ a) (ha1 : a ≤ 12)
+    (hb0 : -2 ≤ b) (hb1 : b ≤ 0)
+    (hc0 : -3 ≤ c) (hc1 : c ≤ 2)
+    (ys : List ℝ) (hp : ys.Perm (sample a b c))
+    (hs : List.Pairwise (· ≤ ·) ys) :
+    404 / 25 ≤ (sampleMean (sample a b c) + 20) ^ 2 -
+      (orderedMedian ys + 20) ^ 2 := by
+  rw [sample_mean, sorted_median a b c ha0 hb0 hb1 hc0 hc1 ys hp hs]
+  exact sharp_margin a b c ha0 ha1 hb0 hb1 hc0 hc1
+
+/-- The attaining fifth reading `0` is strictly inside `[-3,2]`, and
+its squared-error lead is exactly `404/25`. -/
+theorem interior_witness :
+    ([-4, -2, 0, 0, 8] : List ℝ).Perm (sample 8 0 0) ∧
+    List.Pairwise (· ≤ ·) ([-4, -2, 0, 0, 8] : List ℝ) ∧
+    -3 < (0 : ℝ) ∧ (0 : ℝ) < 2 ∧
+    (sampleMean (sample 8 0 0) + 20) ^ 2 -
+      (orderedMedian ([-4, -2, 0, 0, 8] : List ℝ) + 20) ^ 2 = 404 / 25 := by
+  refine ⟨base_perm 8 0 0,
+    five_sorted (-4) (-2) 0 0 8 (by norm_num) (by norm_num)
+      (by norm_num) (by norm_num), by norm_num, by norm_num, ?_⟩
+  norm_num [sampleMean, sample, orderedMedian]
+
+end InteriorBox
+
 end InwardFormal

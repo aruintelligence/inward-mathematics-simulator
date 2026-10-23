@@ -272,6 +272,14 @@ whole generated cell. The sorted permutation, candidate checks, and vertex
 set remain explicit premises. The v3/v4 verifiers and written ordering-cell
 argument still establish which cells and vertices cover a requested box.
 
+`InwardFormal.InteriorBox` separately proves the sharp `404/25` squared-error
+lead for **every real reading** in the published five-reading interior-box
+example at target `-20`. Its proof handles all three median order cells,
+including ties, and works with any sorted permutation of the readings. The
+attaining witness has fifth reading `0`, strictly inside `[-3,2]`. This is a
+direct continuum theorem for this one box; it does not establish general
+vertex completeness or interpret a JSON receipt.
+
 To run the route gate after `lake build`:
 
 ```sh
